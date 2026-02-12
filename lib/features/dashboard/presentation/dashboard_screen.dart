@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../../core/widgets/custom_text.dart';
 import '../data/trending_talent_model.dart';
 import 'widgets/category_chips.dart';
 import 'widgets/custom_trending_carousel.dart';
@@ -21,6 +22,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedTabIndex = 0;
+  final GlobalKey _profileTabKey = GlobalKey();
 
   static const _categories = ['Cricketer', 'Dancer', 'Singer', 'Gymnast'];
 
@@ -101,14 +103,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 const DashboardTopBar(),
                 Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: Text(
+                  child: CustomText(
                     'Trending Talent',
-                    style: TextStyle(
-                      fontFamily: 'Neue',
-                      fontSize: 20.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
+                    fontFamily: 'Neue',
+                    fontSize: 20.sp,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
                   ),
                 ),
                 CustomTrendingCarousel(talents: _trendingTalents),
@@ -120,12 +120,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 TabToggle(
                   selectedIndex: _selectedTabIndex,
                   onTabChanged: (i) => setState(() => _selectedTabIndex = i),
+                  onProfileTypeChanged: (type) {
+                    // Notify profile tab of the change
+                    final profileTabState =
+                        _profileTabKey.currentState as ProfileTabState?;
+                    if (profileTabState != null) {
+                      profileTabState.updateProfileType(type);
+                    }
+                  },
                 ),
                 SizedBox(height: 16.h),
                 if (_selectedTabIndex == 0)
                   GalleryGrid(items: _galleryItems)
                 else
-                  const ProfileTab(),
+                  ProfileTab(key: _profileTabKey),
                 SizedBox(height: 24.h),
               ],
             ),

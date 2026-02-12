@@ -1,75 +1,103 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
+
+import 'profile_cards.dart';
+import 'profile_dropdown.dart';
 
 class ProfileTab extends StatefulWidget {
   const ProfileTab({super.key});
 
   @override
-  State<ProfileTab> createState() => _ProfileTabState();
+  ProfileTabState createState() => ProfileTabState();
 }
 
-class _ProfileTabState extends State<ProfileTab> {
-  String _selectedProfileType = 'All';
+class ProfileTabState extends State<ProfileTab> {
+  ProfileType? _selectedProfileType;
+
+  void updateProfileType(ProfileType? type) {
+    setState(() {
+      _selectedProfileType = type;
+    });
+  }
+
+  List<ProfileCardData> get _allCards => [
+    ProfileCardData(
+      name: 'Alex Johnson',
+      role: 'UI/UX Designer',
+      imagePath: 'assets/images/professional-profile.jpg',
+      followers: '12.5K',
+      posts: '48',
+      isProfessional: true,
+      following: '23K',
+      views: '2M',
+      socialFollowers: '312K',
+      isOnline: true,
+    ),
+    ProfileCardData(
+      name: 'Sarah Williams',
+      role: 'Photographer',
+      imagePath: 'assets/images/skilled-profile.jpg',
+      followers: '8.2K',
+      posts: '126',
+      isProfessional: false,
+      following: '23K',
+      views: '2M',
+      socialFollowers: '312K',
+      isOnline: true,
+    ),
+    ProfileCardData(
+      name: 'Mike Chen',
+      role: 'Video Editor',
+      imagePath: 'assets/images/profile-img-1.jpg',
+      followers: '15.7K',
+      posts: '89',
+      isProfessional: true,
+      following: '23K',
+      views: '2M',
+      socialFollowers: '312K',
+    ),
+    ProfileCardData(
+      name: 'Emma Davis',
+      role: 'Content Creator',
+      imagePath: 'assets/images/profile-img-1.jpg',
+      followers: '6.8K',
+      posts: '234',
+      isProfessional: false,
+      following: '23K',
+      views: '2M',
+      socialFollowers: '312K',
+    ),
+    ProfileCardData(
+      name: 'James Wilson',
+      role: 'Brand Designer',
+      imagePath: 'assets/professional.jpg',
+      followers: '9.3K',
+      posts: '67',
+      isProfessional: true,
+      following: '23K',
+      views: '2M',
+      socialFollowers: '312K',
+    ),
+  ];
+
+  List<ProfileCardData> get _filteredCards {
+    if (_selectedProfileType == null) {
+      return _allCards; // Show all when "Profile" is selected
+    }
+
+    return _allCards.where((card) {
+      switch (_selectedProfileType) {
+        case ProfileType.professional:
+          return card.isProfessional;
+        case ProfileType.skilled:
+          return !card.isProfessional;
+        case null:
+          return true; // Show all cards
+      }
+    }).toList();
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
-      child: Column(
-        children: [
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12.r),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Filter by Type',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white,
-                  ),
-                ),
-                DropdownButton<String>(
-                  value: _selectedProfileType,
-                  dropdownColor: const Color(0xFF2F208E),
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 14.sp,
-                    color: Colors.white,
-                  ),
-                  underline: const SizedBox(),
-                  items: ['All', 'Professional', 'Skilled'].map((String value) {
-                    return DropdownMenuItem<String>(
-                      value: value,
-                      child: Text(value),
-                    );
-                  }).toList(),
-                  onChanged: (String? newValue) {
-                    setState(() {
-                      _selectedProfileType = newValue ?? 'All';
-                    });
-                  },
-                ),
-              ],
-            ),
-          ),
-          SizedBox(height: 16.h),
-          Text(
-            'Profile view coming soon...',
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 14.sp,
-              color: Colors.white.withValues(alpha: 0.6),
-            ),
-          ),
-        ],
-      ),
-    );
+    return ProfileCardGrid(cards: _filteredCards);
   }
 }
