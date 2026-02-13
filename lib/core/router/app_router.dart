@@ -1,35 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skillioo/features/dashboard/presentation/landing_view.dart';
 
 import '../../core/widgets/loader_screen.dart';
-import '../../features/auth/presentation/phone_number_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
-import '../../features/auth/presentation/verification_success_screen.dart';
+import '../../features/auth/presentation/phone_number_screen.dart';
 import '../../features/auth/presentation/pin_setup_screen.dart';
-import '../../features/onboarding/presentation/option_selection_screen.dart';
-import '../../features/onboarding/presentation/language_selection_screen.dart';
-import '../../features/onboarding/presentation/profile_type_selection_screen.dart';
-import '../../features/onboarding/presentation/individual_name_screen.dart';
-import '../../features/onboarding/presentation/individual_email_screen.dart';
-import '../../features/onboarding/presentation/individual_address_screen.dart';
+import '../../features/auth/presentation/verification_success_screen.dart';
+import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/onboarding/presentation/group_name_screen.dart';
-import '../../features/onboarding/presentation/talent_type_selection_screen.dart';
-import '../../features/onboarding/presentation/talent_category_screen.dart';
-import '../../features/onboarding/presentation/talent_subcategory_screen.dart';
-import '../../features/onboarding/presentation/upload_videos_screen.dart';
-import '../../features/onboarding/presentation/profile_upload_screen.dart';
+import '../../features/onboarding/presentation/individual_address_screen.dart';
+import '../../features/onboarding/presentation/individual_email_screen.dart';
+import '../../features/onboarding/presentation/individual_name_screen.dart';
+import '../../features/onboarding/presentation/language_selection_screen.dart';
+import '../../features/onboarding/presentation/option_selection_screen.dart';
+import '../../features/onboarding/presentation/professional_bio_screen.dart';
 import '../../features/onboarding/presentation/professional_events_count_screen.dart';
 import '../../features/onboarding/presentation/professional_upload_certificates_screen.dart';
+import '../../features/onboarding/presentation/profile_type_selection_screen.dart';
+import '../../features/onboarding/presentation/profile_upload_screen.dart';
 import '../../features/onboarding/presentation/social_links_screen.dart';
-import '../../features/onboarding/presentation/professional_bio_screen.dart';
 import '../../features/onboarding/presentation/splash_screen.dart';
 import '../../features/onboarding/presentation/start_screen.dart';
-import '../../features/dashboard/presentation/dashboard_screen.dart';
+import '../../features/onboarding/presentation/talent_category_screen.dart';
+import '../../features/onboarding/presentation/talent_subcategory_screen.dart';
+import '../../features/onboarding/presentation/talent_type_selection_screen.dart';
+import '../../features/onboarding/presentation/upload_videos_screen.dart';
 
 final appRouter = GoRouter(
   // initialLocation: '/splash',
   // testing
-  initialLocation: '/dashboard',
+  initialLocation: '/landing',
   routes: [
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
     GoRoute(
@@ -405,6 +406,20 @@ final appRouter = GoRouter(
         return CustomTransitionPage<void>(
           key: state.pageKey,
           child: const DashboardScreen(),
+          transitionDuration: const Duration(milliseconds: 800),
+          reverseTransitionDuration: const Duration(milliseconds: 800),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '/landing',
+      pageBuilder: (context, state) {
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const Landing(),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {

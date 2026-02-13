@@ -24,6 +24,137 @@ class AppColors {
     transform: GradientRotation(320 * 3.14159 / 180),
     stops: [0.0, 0.9],
   );
+
+  static const Color secondaryGradientStart = Color(0xFF8F39B2);
+  static const Color secondaryGradientEnd = Color(0xFF2F208E);
+
+  // Background Gradients
+  static const List<Color> primaryBackgroundGradient = [
+    Color(0xFF7B2FF7),
+    Color(0xFF14121A),
+    Color(0xFF0C0B10),
+  ];
+
+  static const List<Color> darkBackgroundGradient = [
+    Color(0xFF4A148C),
+    Color(0xFF121212),
+    Color(0xFF000000),
+  ];
+
+  // Glass Effect Colors
+  static Color glassBackground = Colors.white.withValues(alpha: 0.1);
+  static Color glassBorder = Colors.white.withValues(alpha: 0.2);
+  static Color glassBackgroundDark = const Color(
+    0xFF1E1E2C,
+  ).withValues(alpha: 0.6);
+  static Color glassBorderLight = Colors.white.withValues(alpha: 0.05);
+
+  // Card Colors
+  static const Color cardBackground = Color(0xFF1F1F1F);
+  static const Color cardBorder = Color(0xFF2F2F2F);
+  static const Color cardBackgroundDark = Color(0xFF2A2A2A);
+
+  // Text Colors
+  static Color textPrimary = Colors.white;
+  static Color textSecondary = Colors.white.withValues(alpha: 0.9);
+  static Color textTertiary = Colors.white.withValues(alpha: 0.75);
+  static Color textQuaternary = Colors.white.withValues(alpha: 0.7);
+  static Color textHint = Colors.white54;
+
+  // Button Colors
+  static const Color buttonPrimary = Color(0xFFB00000);
+  static const Color buttonGradientStart = Color(0xFF00D9FF);
+  static const Color buttonGradientEnd = Color(0xFF8F39B2);
+  static const Color buttonGradientOpacityStart = Color(0x6600D9FF);
+  static const Color buttonGradientOpacityEnd = Color(0x668F39B2);
+
+  // Accent Colors
+  static const Color accentCyan = Color(0xFF00D9FF);
+  static const Color accentPurple = Color(0xFF8F39B2);
+  static const Color accentPink = Color(0xFFC00F8B);
+  static const Color accentBlue = Color(0xFF2F208E);
+
+  // Status Colors
+  static const Color success = Color(0xFF4CAF50);
+  static const Color error = Color(0xFFB00000);
+  static const Color warning = Color(0xFFFF9800);
+  static const Color info = Color(0xFF2196F3);
+
+  // Icon Colors
+  static Color iconPrimary = Colors.white;
+  static Color iconSecondary = Colors.white70;
+  static Color iconTertiary = Colors.white.withValues(alpha: 0.9);
+
+  // Border Colors
+  static Color borderPrimary = Colors.white.withValues(alpha: 0.1);
+  static Color borderSecondary = Colors.white.withValues(alpha: 0.2);
+  static Color borderTertiary = Colors.white.withValues(alpha: 0.6);
+  static Color borderAccent = const Color(0xFF05DAF1).withValues(alpha: 0.3);
+
+  // Shadow Colors
+  static Color shadowPrimary = Colors.black.withValues(alpha: 0.3);
+  static Color shadowSecondary = Colors.black.withValues(alpha: 0.1);
+  static Color shadowAccent = const Color(0xFF05DAF1).withValues(alpha: 0.1);
+
+  // Navigation Colors
+  static const Color navGradientStart = Color(0xFF05DAF1);
+  static const Color navGradientEnd = Color(0xFFC00F8B);
+  static const Color navBackground = Color(0xFF2C3E50);
+}
+
+class AppGradients {
+  static const LinearGradient primaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppColors.primaryGradientStart, AppColors.primaryGradientEnd],
+  );
+
+  static const LinearGradient secondaryGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppColors.secondaryGradientStart, AppColors.secondaryGradientEnd],
+  );
+
+  static const LinearGradient buttonGradient = LinearGradient(
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    colors: [AppColors.buttonGradientStart, AppColors.buttonGradientEnd],
+  );
+
+  static const LinearGradient buttonGradientOpacity = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      AppColors.buttonGradientOpacityStart,
+      AppColors.buttonGradientOpacityEnd,
+    ],
+  );
+
+  static const LinearGradient navGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppColors.navGradientStart, AppColors.navGradientEnd],
+  );
+
+  static const LinearGradient tabIndicatorGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [AppColors.primaryGradientEnd, AppColors.primaryGradientStart],
+  );
+
+  static LinearGradient primaryBackground = const LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: AppColors.primaryBackgroundGradient,
+    stops: [0.0, 0.45, 1.0],
+  );
+
+  static LinearGradient darkBackground = const LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: AppColors.darkBackgroundGradient,
+    stops: [0.0, 0.3, 1.0],
+  );
 }
 
 class AppStrings {
