@@ -36,9 +36,7 @@ class CertificatesTab extends StatelessWidget {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12.r),
               image: const DecorationImage(
-                image: AssetImage(
-                  'assets/images/certificate_placeholder.jpg',
-                ), // Replace
+                image: AssetImage('assets/images/certificate.jpg'), // Replace
                 fit: BoxFit.cover,
               ),
             ),

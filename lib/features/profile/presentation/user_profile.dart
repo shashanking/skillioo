@@ -32,12 +32,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           // ------------------------------------------------
           Positioned.fill(
             child: SingleChildScrollView(
-              physics:
-                  const ClampingScrollPhysics(), // Prevent bouncing behind sheet
+              physics: const ClampingScrollPhysics(),
               child: Padding(
-                padding: EdgeInsets.only(
-                  bottom: 400.h,
-                ), // Padding for sheet space
+                padding: EdgeInsets.only(bottom: 400.h),
                 child: Column(
                   children: [
                     _buildHeaderSection(),
@@ -129,11 +126,30 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
 
           // ------------------------------------------------
-          // LAYER 2: Draggable Bottom Sheet
+          // LAYER 2: Fixed Top Navigation
+          // ------------------------------------------------
+          Positioned(
+            top: 50.h,
+            left: 20.w,
+            right: 20.w,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildNavButton(
+                  icon: Icons.arrow_back,
+                  onTap: () => Navigator.pop(context),
+                ),
+                _buildNavButton(icon: Icons.edit_outlined, onTap: () {}),
+              ],
+            ),
+          ),
+
+          // ------------------------------------------------
+          // LAYER 3: Draggable Bottom Sheet
           // ------------------------------------------------
           DraggableScrollableSheet(
             controller: _sheetController,
-            initialChildSize: 0.2, // Changed: Starts at 1/5th
+            initialChildSize: 0.2,
             minChildSize: 0.2,
             maxChildSize: 1.0,
             builder: (BuildContext context, ScrollController scrollController) {
@@ -146,7 +162,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   ),
                   border: Border(
                     top: BorderSide(
-                      color: Colors.white.withValues(alpha: 0.1),
+                      color: Colors.white.withValues(alpha: 0.6),
                       width: 1,
                     ),
                   ),
@@ -156,19 +172,19 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                   controller: scrollController,
                   child: Column(
                     children: [
-                      SizedBox(height: 16.h),
+                      SizedBox(height: 22.h),
                       // Drag Handle
                       Center(
                         child: Container(
-                          width: 60.w,
-                          height: 6.h,
+                          width: 84.w,
+                          height: 24.h,
                           decoration: BoxDecoration(
                             color: Colors.white.withValues(alpha: 0.8),
-                            borderRadius: BorderRadius.circular(3.r),
+                            borderRadius: BorderRadius.circular(48.r),
                           ),
                         ),
                       ),
-                      SizedBox(height: 24.h),
+                      SizedBox(height: 35.h),
 
                       // Tab Switcher
                       Container(
@@ -186,7 +202,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ],
                         ),
                       ),
-                      SizedBox(height: 20.h),
+                      SizedBox(height: 30.h),
 
                       // Tab Content (Wrapped in SizedBox/Constraint to allow internal content)
                       // We don't use Expanded here because we are inside a SingleChildScrollView
@@ -217,25 +233,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 ),
               );
             },
-          ),
-
-          // ------------------------------------------------
-          // LAYER 3: Fixed Top Navigation (Placed AFTER sheet to stay on top)
-          // ------------------------------------------------
-          Positioned(
-            top: 50.h,
-            left: 20.w,
-            right: 20.w,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildNavButton(
-                  icon: Icons.arrow_back,
-                  onTap: () => Navigator.pop(context),
-                ),
-                _buildNavButton(icon: Icons.edit_outlined, onTap: () {}),
-              ],
-            ),
           ),
         ],
       ),

@@ -2,6 +2,8 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:skillioo/core/widgets/icon_button.dart';
+import 'package:skillioo/features/onboarding/presentation/splash_screen.dart';
 import 'package:skillioo/features/subscription/presentation/subscription.dart';
 
 import '../../../../core/widgets/custom_text.dart';
@@ -47,7 +49,7 @@ class ProfileSectionScreen extends StatelessWidget {
                         color: Colors.white,
                       ),
                     ),
-                    _IconCircleButton(
+                    IconCircleButton(
                       icon: Icons.close,
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
@@ -156,7 +158,13 @@ class ProfileSectionScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 54.h,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const SplashScreen(),
+                        ),
+                      );
+                    },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFB00000),
                       foregroundColor: Colors.white,
@@ -178,29 +186,6 @@ class ProfileSectionScreen extends StatelessWidget {
             ),
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _IconCircleButton extends StatelessWidget {
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _IconCircleButton({required this.icon, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 44.w,
-        height: 44.w,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white.withValues(alpha: 0.14),
-        ),
-        child: Icon(icon, color: Colors.white, size: 20.sp),
       ),
     );
   }
