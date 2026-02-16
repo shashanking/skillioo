@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:skillioo/constants/app_constants.dart';
-import 'package:skillioo/core/widgets/icon_button.dart';
+import 'package:go_router/go_router.dart';
 
-import '../../../../core/widgets/custom_text.dart';
+import '../../constants/app_constants.dart';
+import 'common_background.dart';
+import 'custom_text.dart';
+import 'icon_button.dart';
 
 class AppMenuScreen extends StatelessWidget {
   const AppMenuScreen({super.key});
@@ -11,51 +13,29 @@ class AppMenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF4A148C), // Deep Purple Top
-              Color(0xFF121212), // Dark Middle
-              Color(0xFF000000), // Black Bottom
-            ],
-            stops: [0.0, 0.3, 1.0],
-          ),
-        ),
+      body: CommonBackground(
         child: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Logo Area
-              Padding(
-                padding: EdgeInsets.only(
-                  left: 24.w,
-                  top: 20.h,
-                  bottom: 30.h,
-                  right: 24.w,
-                ),
+              // Header with logo and close button
+              Container(
+                padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+                decoration: BoxDecoration(color: AppColors.glassWhite12),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Container(
-                      width: 50.w,
-                      height: 50.w,
+                      width: 84.w,
+                      height: 84.w,
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(12.r),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.2),
-                        ),
                         image: const DecorationImage(
-                          // Replace with your actual logo asset
                           image: AssetImage(AppAssets.logoPng),
                           fit: BoxFit.cover,
                         ),
                       ),
                     ),
+                    const Spacer(),
                     IconCircleButton(
                       icon: Icons.close,
                       onTap: () => Navigator.of(context).maybePop(),
@@ -66,94 +46,109 @@ class AppMenuScreen extends StatelessWidget {
 
               Expanded(
                 child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  padding: EdgeInsets.symmetric(horizontal: 16.w),
                   child: Column(
                     children: [
-                      // Group 1
-                      _buildMenuContainer([
-                        _buildMenuItem(
-                          Icons.home_outlined,
-                          "Home",
-                          onTap: () {},
+                      SizedBox(height: 24.h),
+                      // Group 1: Home, About Us, Terms & Conditions
+                      _buildMenuGroup([
+                        _MenuItemData(
+                          icon: Icons.home_outlined,
+                          label: AppStrings.home,
+                          isFirst: true,
+                          onTap: () => Navigator.of(context).maybePop(),
                         ),
-                        _buildMenuItem(
-                          Icons.people_outline,
-                          "About Us",
-                          onTap: () {},
+                        _MenuItemData(
+                          icon: Icons.people_outline,
+                          label: AppStrings.aboutUs,
+                          onTap: () => context.push('/menu-about'),
                         ),
-                        _buildMenuItem(
-                          Icons.description_outlined,
-                          "Terms & Conditions",
+                        _MenuItemData(
+                          icon: Icons.description_outlined,
+                          label: AppStrings.termsAndConditions,
                           isLast: true,
-                          onTap: () {},
+                          onTap: () => context.push('/menu-terms'),
                         ),
                       ]),
 
-                      SizedBox(height: 20.h),
+                      SizedBox(height: 24.h),
 
-                      // Group 2
-                      _buildMenuContainer([
-                        _buildMenuItem(
-                          Icons.settings_outlined,
-                          "Settings",
-                          onTap: () {},
+                      // Group 2: Settings, Help & Support, Favourites
+                      _buildMenuGroup([
+                        _MenuItemData(
+                          icon: Icons.settings_outlined,
+                          label: AppStrings.settings,
+                          isFirst: true,
+                          onTap: () => context.push('/menu-settings'),
                         ),
-                        _buildMenuItem(
-                          Icons.help_outline,
-                          "FAQs",
-                          onTap: () {},
+                        _MenuItemData(
+                          icon: Icons.help_outline,
+                          label: AppStrings.helpAndSupport,
+                          onTap: () => context.push('/menu-help'),
                         ),
-                        _buildMenuItem(
-                          Icons.bookmark_border,
-                          "Favourites",
+                        _MenuItemData(
+                          icon: Icons.bookmark_border,
+                          label: AppStrings.favourites,
                           isLast: true,
-                          onTap: () {},
+                          onTap: () => context.push('/menu-favourites'),
                         ),
                       ]),
 
-                      SizedBox(height: 20.h),
+                      SizedBox(height: 24.h),
 
-                      // Group 3
-                      _buildMenuContainer([
-                        _buildMenuItem(
-                          Icons.translate,
-                          "Language Selection",
-                          onTap: () {},
+                      // Group 3: Language, Privacy, FAQs
+                      _buildMenuGroup([
+                        _MenuItemData(
+                          icon: Icons.school_outlined,
+                          label: AppStrings.faqs,
+                          isFirst: true,
+                          onTap: () => context.push('/menu-faqs'),
                         ),
-                        _buildMenuItem(
-                          Icons.lock_outline,
-                          "Privacy Policy",
+                        _MenuItemData(
+                          icon: Icons.lock_outline,
+                          label: AppStrings.privacyPolicy,
+                          onTap: () => context.push('/menu-privacy'),
+                        ),
+                        _MenuItemData(
+                          icon: Icons.translate,
+                          label: AppStrings.languageSelection,
                           isLast: true,
-                          onTap: () {},
+                          onTap: () => context.push('/menu-language'),
                         ),
                       ]),
 
                       SizedBox(height: 40.h),
-
-                      // Delete Account Button (Triggers Bottom Sheet)
-                      GestureDetector(
-                        onTap: () {
-                          _showDeleteConfirmationBottomSheet(context);
-                        },
-                        child: Container(
-                          width: double.infinity,
-                          height: 56.h,
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFD50000), // Bright Red
-                            borderRadius: BorderRadius.circular(28.r),
-                          ),
-                          alignment: Alignment.center,
-                          child: CustomText(
-                            "Delete Account",
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-
-                      SizedBox(height: 20.h),
                     ],
+                  ),
+                ),
+              ),
+
+              // Delete Account Button at bottom
+              Container(
+                padding: EdgeInsets.fromLTRB(16.w, 24.h, 16.w, 24.h),
+                decoration: BoxDecoration(
+                  color: AppColors.foundationBlack800,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(48.r),
+                    topRight: Radius.circular(48.r),
+                  ),
+                ),
+                child: GestureDetector(
+                  onTap: () => _showDeleteConfirmationBottomSheet(context),
+                  child: Container(
+                    width: double.infinity,
+                    height: 58.h,
+                    decoration: BoxDecoration(
+                      color: AppColors.foundationErrorActive,
+                      borderRadius: BorderRadius.circular(48.r),
+                    ),
+                    alignment: Alignment.center,
+                    child: CustomText(
+                      AppStrings.deleteAccount,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.foundationBlack20,
+                    ),
                   ),
                 ),
               ),
@@ -173,15 +168,12 @@ class AppMenuScreen extends StatelessWidget {
       isScrollControlled: true,
       builder: (context) {
         return Container(
-          padding: EdgeInsets.fromLTRB(24.w, 32.h, 24.w, 40.h),
+          padding: EdgeInsets.fromLTRB(16.w, 48.h, 16.w, 54.h),
           decoration: BoxDecoration(
-            color: const Color(0xFF0A0A0A), // Deep black background
+            color: AppColors.foundationBlack800,
             borderRadius: BorderRadius.only(
-              topLeft: Radius.circular(32.r),
-              topRight: Radius.circular(32.r),
-            ),
-            border: Border(
-              top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+              topLeft: Radius.circular(48.r),
+              topRight: Radius.circular(48.r),
             ),
           ),
           child: Column(
@@ -189,20 +181,21 @@ class AppMenuScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CustomText(
-                "Are You Sure?",
+                AppStrings.areYouSure,
                 fontSize: 24.sp,
                 fontWeight: FontWeight.w700,
-                color: Colors.white,
+                fontFamily: 'Neue',
+                color: AppColors.foundationBlack20,
               ),
               SizedBox(height: 12.h),
               CustomText(
-                "All your profile data, videos, and documents will be permanently removed. This action cannot be undone.",
-                fontSize: 14.sp,
+                AppStrings.deleteAccountWarning,
+                fontSize: 16.sp,
                 fontWeight: FontWeight.w400,
-                color: Colors.white.withValues(alpha: 0.8),
+                color: AppColors.foundationBlack20,
                 height: 1.5,
               ),
-              SizedBox(height: 32.h),
+              SizedBox(height: 24.h),
               Row(
                 children: [
                   // Delete Button (Red)
@@ -213,17 +206,17 @@ class AppMenuScreen extends StatelessWidget {
                         Navigator.pop(context);
                       },
                       child: Container(
-                        height: 52.h,
+                        height: 58.h,
                         decoration: BoxDecoration(
-                          color: const Color(0xFFC62828), // Darker Red
-                          borderRadius: BorderRadius.circular(26.r),
+                          color: AppColors.foundationErrorActive,
+                          borderRadius: BorderRadius.circular(48.r),
                         ),
                         alignment: Alignment.center,
                         child: CustomText(
-                          "Delete Account",
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                          AppStrings.deleteAccount,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.foundationBlack20,
                         ),
                       ),
                     ),
@@ -234,17 +227,17 @@ class AppMenuScreen extends StatelessWidget {
                     child: GestureDetector(
                       onTap: () => Navigator.pop(context),
                       child: Container(
-                        height: 52.h,
+                        height: 58.h,
                         decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(26.r),
+                          color: AppColors.foundationBlack20,
+                          borderRadius: BorderRadius.circular(48.r),
                         ),
                         alignment: Alignment.center,
                         child: CustomText(
-                          "Cancel",
-                          fontSize: 15.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black,
+                          AppStrings.cancel,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.foundationBlack800,
                         ),
                       ),
                     ),
@@ -260,42 +253,37 @@ class AppMenuScreen extends StatelessWidget {
 
   // --- Helper Widgets ---
 
-  Widget _buildMenuContainer(List<Widget> children) {
-    return Container(
-      width: double.infinity,
-      padding: EdgeInsets.symmetric(vertical: 8.h),
-      decoration: BoxDecoration(
-        color: const Color(
-          0xFF1E1E2C,
-        ).withValues(alpha: 0.6), // Dark glassy background
-        borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-      ),
-      child: Column(children: children),
+  Widget _buildMenuGroup(List<_MenuItemData> items) {
+    return Column(
+      children: items.map((item) {
+        return _buildMenuItem(item);
+      }).toList(),
     );
   }
 
-  Widget _buildMenuItem(
-    IconData icon,
-    String title, {
-    bool isLast = false,
-    VoidCallback? onTap,
-  }) {
+  Widget _buildMenuItem(_MenuItemData item) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: item.onTap,
       behavior: HitTestBehavior.opaque,
-      child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 24.h),
+        decoration: BoxDecoration(
+          color: AppColors.glassWhite06,
+          borderRadius: BorderRadius.vertical(
+            top: item.isFirst ? Radius.circular(24.r) : Radius.zero,
+            bottom: item.isLast ? Radius.circular(24.r) : Radius.zero,
+          ),
+        ),
         child: Row(
           children: [
-            Icon(icon, color: Colors.white, size: 24.sp),
-            SizedBox(width: 16.w),
+            Icon(item.icon, color: AppColors.foundationBlack20, size: 24.sp),
+            SizedBox(width: 12.w),
             Expanded(
               child: CustomText(
-                title,
+                item.label,
                 fontSize: 16.sp,
-                fontWeight: FontWeight.w500,
-                color: Colors.white,
+                fontWeight: FontWeight.w400,
+                color: AppColors.foundationBlack20,
               ),
             ),
           ],
@@ -303,4 +291,20 @@ class AppMenuScreen extends StatelessWidget {
       ),
     );
   }
+}
+
+class _MenuItemData {
+  final IconData icon;
+  final String label;
+  final bool isFirst;
+  final bool isLast;
+  final VoidCallback onTap;
+
+  const _MenuItemData({
+    required this.icon,
+    required this.label,
+    this.isFirst = false,
+    this.isLast = false,
+    required this.onTap,
+  });
 }

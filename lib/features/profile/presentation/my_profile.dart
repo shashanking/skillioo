@@ -1,25 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skillioo/features/profile/presentation/widgets/bio_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/certificates_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/posts_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/shared_widgets.dart';
 
-import '../../../../core/widgets/custom_text.dart';
+import '../../../core/widgets/custom_text.dart';
 
-class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key, this.isOwnProfile = false});
+class MyProfileScreen extends StatefulWidget {
+  const MyProfileScreen({super.key, this.isOwnProfile = true});
 
   final bool isOwnProfile;
 
   @override
-  State<UserProfileScreen> createState() => _UserProfileScreenState();
+  State<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _UserProfileScreenState extends State<UserProfileScreen> {
-  int _selectedTabIndex = 0; // 0: Bio, 1: Posts, 2: Certificates
+class _MyProfileScreenState extends State<MyProfileScreen> {
+  int _selectedTabIndex = 0;
 
-  // This controller allows the sheet to scroll the internal list
   final DraggableScrollableController _sheetController =
       DraggableScrollableController();
 
@@ -29,9 +29,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       backgroundColor: const Color(0xFF050505),
       body: Stack(
         children: [
-          // ------------------------------------------------
-          // LAYER 1: Background Content (Header & Stats)
-          // ------------------------------------------------
           Positioned.fill(
             child: SingleChildScrollView(
               physics: const ClampingScrollPhysics(),
@@ -42,23 +39,21 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     _buildHeaderSection(),
                     SizedBox(height: 60.h),
 
-                    // Name & Title
                     CustomText(
-                      'Lisa Dancer',
+                      'Your Profile',
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       color: Colors.white,
                     ),
                     SizedBox(height: 8.h),
                     CustomText(
-                      'Dancer',
+                      'Professional Profile',
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w400,
                       color: Colors.white70,
                     ),
                     SizedBox(height: 16.h),
 
-                    // Online Badge
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 16.w,
@@ -92,7 +87,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                     SizedBox(height: 32.h),
 
-                    // Stats Row 1
                     _buildStatsContainer(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -107,7 +101,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
                     SizedBox(height: 16.h),
 
-                    // Stats Row 2
                     _buildStatsContainer(
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -127,9 +120,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             ),
           ),
 
-          // ------------------------------------------------
-          // LAYER 2: Fixed Top Navigation
-          // ------------------------------------------------
           Positioned(
             top: 50.h,
             left: 20.w,
@@ -145,16 +135,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                 else
                   const SizedBox.shrink(),
                 if (widget.isOwnProfile)
-                  _buildNavButton(icon: Icons.edit_outlined, onTap: () {})
+                  _buildNavButton(
+                    icon: Icons.edit_outlined,
+                    onTap: () => context.push('/edit-profile'),
+                  )
                 else
                   const SizedBox.shrink(),
               ],
             ),
           ),
 
-          // ------------------------------------------------
-          // LAYER 3: Draggable Bottom Sheet
-          // ------------------------------------------------
           DraggableScrollableSheet(
             controller: _sheetController,
             initialChildSize: 0.2,
@@ -175,13 +165,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     ),
                   ),
                 ),
-                // Using SingleChildScrollView here ensures the top notch area is draggable
                 child: SingleChildScrollView(
                   controller: scrollController,
                   child: Column(
                     children: [
                       SizedBox(height: 22.h),
-                      // Drag Handle
                       Center(
                         child: Container(
                           width: 84.w,
@@ -194,7 +182,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                       SizedBox(height: 35.h),
 
-                      // Tab Switcher
                       Container(
                         margin: EdgeInsets.symmetric(horizontal: 20.w),
                         height: 50.h,
@@ -212,10 +199,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       ),
                       SizedBox(height: 30.h),
 
-                      // Tab Content (Wrapped in SizedBox/Constraint to allow internal content)
-                      // We don't use Expanded here because we are inside a SingleChildScrollView
-                      // The content is rendered directly.
-                      // Note: We don't pass scrollController down because the parent SingleChildScrollView handles the sheet drag
                       IndexedStack(
                         index: _selectedTabIndex,
                         children: [
@@ -225,7 +208,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         ],
                       ),
 
-                      // DYNAMIC ACTION BUTTON (Moved here to scroll with sheet)
                       SizedBox(height: 20.h),
                       if (widget.isOwnProfile)
                         Padding(
@@ -235,7 +217,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           ),
                           child: _buildActionButton(),
                         ),
-                      // Extra padding for safe area bottom
                       SizedBox(height: 30.h),
                     ],
                   ),
@@ -248,7 +229,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // --- Dynamic Button Logic ---
   Widget _buildActionButton() {
     String text;
     IconData icon;
@@ -258,17 +238,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       case 0:
         text = "Edit Charges";
         icon = Icons.edit_outlined;
-        onTap = () {};
+        onTap = () => context.push('/edit-hiring-charges');
         break;
       case 1:
         text = "Create Post";
         icon = Icons.add;
-        onTap = () {};
+        onTap = () => context.push('/profile-create-post');
         break;
       case 2:
         text = "Upload Certificate";
         icon = Icons.upload_file_outlined;
-        onTap = () {};
+        onTap = () => context.push('/profile-upload-certificate');
         break;
       default:
         return const SizedBox.shrink();
@@ -276,8 +256,6 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
     return GradientBorderButton(text: text, icon: icon, onTap: onTap);
   }
-
-  // --- Helper Widgets ---
 
   Widget _buildTabItem(int index, String text) {
     final bool isSelected = _selectedTabIndex == index;
@@ -320,7 +298,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           width: double.infinity,
           decoration: const BoxDecoration(
             image: DecorationImage(
-              image: AssetImage('assets/images/skilled-profile.jpg'),
+              image: AssetImage('assets/images/professional-profile.jpg'),
               fit: BoxFit.cover,
             ),
           ),

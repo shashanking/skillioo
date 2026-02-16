@@ -8,7 +8,18 @@ import '../../../core/widgets/common_background.dart';
 enum _UploadStepState { notes, preview, list }
 
 class UploadVideosScreen extends StatefulWidget {
-  const UploadVideosScreen({super.key});
+  const UploadVideosScreen({
+    super.key,
+    this.backFallbackRoute = '/talent-subcategory',
+    this.skipNextRoute = '/options',
+    this.uploadSuccessRoute = '/profile-upload',
+    this.showStepIndicator = true,
+  });
+
+  final String backFallbackRoute;
+  final String skipNextRoute;
+  final String uploadSuccessRoute;
+  final bool showStepIndicator;
 
   @override
   State<UploadVideosScreen> createState() => _UploadVideosScreenState();
@@ -159,7 +170,7 @@ class _UploadVideosScreenState extends State<UploadVideosScreen> {
             if (GoRouter.of(context).canPop()) {
               GoRouter.of(context).pop();
             } else {
-              GoRouter.of(context).go('/talent-subcategory');
+              GoRouter.of(context).go(widget.backFallbackRoute);
             }
           },
           child: Container(
@@ -178,15 +189,16 @@ class _UploadVideosScreenState extends State<UploadVideosScreen> {
             ),
           ),
         ),
-        Text(
-          'Step: 3 of 3',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFFF5F5F5),
+        if (widget.showStepIndicator)
+          Text(
+            'Step: 3 of 3',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFFF5F5F5),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -288,7 +300,7 @@ class _UploadVideosScreenState extends State<UploadVideosScreen> {
             child: TextButton(
               onPressed: () {
                 // Skip upload for now and go to next major step
-                GoRouter.of(context).go('/options');
+                GoRouter.of(context).go(widget.skipNextRoute);
               },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
@@ -362,8 +374,8 @@ class _UploadVideosScreenState extends State<UploadVideosScreen> {
             });
             return;
           }
-          // Final state: show verification success screen then go to profile upload
-          GoRouter.of(context).go('/profile-upload');
+          // Final state: navigate to success/next route
+          GoRouter.of(context).go(widget.uploadSuccessRoute);
         },
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,

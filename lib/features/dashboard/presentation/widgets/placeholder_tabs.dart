@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
 
-import '../../../../core/widgets/common_background.dart';
-import '../../../../core/widgets/custom_text.dart';
+import 'reels_page.dart';
+import 'chat_page.dart';
+import 'profiles_reels_page.dart';
+import 'call_page.dart';
 
 class ReelsTab extends StatelessWidget {
   const ReelsTab({super.key});
   @override
   Widget build(BuildContext context) {
-    return const CommonBackground(
-      child: Center(child: CustomText("Reels Tab", color: Colors.white)),
-    );
+    return const ReelsPage();
   }
 }
 
@@ -17,28 +17,28 @@ class ProfileMainTab extends StatelessWidget {
   const ProfileMainTab({super.key});
   @override
   Widget build(BuildContext context) {
-    return const CommonBackground(
-      child: Center(child: CustomText("Profile Tab", color: Colors.white)),
-    );
+    return const ProfilesReelsPage();
   }
 }
 
 class ChatTab extends StatelessWidget {
-  const ChatTab({super.key});
+  final Function(bool)? onChatStateChanged;
+
+  const ChatTab({super.key, this.onChatStateChanged});
+
   @override
   Widget build(BuildContext context) {
-    return const CommonBackground(
-      child: Center(child: CustomText("Chat Tab", color: Colors.white)),
-    );
+    return ChatPage(onChatStateChanged: onChatStateChanged);
   }
 }
 
 class CallTab extends StatelessWidget {
-  const CallTab({super.key});
+  final Function(bool)? onCallStateChanged;
+
+  const CallTab({super.key, this.onCallStateChanged});
+
   @override
   Widget build(BuildContext context) {
-    return const CommonBackground(
-      child: Center(child: CustomText("Call Tab", color: Colors.white)),
-    );
+    return CallPage(onCallStateChanged: onCallStateChanged);
   }
 }

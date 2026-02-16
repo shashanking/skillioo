@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:skillioo/features/posts/presentation/comments_view.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/widgets/custom_text.dart';
 
@@ -58,19 +58,15 @@ class FullPostViewScreen extends StatelessWidget {
                 SizedBox(height: 24.h),
                 _buildRightSideAction(Icons.favorite_border, "10K"),
                 SizedBox(height: 20.h),
-                _buildRightSideAction(Icons.chat_bubble_outline, "5K"),
+                GestureDetector(
+                  onTap: () => context.push('/comments'),
+                  child: _buildRightSideAction(Icons.chat_bubble_outline, "5K"),
+                ),
                 SizedBox(height: 20.h),
                 _buildRightSideAction(Icons.send_outlined, "2K"),
                 SizedBox(height: 20.h),
                 GestureDetector(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const CommentsScreen(),
-                      ),
-                    );
-                  },
+                  onTap: () => context.push('/comments'),
                   child: _buildRightSideAction(Icons.message, "Send"),
                 ),
                 SizedBox(height: 20.h),

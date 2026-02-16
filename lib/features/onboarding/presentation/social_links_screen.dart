@@ -8,7 +8,18 @@ import '../../../core/widgets/common_background.dart';
 import '../application/social_links_provider.dart';
 
 class SocialLinksScreen extends ConsumerStatefulWidget {
-  const SocialLinksScreen({super.key});
+  const SocialLinksScreen({
+    super.key,
+    this.backFallbackRoute = '/professional-certificates',
+    this.skipNextRoute = '/options',
+    this.continueNextRoute = '/professional-bio',
+    this.showStepIndicator = true,
+  });
+
+  final String backFallbackRoute;
+  final String skipNextRoute;
+  final String continueNextRoute;
+  final bool showStepIndicator;
 
   @override
   ConsumerState<SocialLinksScreen> createState() => _SocialLinksScreenState();
@@ -110,7 +121,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
             if (GoRouter.of(context).canPop()) {
               GoRouter.of(context).pop();
             } else {
-              GoRouter.of(context).go('/professional-certificates');
+              GoRouter.of(context).go(widget.backFallbackRoute);
             }
           },
           child: Container(
@@ -129,15 +140,16 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
             ),
           ),
         ),
-        Text(
-          'Step: 1 of 3',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFFF5F5F5),
+        if (widget.showStepIndicator)
+          Text(
+            'Step: 1 of 3',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFFF5F5F5),
+            ),
           ),
-        ),
       ],
     );
   }
@@ -256,7 +268,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
             height: 54.h,
             child: TextButton(
               onPressed: () {
-                GoRouter.of(context).go('/options');
+                GoRouter.of(context).go(widget.skipNextRoute);
               },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white.withValues(alpha: 0.12),
@@ -340,7 +352,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
               .where((v) => v.isNotEmpty)
               .toList();
           ref.read(socialLinksProvider.notifier).state = values;
-          GoRouter.of(context).go('/professional-bio');
+          GoRouter.of(context).go(widget.continueNextRoute);
         },
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,

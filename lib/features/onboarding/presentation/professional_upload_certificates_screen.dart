@@ -13,11 +13,13 @@ class ProfessionalUploadCertificatesScreen extends StatefulWidget {
     this.backFallbackRoute = '/professional-events',
     this.skipNextRoute = '/options',
     this.uploadSuccessRoute = '/professional-certificates-success',
+    this.showStepIndicator = true,
   });
 
   final String backFallbackRoute;
   final String skipNextRoute;
   final String uploadSuccessRoute;
+  final bool showStepIndicator;
 
   @override
   State<ProfessionalUploadCertificatesScreen> createState() =>
@@ -105,15 +107,16 @@ class _ProfessionalUploadCertificatesScreenState
             ),
           ),
         ),
-        Text(
-          'Step: 1 of 3',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFFF5F5F5),
+        if (widget.showStepIndicator)
+          Text(
+            'Step: 1 of 3',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w400,
+              color: const Color(0xFFF5F5F5),
+            ),
           ),
-        ),
       ],
     );
   }

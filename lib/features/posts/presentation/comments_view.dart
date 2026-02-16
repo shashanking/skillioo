@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
-import '../../../../core/widgets/custom_text.dart'; // Ensure correct path
+import '../../../constants/app_constants.dart';
+import '../../../core/widgets/common_background.dart';
+import '../../../core/widgets/custom_text.dart';
+import '../../../core/widgets/icon_button.dart';
 
-// Simple Data Model for a Comment
 class CommentModel {
   final String id;
   final String username;
@@ -11,8 +13,6 @@ class CommentModel {
   final String text;
   final int likes;
   final bool isLiked;
-  // To distinguish between the gradient style and dark style cards shown in image
-  final bool isTopComment;
 
   CommentModel({
     required this.id,
@@ -21,7 +21,6 @@ class CommentModel {
     required this.text,
     this.likes = 0,
     this.isLiked = false,
-    this.isTopComment = false,
   });
 }
 
@@ -36,34 +35,30 @@ class _CommentsScreenState extends State<CommentsScreen> {
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
-  // Initial dummy data matching the image roughly
   final List<CommentModel> _comments = [
     CommentModel(
       id: '1',
       username: 'Lisa Dancer',
-      userImage: 'assets/images/post-img.jpg', // Use your assets
-      text: 'You’re improving every day, love to see it!',
+      userImage: AppAssets.professionalProfileJpg,
+      text: "You\u2019re improving every day, love to see it!",
       likes: 20,
       isLiked: true,
-      isTopComment: true,
     ),
     CommentModel(
       id: '2',
       username: 'SamSinger',
-      userImage: 'assets/images/professional-profile.jpg', // Replace with asset
+      userImage: AppAssets.skilledProfileJpg,
       text: 'Why is this better than my whole life?',
       likes: 15,
       isLiked: false,
-      isTopComment: true,
     ),
     CommentModel(
       id: '3',
-      username: 'Alex Beats',
-      userImage: 'assets/images/profile-img-1.jpg',
-      text: 'That high note at the end was incredible! 🔥',
-      likes: 4,
-      isLiked: false,
-      isTopComment: false,
+      username: 'Lisa Dancer',
+      userImage: AppAssets.professionalProfileJpg,
+      text: "You\u2019re improving every day, love to see it!",
+      likes: 20,
+      isLiked: true,
     ),
   ];
 
@@ -74,31 +69,25 @@ class _CommentsScreenState extends State<CommentsScreen> {
     super.dispose();
   }
 
-  // Function to add a new comment locally
   void _handleSendComment() {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
 
     setState(() {
-      // Add new comment to the top of the list
       _comments.insert(
         0,
         CommentModel(
           id: DateTime.now().toString(),
-          // Using current user info (hardcoded for demo)
           username: 'Lisa Dancer',
-          userImage: 'assets/images/skilled-profile.jpg',
+          userImage: AppAssets.skilledProfileJpg,
           text: text,
           likes: 0,
-          isTopComment: false, // New comments are standard style
         ),
       );
     });
 
     _commentController.clear();
-    // Dismiss keyboard
     FocusScope.of(context).unfocus();
-    // Scroll to top to see new comment
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         0,
@@ -110,41 +99,26 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Using a Scaffold to ensure the bottom input doesn't get covered by keyboard easily
     return Scaffold(
-      // Main gradient background
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF4A148C), // Purple top
-              Color(0xFF121212), // Dark middle
-              Color(0xFF000000), // Black bottom
-            ],
-            stops: [0.0, 0.4, 1.0],
-          ),
-        ),
+      resizeToAvoidBottomInset: true,
+      body: CommonBackground(
         child: SafeArea(
           child: Column(
             children: [
-              // 1. Header
               _buildHeader(),
-
-              // 2. Comments List
               Expanded(
                 child: ListView.builder(
                   controller: _scrollController,
-                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 24.h,
+                  ),
                   itemCount: _comments.length,
                   itemBuilder: (context, index) {
                     return _buildCommentCard(_comments[index]);
                   },
                 ),
               ),
-
-              // 3. Input Section
               _buildInputSection(),
             ],
           ),
@@ -153,31 +127,23 @@ class _CommentsScreenState extends State<CommentsScreen> {
     );
   }
 
-  // --- Widgets ---
-
   Widget _buildHeader() {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 16.h),
+    return Container(
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
+      decoration: BoxDecoration(color: AppColors.glassWhite12),
       child: Row(
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 44.w,
-              height: 44.w,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.white.withValues(alpha: 0.15),
-              ),
-              child: Icon(Icons.arrow_back, color: Colors.white, size: 20.sp),
-            ),
+          IconCircleButton(
+            icon: Icons.arrow_back,
+            onTap: () => Navigator.of(context).maybePop(),
           ),
-          SizedBox(width: 20.w),
+          SizedBox(width: 24.w),
           CustomText(
-            'Comments',
-            fontSize: 20.sp,
+            AppStrings.comments,
+            fontSize: 24.sp,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            fontFamily: 'Neue',
+            color: AppColors.foundationBlack20,
           ),
         ],
       ),
@@ -185,93 +151,72 @@ class _CommentsScreenState extends State<CommentsScreen> {
   }
 
   Widget _buildCommentCard(CommentModel comment) {
-    // Determine decoration based on whether it's a "Top Comment" style or standard
-    final BoxDecoration decoration = comment.isTopComment
-        ? BoxDecoration(
-            borderRadius: BorderRadius.circular(24.r),
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                const Color(0xFF6A1B9A).withValues(alpha: 0.8),
-                const Color(0xFF283593).withValues(alpha: 0.8),
-              ],
-            ),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
-          )
-        : BoxDecoration(
-            borderRadius: BorderRadius.circular(24.r),
-            color: const Color(
-              0xFF1E1E2C,
-            ).withValues(alpha: 0.8), // Dark glassy style
-            border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
-          );
-
     return Container(
-      margin: EdgeInsets.only(bottom: 16.h),
-      padding: EdgeInsets.all(16.w),
-      decoration: decoration,
+      margin: EdgeInsets.only(bottom: 24.h),
+      padding: EdgeInsets.all(24.w),
+      decoration: BoxDecoration(
+        color: AppColors.glassWhite12,
+        borderRadius: BorderRadius.circular(24.r),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Top Row: Avatar, Name, Heart
           Row(
             children: [
-              CircleAvatar(
-                radius: 20.r,
-                backgroundImage: AssetImage(comment.userImage),
-                backgroundColor: Colors.grey.shade800, // fallback
+              Container(
+                width: 48.w,
+                height: 48.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  image: DecorationImage(
+                    image: AssetImage(comment.userImage),
+                    fit: BoxFit.cover,
+                  ),
+                ),
               ),
-              SizedBox(width: 12.w),
-              CustomText(
-                comment.username,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
+              SizedBox(width: 24.w),
+              Expanded(
+                child: CustomText(
+                  comment.username,
+                  fontSize: 18.sp,
+                  fontWeight: FontWeight.w700,
+                  fontFamily: 'Neue',
+                  color: AppColors.foundationBlack20,
+                ),
               ),
-              const Spacer(),
-              Icon(
-                comment.isLiked ? Icons.favorite : Icons.favorite_border,
-                color: comment.isLiked ? Colors.redAccent : Colors.white54,
-                size: 20.sp,
+              IconCircleButton(
+                icon: comment.isLiked ? Icons.favorite : Icons.favorite_border,
+                onTap: () {},
               ),
             ],
           ),
           SizedBox(height: 12.h),
-
-          // Comment Text
-          Padding(
-            padding: EdgeInsets.only(left: 52.w), // Align with name
-            child: CustomText(
-              comment.text,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w400,
-              color: Colors.white.withValues(alpha: 0.9),
-              height: 1.3,
-            ),
+          CustomText(
+            comment.text,
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w400,
+            color: AppColors.foundationBlack20,
           ),
           SizedBox(height: 12.h),
-
-          // Bottom Row: Likes & Reply
-          Padding(
-            padding: EdgeInsets.only(left: 52.w),
-            child: Row(
-              children: [
-                CustomText(
-                  '${comment.likes} Likes',
-                  fontSize: 12.sp,
+          Row(
+            children: [
+              CustomText(
+                '${comment.likes} ${AppStrings.likes}',
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
+                color: AppColors.foundationBlack100,
+              ),
+              SizedBox(width: 24.w),
+              GestureDetector(
+                onTap: () {},
+                child: CustomText(
+                  AppStrings.reply,
+                  fontSize: 14.sp,
                   fontWeight: FontWeight.w500,
-                  color: Colors.white54,
+                  color: AppColors.foundationBlack20,
                 ),
-                SizedBox(width: 16.w),
-                CustomText(
-                  'Reply',
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -280,57 +225,67 @@ class _CommentsScreenState extends State<CommentsScreen> {
 
   Widget _buildInputSection() {
     return Container(
-      padding: EdgeInsets.fromLTRB(20.w, 12.h, 20.w, 20.h),
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
       decoration: BoxDecoration(
-        color: Colors.black.withValues(
-          alpha: 0.6,
-        ), // Slight background for input area
-        border: Border(
-          top: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+        color: AppColors.foundationBlack800,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(48.r),
+          topRight: Radius.circular(48.r),
         ),
       ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Container(
-              height: 50.h,
-              padding: EdgeInsets.symmetric(horizontal: 20.w),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(30.r),
-              ),
-              alignment: Alignment.centerLeft,
-              child: TextField(
-                controller: _commentController,
-                style: TextStyle(color: Colors.white, fontSize: 14.sp),
-                decoration: InputDecoration(
-                  hintText: 'Share your thoughts....',
-                  hintStyle: TextStyle(color: Colors.white54, fontSize: 14.sp),
-                  border: InputBorder.none,
-                  isDense: true,
-                  contentPadding: EdgeInsets.zero,
-                ),
-                onSubmitted: (_) => _handleSendComment(),
-              ),
-            ),
+      child: SafeArea(
+        top: false,
+        child: Container(
+          height: 56.h,
+          padding: EdgeInsets.symmetric(horizontal: 20.w),
+          decoration: BoxDecoration(
+            color: AppColors.glassWhite12,
+            borderRadius: BorderRadius.circular(24.r),
           ),
-          SizedBox(width: 12.w),
-          // Send Button
-          GestureDetector(
-            onTap: _handleSendComment,
-            child: Container(
-              width: 50.h,
-              height: 50.h,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF05DAF1), Color(0xFFC00F8B)],
+          child: Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _commentController,
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.foundationBlack20,
+                  ),
+                  cursorColor: Colors.white,
+                  decoration: InputDecoration(
+                    hintText: AppStrings.shareYourThoughts,
+                    hintStyle: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.foundationHint,
+                    ),
+                    border: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                  onSubmitted: (_) => _handleSendComment(),
                 ),
               ),
-              child: Icon(Icons.send_rounded, color: Colors.white, size: 22.sp),
-            ),
+              SizedBox(width: 12.w),
+              GestureDetector(
+                onTap: _handleSendComment,
+                child: Container(
+                  width: 44.w,
+                  height: 44.w,
+                  decoration: const BoxDecoration(shape: BoxShape.circle),
+                  child: Icon(
+                    Icons.send_rounded,
+                    color: AppColors.foundationBlack20,
+                    size: 22.sp,
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }

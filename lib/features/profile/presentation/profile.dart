@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skillioo/core/widgets/icon_button.dart';
 import 'package:skillioo/features/onboarding/presentation/splash_screen.dart';
 import 'package:skillioo/features/subscription/presentation/subscription.dart';
@@ -91,6 +92,23 @@ class ProfileSectionScreen extends StatelessWidget {
                             fontWeight: FontWeight.w500,
                             color: Colors.white.withValues(alpha: 0.75),
                           ),
+                          SizedBox(height: 6.h),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).pop();
+                              context.push('/edit-profile');
+                            },
+                            child: CustomText(
+                              'Edit Profile',
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white.withValues(alpha: 0.6),
+                              decoration: TextDecoration.underline,
+                              decorationColor: Colors.white.withValues(
+                                alpha: 0.6,
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -126,7 +144,18 @@ class ProfileSectionScreen extends StatelessWidget {
                       label: 'Messages',
                     ),
                   ],
-                  onItemTap: (_) {},
+                  onItemTap: (item) {
+                    if (item.label == 'Chat History') {
+                      Navigator.of(context).pop();
+                      context.push('/profile-chat-history');
+                    } else if (item.label == 'Call') {
+                      Navigator.of(context).pop();
+                      context.go('/landing?tab=4');
+                    } else if (item.label == 'Messages') {
+                      Navigator.of(context).pop();
+                      context.go('/landing?tab=3');
+                    }
+                  },
                 ),
                 SizedBox(height: 22.h),
                 CustomText(
@@ -143,15 +172,18 @@ class ProfileSectionScreen extends StatelessWidget {
                       label: 'Notifications',
                     ),
                     _MenuItemData(
-                      icon: Icons.receipt_long_outlined,
-                      label: 'Activity',
-                    ),
-                    _MenuItemData(
                       icon: Icons.verified_user_outlined,
                       label: 'Privacy',
                     ),
                   ],
-                  onItemTap: (_) {},
+                  onItemTap: (item) {
+                    Navigator.of(context).pop();
+                    if (item.label == 'Notifications') {
+                      context.push('/profile-notifications');
+                    } else if (item.label == 'Privacy') {
+                      context.push('/profile-privacy');
+                    }
+                  },
                 ),
                 const Spacer(),
                 SizedBox(

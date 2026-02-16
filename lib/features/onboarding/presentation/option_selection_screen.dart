@@ -53,7 +53,7 @@ class OptionSelectionScreen extends StatelessWidget {
                   title: 'Proceed To Dashboard',
                   assetPath: AppAssets.proceedDashboardPng,
                   onTap: () {
-                    GoRouter.of(context).go('/dashboard');
+                    GoRouter.of(context).go('/landing');
                   },
                 ),
                 const Spacer(),
