@@ -3,9 +3,38 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
+import '../../dashboard/data/trending_talent_model.dart';
+import '../../dashboard/presentation/widgets/custom_trending_carousel.dart';
 
 class StartScreen extends ConsumerWidget {
   const StartScreen({super.key});
+
+  static final _welcomeTalents = [
+    TrendingTalent(
+      name: 'Top Artist',
+      views: '1.2M Views',
+      likes: '8K Likes',
+      timer: '1:25',
+      imagePath: AppAssets.welcomeCardLeft,
+      tintColor: const Color(0xFF8F39B2),
+    ),
+    TrendingTalent(
+      name: 'Star Performer',
+      views: '2.5M Views',
+      likes: '12K Likes',
+      timer: '2:10',
+      imagePath: AppAssets.welcomeCardCenter,
+      tintColor: const Color(0xFF1A7F8F),
+    ),
+    TrendingTalent(
+      name: 'Rising Talent',
+      views: '980K Views',
+      likes: '5K Likes',
+      timer: '0:55',
+      imagePath: AppAssets.welcomeCardRight,
+      tintColor: const Color(0xFF2F208E),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -30,116 +59,12 @@ class StartScreen extends ConsumerWidget {
                 ),
               ),
 
-              // Content cards section
+              // Content cards section — animated carousel (same as dashboard)
               Expanded(
                 flex: 3,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 24.w),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        height: 200.h,
-                        child: Stack(
-                          alignment: Alignment.center,
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned(
-                              left: -80.w,
-                              child: Opacity(
-                                opacity: 0.75,
-                                child: SizedBox(
-                                  width: 104.w,
-                                  height: 104.w,
-                                  child: Image.asset(
-                                    AppAssets.welcomeCardLeft,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              right: -80.w,
-                              child: Opacity(
-                                opacity: 0.75,
-                                child: SizedBox(
-                                  width: 104.w,
-                                  height: 104.w,
-                                  child: Image.asset(
-                                    AppAssets.welcomeCardRight,
-                                    fit: BoxFit.contain,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            SizedBox(
-                              width: 170.w,
-                              height: 170.w,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.12),
-                                  borderRadius: BorderRadius.circular(48.r),
-                                ),
-                                padding: EdgeInsets.all(8.w),
-                                child: Stack(
-                                  alignment: Alignment.center,
-                                  children: [
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(40.r),
-                                      child: Image.asset(
-                                        AppAssets.welcomeCardCenter,
-                                        fit: BoxFit.cover,
-                                        width: 134.w,
-                                      ),
-                                    ),
-                                    IgnorePointer(
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            40.r,
-                                          ),
-                                          border: Border.all(
-                                            color: Colors.white.withValues(
-                                              alpha: 0.48,
-                                            ),
-                                            width: 1,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      bottom: -6.h,
-                                      child: Container(
-                                        padding: EdgeInsets.symmetric(
-                                          horizontal: 13.w,
-                                          vertical: 2.h,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(alpha: 0.06),
-                                          borderRadius: BorderRadius.circular(
-                                            24.r,
-                                          ),
-                                        ),
-                                        child: Text(
-                                          AppStrings.trendingTimer,
-                                          style: TextStyle(
-                                            color: const Color(0xFFF5F5F5),
-                                            fontSize: 10.sp,
-                                            fontWeight: FontWeight.w500,
-                                            height: 1.4,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [CustomTrendingCarousel(talents: _welcomeTalents)],
                 ),
               ),
 

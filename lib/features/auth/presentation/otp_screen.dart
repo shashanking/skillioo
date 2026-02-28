@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../application/auth_providers.dart';
+import '../application/states/auth_state.dart';
 
-class OtpScreen extends StatefulWidget {
+class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
 
   @override
-  State<OtpScreen> createState() => _OtpScreenState();
+  ConsumerState<OtpScreen> createState() => _OtpScreenState();
 }
 
-class _OtpScreenState extends State<OtpScreen> {
+class _OtpScreenState extends ConsumerState<OtpScreen> {
   final List<TextEditingController> _controllers = List.generate(
     4,
     (_) => TextEditingController(),
@@ -53,20 +56,36 @@ class _OtpScreenState extends State<OtpScreen> {
 
   void _onVerify() {
     final code = _controllers.map((c) => c.text).join();
-    // TODO: replace with real backend verification
-    final isValid = code.length == 4; // simple placeholder rule
+    final isValid = code.length == 4;
 
     setState(() {
       _showError = !isValid;
     });
 
     if (isValid) {
-      GoRouter.of(context).go('/verified');
+      ref.read(authNotifierProvider.notifier).verifyOtp(otpCode: code);
     }
+  }
+
+  void _onResend() {
+    ref.read(authNotifierProvider.notifier).resendOtp();
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
+
+    ref.listen(authNotifierProvider, (prev, next) {
+      if (next.status == AuthStatus.otpVerified) {
+        GoRouter.of(context).go('/verified');
+      } else if (next.status == AuthStatus.error &&
+          next.errorMessage.isNotEmpty) {
+        setState(() => _showError = true);
+      }
+    });
+
+    final isLoading = authState.status == AuthStatus.loading;
+
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -164,7 +183,9 @@ class _OtpScreenState extends State<OtpScreen> {
                       if (_showError) ...[
                         SizedBox(height: 12.h),
                         Text(
-                          'Invalid OTP. Try Again.',
+                          authState.errorMessage.isNotEmpty
+                              ? authState.errorMessage
+                              : 'Invalid OTP. Try Again.',
                           style: TextStyle(
                             fontFamily: 'Outfit',
                             fontSize: 14.sp,
@@ -173,6 +194,21 @@ class _OtpScreenState extends State<OtpScreen> {
                           ),
                         ),
                       ],
+                      SizedBox(height: 16.h),
+                      GestureDetector(
+                        onTap: authState.isResending ? null : _onResend,
+                        child: Text(
+                          authState.isResending ? 'Resending...' : 'Resend OTP',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 14.sp,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xFFF5F5F5),
+                            decoration: TextDecoration.underline,
+                            decorationColor: const Color(0xFFF5F5F5),
+                          ),
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -182,7 +218,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     width: 380.w,
                     height: 78.h,
                     child: TextButton(
-                      onPressed: _onVerify,
+                      onPressed: isLoading ? null : _onVerify,
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.symmetric(
                           horizontal: 24.w,

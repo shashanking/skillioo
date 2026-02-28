@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../application/onboarding_data_provider.dart';
 
-class IndividualNameScreen extends StatefulWidget {
+class IndividualNameScreen extends ConsumerStatefulWidget {
   const IndividualNameScreen({super.key});
 
   @override
-  State<IndividualNameScreen> createState() => _IndividualNameScreenState();
+  ConsumerState<IndividualNameScreen> createState() =>
+      _IndividualNameScreenState();
 }
 
-class _IndividualNameScreenState extends State<IndividualNameScreen> {
+class _IndividualNameScreenState extends ConsumerState<IndividualNameScreen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
 
@@ -215,6 +218,13 @@ class _IndividualNameScreenState extends State<IndividualNameScreen> {
           height: 58.h,
           child: TextButton(
             onPressed: () {
+              ref.read(onboardingDataProvider.notifier).state = ref
+                  .read(onboardingDataProvider)
+                  .copyWith(
+                    firstName: _firstNameController.text.trim(),
+                    lastName: _lastNameController.text.trim(),
+                    profileType: 'INDIVIDUAL',
+                  );
               GoRouter.of(context).go('/individual-email');
             },
             style: TextButton.styleFrom(

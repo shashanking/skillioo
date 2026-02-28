@@ -1,24 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/services/auth_prefs.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../onboarding/application/onboarding_data_provider.dart';
 
-class PinSetupScreen extends StatefulWidget {
+class PinSetupScreen extends ConsumerStatefulWidget {
   const PinSetupScreen({super.key});
 
   @override
-  State<PinSetupScreen> createState() => _PinSetupScreenState();
+  ConsumerState<PinSetupScreen> createState() => _PinSetupScreenState();
 }
 
 enum _AuthTab { pin, biometric }
 
 enum _PinStep { set, confirm }
 
-class _PinSetupScreenState extends State<PinSetupScreen> {
+class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   _AuthTab _currentTab = _AuthTab.pin;
   _PinStep _pinStep = _PinStep.set;
 
@@ -58,6 +60,9 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
     } else if (value.isEmpty && index > 0) {
       _pinFocusNodes[index - 1].requestFocus();
     }
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   String _currentPin() => _pinControllers.map((c) => c.text).join();
@@ -84,6 +89,9 @@ class _PinSetupScreenState extends State<PinSetupScreen> {
       if (matches) {
         // Persist PIN securely in local storage.
         await _authPrefs.setPin(pin);
+        ref.read(onboardingDataProvider.notifier).state = ref
+            .read(onboardingDataProvider)
+            .copyWith(pin: pin);
         setState(() {
           _currentTab = _AuthTab.biometric;
           _pinStep = _PinStep.set;

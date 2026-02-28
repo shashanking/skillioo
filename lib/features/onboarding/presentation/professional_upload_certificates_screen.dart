@@ -1,13 +1,19 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../application/registration_providers.dart';
 
 enum _CertificatesState { notes, list }
 
-class ProfessionalUploadCertificatesScreen extends StatefulWidget {
+class ProfessionalUploadCertificatesScreen extends ConsumerStatefulWidget {
   const ProfessionalUploadCertificatesScreen({
     super.key,
     this.backFallbackRoute = '/professional-events',
@@ -22,13 +28,48 @@ class ProfessionalUploadCertificatesScreen extends StatefulWidget {
   final bool showStepIndicator;
 
   @override
-  State<ProfessionalUploadCertificatesScreen> createState() =>
+  ConsumerState<ProfessionalUploadCertificatesScreen> createState() =>
       _ProfessionalUploadCertificatesScreenState();
 }
 
 class _ProfessionalUploadCertificatesScreenState
-    extends State<ProfessionalUploadCertificatesScreen> {
+    extends ConsumerState<ProfessionalUploadCertificatesScreen> {
   _CertificatesState _state = _CertificatesState.notes;
+  String? _pickedFileName;
+  String? _pickedFilePath;
+  bool _isUploading = false;
+
+  Future<File> _stableCopy(File source) async {
+    final dir = await getTemporaryDirectory();
+    final ext = source.path.split('.').last;
+    final dest = File(
+      '${dir.path}/skillioo_cert_${DateTime.now().millisecondsSinceEpoch}.$ext',
+    );
+    return source.copy(dest.path);
+  }
+
+  Future<void> _pickAndUpload() async {
+    final result = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf', 'jpeg', 'jpg', 'png'],
+      allowMultiple: false,
+    );
+
+    final picked = result?.files.single;
+    if (picked == null || picked.path == null) return;
+
+    final stableFile = await _stableCopy(File(picked.path!));
+
+    setState(() {
+      _pickedFileName = picked.name;
+      _pickedFilePath = stableFile.path;
+      _state = _CertificatesState.list;
+    });
+
+    await ref
+        .read(registrationNotifierProvider.notifier)
+        .uploadEvent(stableFile);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -242,11 +283,7 @@ class _ProfessionalUploadCertificatesScreenState
           child: SizedBox(
             height: 54.h,
             child: TextButton(
-              onPressed: () {
-                setState(() {
-                  _state = _CertificatesState.list;
-                });
-              },
+              onPressed: _pickAndUpload,
               style: TextButton.styleFrom(
                 padding: EdgeInsets.zero,
                 shape: RoundedRectangleBorder(
@@ -291,10 +328,7 @@ class _ProfessionalUploadCertificatesScreenState
   }
 
   Widget _buildUploadedFiles() {
-    final items = [
-      ('Skill_Certificate.pdf', AppAssets.profileUploadPng),
-      ('Event_Certificate.pdf', AppAssets.profileUploadPng),
-    ];
+    final items = _pickedFileName != null ? [_pickedFileName!] : <String>[];
 
     return Column(
       children: [
@@ -312,11 +346,16 @@ class _ProfessionalUploadCertificatesScreenState
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(16.r),
-                  child: Image.asset(
-                    item.$2,
+                  child: Container(
                     height: 120.h,
                     width: double.infinity,
-                    fit: BoxFit.cover,
+                    color: Colors.black.withValues(alpha: 0.15),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.insert_drive_file_outlined,
+                      color: Colors.white.withValues(alpha: 0.9),
+                      size: 40.sp,
+                    ),
                   ),
                 ),
                 SizedBox(height: 10.h),
@@ -330,7 +369,7 @@ class _ProfessionalUploadCertificatesScreenState
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
-                        item.$1,
+                        item,
                         style: TextStyle(
                           fontFamily: 'Outfit',
                           fontSize: 14.sp,
@@ -349,13 +388,54 @@ class _ProfessionalUploadCertificatesScreenState
   }
 
   Widget _buildUploadNowCta(BuildContext context) {
+    final regState = ref.watch(registrationNotifierProvider);
+    final uploadDone = regState.eventsDoneDocumentId.isNotEmpty;
+    final hasPicked = _pickedFilePath != null;
+    final primaryLabel = (uploadDone || hasPicked) ? 'Continue' : 'Upload Now';
+
     return SizedBox(
       width: double.infinity,
       height: 54.h,
       child: TextButton(
-        onPressed: () {
-          GoRouter.of(context).go(widget.uploadSuccessRoute);
-        },
+        onPressed: _isUploading
+            ? null
+            : () async {
+                // Already uploaded — just continue
+                if (uploadDone) {
+                  GoRouter.of(context).go(widget.uploadSuccessRoute);
+                  return;
+                }
+
+                // File picked but not yet uploaded — await upload now
+                if (hasPicked) {
+                  setState(() => _isUploading = true);
+                  await ref
+                      .read(registrationNotifierProvider.notifier)
+                      .uploadEvent(File(_pickedFilePath!));
+                  if (!context.mounted) return;
+                  setState(() => _isUploading = false);
+                  final updated = ref.read(registrationNotifierProvider);
+                  if (updated.eventsDoneDocumentId.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          updated.errorMessage.isNotEmpty
+                              ? updated.errorMessage
+                              : 'Upload failed. Please try again.',
+                        ),
+                        backgroundColor: Colors.red,
+                      ),
+                    );
+                    return;
+                  }
+                  if (!context.mounted) return;
+                  GoRouter.of(context).go(widget.uploadSuccessRoute);
+                  return;
+                }
+
+                // No file picked yet — open file picker
+                await _pickAndUpload();
+              },
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
@@ -369,23 +449,24 @@ class _ProfessionalUploadCertificatesScreenState
             borderRadius: BorderRadius.circular(48.r),
           ),
           child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(AppAssets.uploadIconPng, width: 18.w, height: 18.w),
-                SizedBox(width: 8.w),
-                Text(
-                  'Upload Now',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
+            child: _isUploading
+                ? SizedBox(
+                    width: 22.w,
+                    height: 22.w,
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Text(
+                    primaryLabel,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFF5F5F5),
+                    ),
                   ),
-                ),
-              ],
-            ),
           ),
         ),
       ),

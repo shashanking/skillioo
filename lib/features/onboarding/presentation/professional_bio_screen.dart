@@ -6,7 +6,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../application/onboarding_data_provider.dart';
 import '../application/professional_bio_provider.dart';
+import '../application/registration_providers.dart';
+import '../application/states/registration_state.dart';
+import '../application/talent_category_provider.dart';
+import '../application/talent_subcategory_provider.dart';
+import '../application/talent_type_provider.dart';
+import '../application/professional_events_provider.dart';
 
 class ProfessionalBioScreen extends ConsumerStatefulWidget {
   const ProfessionalBioScreen({super.key});
@@ -97,45 +104,186 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                   child: SizedBox(
                     width: double.infinity,
                     height: 58.h,
-                    child: TextButton(
-                      onPressed: _showContinue
-                          ? () {
-                              ref
-                                  .read(professionalBioProvider.notifier)
-                                  .state = ProfessionalBioData(
-                                bio: _bioController.text.trim(),
-                                hourly: _hourlyController.text.trim(),
-                                daily: _dailyController.text.trim(),
-                                weekly: _weeklyController.text.trim(),
-                                monthly: _monthlyController.text.trim(),
-                              );
-                              GoRouter.of(context).go('/options');
-                            }
-                          : null,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(48.r),
-                        ),
-                        backgroundColor: Colors.black,
-                      ),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: AppColors.ctaGradient,
-                          borderRadius: BorderRadius.circular(48.r),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Continue',
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFF5F5F5),
+                    child: Builder(
+                      builder: (context) {
+                        final isRegistering =
+                            ref.watch(registrationNotifierProvider).status ==
+                            RegistrationStatus.loading;
+                        return TextButton(
+                          onPressed: (_showContinue && !isRegistering)
+                              ? () async {
+                                  final bio = _bioController.text.trim();
+                                  final hourly = _hourlyController.text.trim();
+                                  final daily = _dailyController.text.trim();
+                                  final weekly = _weeklyController.text.trim();
+                                  final monthly = _monthlyController.text
+                                      .trim();
+
+                                  ref
+                                      .read(professionalBioProvider.notifier)
+                                      .state = ProfessionalBioData(
+                                    bio: bio,
+                                    hourly: hourly,
+                                    daily: daily,
+                                    weekly: weekly,
+                                    monthly: monthly,
+                                  );
+
+                                  final talentType = ref.read(
+                                    talentTypeProvider,
+                                  );
+                                  final proficiency =
+                                      talentType == TalentType.professional
+                                      ? 'PROFESSIONAL'
+                                      : 'SKILLED';
+                                  final eventsCount =
+                                      int.tryParse(
+                                        ref.read(
+                                              professionalEventsCountProvider,
+                                            ) ??
+                                            '0',
+                                      ) ??
+                                      0;
+
+                                  // Sync document IDs from registration state
+                                  final regState = ref.read(
+                                    registrationNotifierProvider,
+                                  );
+
+                                  // Update onboarding data with portfolio + docs
+                                  final updatedData = ref
+                                      .read(onboardingDataProvider)
+                                      .copyWith(
+                                        category:
+                                            ref.read(talentCategoryProvider) ??
+                                            '',
+                                        subCategory:
+                                            ref.read(
+                                              talentSubcategoryProvider,
+                                            ) ??
+                                            '',
+                                        proficiency: proficiency,
+                                        bio: bio,
+                                        totalEvents: eventsCount,
+                                        hourlyPricing:
+                                            double.tryParse(hourly) ?? 0,
+                                        dailyPricing:
+                                            double.tryParse(daily) ?? 0,
+                                        weeklyPricing:
+                                            double.tryParse(weekly) ?? 0,
+                                        monthlyPricing:
+                                            double.tryParse(monthly) ?? 0,
+                                        profileDocumentId:
+                                            regState.profileDocumentId,
+                                        videoDocumentId:
+                                            regState.videoDocumentId,
+                                        imageDocumentId:
+                                            regState.imageDocumentId,
+                                        eventsDoneDocumentId:
+                                            regState.eventsDoneDocumentId,
+                                      );
+                                  ref
+                                          .read(onboardingDataProvider.notifier)
+                                          .state =
+                                      updatedData;
+
+                                  // Validate mandatory uploads before calling API
+                                  final missing = <String>[];
+                                  if (updatedData.profileDocumentId.isEmpty) {
+                                    missing.add('profile photo');
+                                  }
+                                  if (updatedData.videoDocumentId.isEmpty) {
+                                    missing.add('video');
+                                  }
+                                  if (updatedData.imageDocumentId.isEmpty) {
+                                    missing.add('portfolio image');
+                                  }
+                                  if (proficiency == 'PROFESSIONAL' &&
+                                      updatedData
+                                          .eventsDoneDocumentId
+                                          .isEmpty) {
+                                    missing.add('events document');
+                                  }
+
+                                  if (missing.isNotEmpty) {
+                                    if (!context.mounted) return;
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          'Please upload: ${missing.join(', ')} before continuing.',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                        duration: const Duration(seconds: 4),
+                                      ),
+                                    );
+                                    return;
+                                  }
+
+                                  await ref
+                                      .read(
+                                        registrationNotifierProvider.notifier,
+                                      )
+                                      .registerProfile(updatedData);
+
+                                  if (!context.mounted) return;
+                                  final finalState = ref.read(
+                                    registrationNotifierProvider,
+                                  );
+                                  if (finalState.status ==
+                                      RegistrationStatus.success) {
+                                    GoRouter.of(
+                                      context,
+                                    ).go('/registration-success');
+                                  } else if (finalState.status ==
+                                      RegistrationStatus.error) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          finalState.errorMessage.isNotEmpty
+                                              ? finalState.errorMessage
+                                              : 'Registration failed. Please try again.',
+                                        ),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
+                                  }
+                                }
+                              : null,
+                          style: TextButton.styleFrom(
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(48.r),
+                            ),
+                            backgroundColor: Colors.black,
+                          ),
+                          child: Ink(
+                            decoration: BoxDecoration(
+                              gradient: AppColors.ctaGradient,
+                              borderRadius: BorderRadius.circular(48.r),
+                            ),
+                            child: Center(
+                              child: isRegistering
+                                  ? SizedBox(
+                                      width: 22.w,
+                                      height: 22.w,
+                                      child: const CircularProgressIndicator(
+                                        color: Colors.white,
+                                        strokeWidth: 2.5,
+                                      ),
+                                    )
+                                  : Text(
+                                      'Continue',
+                                      style: TextStyle(
+                                        fontFamily: 'Outfit',
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFFF5F5F5),
+                                      ),
+                                    ),
                             ),
                           ),
-                        ),
-                      ),
+                        );
+                      },
                     ),
                   ),
                 ),

@@ -195,6 +195,24 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
+      path: '/registration-success',
+      pageBuilder: (context, state) {
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const VerificationSuccessScreen(
+            title: 'Profile Created Successfully!',
+            subtitle: 'Welcome aboard. Your profile is live.',
+            nextRoute: '/dashboard',
+          ),
+          transitionDuration: const Duration(milliseconds: 800),
+          reverseTransitionDuration: const Duration(milliseconds: 800),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        );
+      },
+    ),
+    GoRoute(
       path: '/pin',
       pageBuilder: (context, state) {
         return CustomTransitionPage<void>(

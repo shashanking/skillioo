@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../application/onboarding_data_provider.dart';
 
-class IndividualAddressScreen extends StatefulWidget {
+class IndividualAddressScreen extends ConsumerStatefulWidget {
   const IndividualAddressScreen({super.key});
 
   @override
-  State<IndividualAddressScreen> createState() =>
+  ConsumerState<IndividualAddressScreen> createState() =>
       _IndividualAddressScreenState();
 }
 
-class _IndividualAddressScreenState extends State<IndividualAddressScreen> {
+class _IndividualAddressScreenState
+    extends ConsumerState<IndividualAddressScreen> {
   final TextEditingController _addressController = TextEditingController();
   final TextEditingController _cityController = TextEditingController();
   final TextEditingController _stateController = TextEditingController();
@@ -311,6 +314,16 @@ class _IndividualAddressScreenState extends State<IndividualAddressScreen> {
           height: 58.h,
           child: TextButton(
             onPressed: () {
+              final pinCodeText = _pincodeController.text.trim();
+              ref.read(onboardingDataProvider.notifier).state = ref
+                  .read(onboardingDataProvider)
+                  .copyWith(
+                    streetAddress: _addressController.text.trim(),
+                    city: _cityController.text.trim(),
+                    state: _stateController.text.trim(),
+                    country: _countryController.text.trim(),
+                    pinCode: int.tryParse(pinCodeText) ?? 0,
+                  );
               GoRouter.of(context).go('/talent-type');
             },
             style: TextButton.styleFrom(

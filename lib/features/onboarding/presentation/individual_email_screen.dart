@@ -1,19 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../application/onboarding_data_provider.dart';
 
-class IndividualEmailScreen extends StatefulWidget {
+class IndividualEmailScreen extends ConsumerStatefulWidget {
   const IndividualEmailScreen({super.key});
 
   @override
-  State<IndividualEmailScreen> createState() => _IndividualEmailScreenState();
+  ConsumerState<IndividualEmailScreen> createState() =>
+      _IndividualEmailScreenState();
 }
 
-class _IndividualEmailScreenState extends State<IndividualEmailScreen> {
+class _IndividualEmailScreenState extends ConsumerState<IndividualEmailScreen> {
   final TextEditingController _emailController = TextEditingController();
   final FocusNode _emailFocus = FocusNode();
 
@@ -209,6 +212,9 @@ class _IndividualEmailScreenState extends State<IndividualEmailScreen> {
           height: 58.h,
           child: TextButton(
             onPressed: () {
+              ref.read(onboardingDataProvider.notifier).state = ref
+                  .read(onboardingDataProvider)
+                  .copyWith(email: _emailController.text.trim());
               GoRouter.of(context).go('/individual-address');
             },
             style: TextButton.styleFrom(

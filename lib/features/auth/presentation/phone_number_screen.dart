@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../onboarding/application/onboarding_data_provider.dart';
+import '../application/auth_providers.dart';
+import '../application/states/auth_state.dart';
 
-class PhoneNumberScreen extends StatefulWidget {
+class PhoneNumberScreen extends ConsumerStatefulWidget {
   const PhoneNumberScreen({super.key});
 
   @override
-  State<PhoneNumberScreen> createState() => _PhoneNumberScreenState();
+  ConsumerState<PhoneNumberScreen> createState() => _PhoneNumberScreenState();
 }
 
-class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
+class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
   final TextEditingController _controller = TextEditingController();
   bool _showError = false;
+  String _errorText = "Invalid number. Fix it and we're good.";
   final FocusNode _focusNode = FocusNode();
   bool _isComplete = false;
 
@@ -33,12 +38,39 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
       _showError = !isValid;
     });
     if (isValid) {
-      GoRouter.of(context).go('/otp');
+      final phoneNumber = '+91$value';
+      ref.read(onboardingDataProvider.notifier).state = ref
+          .read(onboardingDataProvider)
+          .copyWith(phoneNumber: phoneNumber);
+      ref
+          .read(authNotifierProvider.notifier)
+          .sendOtp(phoneNumber: phoneNumber, purpose: 'SIGNUP');
+    } else {
+      setState(() => _errorText = "Invalid number. Fix it and we're good.");
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authNotifierProvider);
+
+    ref.listen(authNotifierProvider, (prev, next) {
+      if (next.status == AuthStatus.otpSent) {
+        ref.read(onboardingDataProvider.notifier).state = ref
+            .read(onboardingDataProvider)
+            .copyWith(phoneVerificationId: next.verificationId);
+        GoRouter.of(context).go('/otp');
+      } else if (next.status == AuthStatus.error &&
+          next.errorMessage.isNotEmpty) {
+        setState(() {
+          _showError = true;
+          _errorText = next.errorMessage;
+        });
+      }
+    });
+
+    final isLoading = authState.status == AuthStatus.loading;
+
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -161,7 +193,7 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
                       if (_showError) ...[
                         SizedBox(height: 8.h),
                         Text(
-                          "Invalid number. Fix it and we’re good.",
+                          _errorText,
                           style: TextStyle(
                             fontFamily: 'Outfit',
                             fontSize: 14.sp,
@@ -180,7 +212,7 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
                       width: double.infinity,
                       height: 78.h,
                       child: TextButton(
-                        onPressed: _onVerify,
+                        onPressed: isLoading ? null : _onVerify,
                         style: TextButton.styleFrom(
                           padding: EdgeInsets.symmetric(
                             horizontal: 16,

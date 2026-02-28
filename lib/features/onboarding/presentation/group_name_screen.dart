@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
 import '../application/group_onboarding_provider.dart';
+import '../application/onboarding_data_provider.dart';
 
 class GroupNameScreen extends ConsumerStatefulWidget {
   const GroupNameScreen({super.key});
@@ -191,9 +192,11 @@ class _GroupNameScreenState extends ConsumerState<GroupNameScreen> {
           height: 58.h,
           child: TextButton(
             onPressed: () {
-              ref.read(groupNameProvider.notifier).state = _groupNameController
-                  .text
-                  .trim();
+              final name = _groupNameController.text.trim();
+              ref.read(groupNameProvider.notifier).state = name;
+              ref.read(onboardingDataProvider.notifier).state = ref
+                  .read(onboardingDataProvider)
+                  .copyWith(groupName: name, profileType: 'GROUP');
               GoRouter.of(context).go('/individual-email');
             },
             style: TextButton.styleFrom(
