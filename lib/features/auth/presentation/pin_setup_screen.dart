@@ -379,7 +379,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
               children: [
                 SizedBox(height: 24.h),
                 SizedBox(
-                  width: 80.w,
+                  width: 180.w,
                   child: Image.asset(AppAssets.logoPng, fit: BoxFit.contain),
                 ),
                 SizedBox(height: 24.h),

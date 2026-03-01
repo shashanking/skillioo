@@ -34,6 +34,7 @@ class DocumentInfo {
 
 class DocumentType {
   static const String profilePhoto = 'PROFILE_PHOTO';
-  static const String content = 'CONTENT';
-  static const String others = 'OTHERS';
+  static const String video = 'VIDEO';
+  static const String image = 'IMAGE';
+  static const String event = 'EVENT';
 }

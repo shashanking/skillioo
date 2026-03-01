@@ -202,7 +202,7 @@ final appRouter = GoRouter(
           child: const VerificationSuccessScreen(
             title: 'Profile Created Successfully!',
             subtitle: 'Welcome aboard. Your profile is live.',
-            nextRoute: '/dashboard',
+            nextRoute: '/landing',
           ),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),

@@ -1,8 +1,8 @@
 class ApiConfig {
   // ── Base URLs (3 microservices) ──
-  static const String customerBaseUrl = 'http://13.205.140.174/customer/api';
-  static const String postBaseUrl = 'http://13.205.140.174/post/api';
-  static const String paymentBaseUrl = 'http://13.205.140.174/payment/api';
+  static const String customerBaseUrl = 'https://skillioo.in/customer/api';
+  static const String postBaseUrl = 'https://skillioo.in/post/api';
+  static const String paymentBaseUrl = 'https://skillioo.in/payment/api';
 
   /// Legacy alias – existing services already reference this.
   static const String baseUrl = customerBaseUrl;

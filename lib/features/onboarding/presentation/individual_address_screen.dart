@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:geolocator/geolocator.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
@@ -31,6 +32,8 @@ class _IndividualAddressScreenState
   final FocusNode _pincodeFocus = FocusNode();
 
   bool _showContinue = false;
+  double _latitude = 0.0;
+  double _longitude = 0.0;
 
   @override
   void initState() {
@@ -302,6 +305,41 @@ class _IndividualAddressScreenState
     );
   }
 
+  Future<void> _captureLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+    } catch (e) {
+      // Silently fail - location is optional
+    }
+  }
+
   Widget _buildContinueButton(BuildContext context) {
     return Positioned(
       left: 0,
@@ -313,7 +351,10 @@ class _IndividualAddressScreenState
           width: double.infinity,
           height: 58.h,
           child: TextButton(
-            onPressed: () {
+            onPressed: () async {
+              // Try to capture location before proceeding
+              await _captureLocation();
+
               final pinCodeText = _pincodeController.text.trim();
               ref.read(onboardingDataProvider.notifier).state = ref
                   .read(onboardingDataProvider)
@@ -323,8 +364,12 @@ class _IndividualAddressScreenState
                     state: _stateController.text.trim(),
                     country: _countryController.text.trim(),
                     pinCode: int.tryParse(pinCodeText) ?? 0,
+                    latitude: _latitude,
+                    longitude: _longitude,
                   );
-              GoRouter.of(context).go('/talent-type');
+              if (context.mounted) {
+                GoRouter.of(context).go('/talent-type');
+              }
             },
             style: TextButton.styleFrom(
               padding: EdgeInsets.zero,

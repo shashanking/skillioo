@@ -19,7 +19,7 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
   // ── Document Uploads ──
 
   /// Upload profile photo document.
-  /// Also uploads the same file as CONTENT to populate imageDocumentId,
+  /// Also uploads the same file as IMAGE to populate imageDocumentId,
   /// since the backend validates each document ID against its upload type.
   Future<String?> uploadProfilePhoto(File file) async {
     state = state.copyWith(
@@ -53,7 +53,7 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
       // Upload same file as CONTENT for imageDocumentId
       final imageResponse = await _documentService.uploadDocument(
         file: file,
-        type: DocumentType.content,
+        type: DocumentType.image,
       );
 
       String imageDocId = profileDocId;
@@ -63,7 +63,7 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
         final imageDoc = imageData?['document'] as Map<String, dynamic>? ?? {};
         imageDocId = imageDoc['id'] as String? ?? profileDocId;
       } else {
-        debugPrint('uploadPhoto (CONTENT) failed: ${imageResponse['message']}');
+        debugPrint('uploadPhoto (IMAGE) failed: ${imageResponse['message']}');
       }
 
       state = state.copyWith(
@@ -92,7 +92,7 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
     try {
       final response = await _documentService.uploadDocument(
         file: file,
-        type: DocumentType.content,
+        type: DocumentType.video,
       );
 
       final success = response['success'] as bool? ?? false;
@@ -130,7 +130,7 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
     try {
       final response = await _documentService.uploadDocument(
         file: file,
-        type: DocumentType.others,
+        type: DocumentType.event,
       );
 
       final success = response['success'] as bool? ?? false;

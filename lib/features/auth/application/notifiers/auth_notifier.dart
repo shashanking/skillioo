@@ -150,7 +150,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
       debugPrint('verifyOtp response: $response');
       final success = response['success'] as bool? ?? false;
       if (success) {
-        state = state.copyWith(status: AuthStatus.otpVerified);
+        // Extract and store verificationId from response data for auto-login
+        final data = response['data'] as Map<String, dynamic>?;
+        final verifiedId =
+            data?['verificationId'] as String? ?? state.verificationId;
+        if (verifiedId.isNotEmpty) {
+          await _storage.write(key: _kVerificationIdKey, value: verifiedId);
+        }
+        state = state.copyWith(
+          status: AuthStatus.otpVerified,
+          verificationId: verifiedId,
+        );
       } else {
         final message =
             response['message'] as String? ?? 'OTP verification failed';
