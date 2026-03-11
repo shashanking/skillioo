@@ -1,16 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../constants/app_constants.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
 import '../../../../core/widgets/icon_button.dart';
+import '../../../chat/application/chat_providers.dart';
+import '../../../chat/application/states/chat_state.dart';
+import '../../../chat/domain/chat_models.dart' show ConversationResponse;
 
-class ChatHistoryScreen extends StatelessWidget {
+class ChatHistoryScreen extends ConsumerStatefulWidget {
   const ChatHistoryScreen({super.key});
 
   @override
+  ConsumerState<ChatHistoryScreen> createState() => _ChatHistoryScreenState();
+}
+
+class _ChatHistoryScreenState extends ConsumerState<ChatHistoryScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatNotifierProvider.notifier).fetchConversations(refresh: true);
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final chatState = ref.watch(chatNotifierProvider);
+    final apiConversations = chatState.conversations;
+    final isLoading = chatState.conversationsStatus == ChatStatus.loading;
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -40,74 +60,99 @@ class ChatHistoryScreen extends StatelessWidget {
               ),
               // Content
               Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 24.h,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Today
-                      CustomText(
-                        AppStrings.today,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Neue',
-                        color: AppColors.foundationBlack20,
-                      ),
-                      SizedBox(height: 12.h),
-                      _buildChatGroup([
-                        _ChatItem(
-                          name: 'Lisa Dancer',
-                          duration: '${AppStrings.chatLastedFor} 20 ${AppStrings.mins}',
-                          avatar: AppAssets.professionalProfileJpg,
-                        ),
-                        _ChatItem(
-                          name: 'SamSinger',
-                          duration: '${AppStrings.chatLastedFor} 20 ${AppStrings.mins}',
-                          avatar: AppAssets.skilledProfileJpg,
-                        ),
-                        _ChatItem(
-                          name: 'Lisa Dancer',
-                          duration: '${AppStrings.chatLastedFor} 1 ${AppStrings.hour}',
-                          avatar: AppAssets.professionalProfileJpg,
-                        ),
-                      ]),
-                      SizedBox(height: 24.h),
-                      // Yesterday
-                      CustomText(
-                        AppStrings.yesterday,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Neue',
-                        color: AppColors.foundationBlack20,
-                      ),
-                      SizedBox(height: 12.h),
-                      _buildChatGroup([
-                        _ChatItem(
-                          name: 'SamSinger',
-                          duration: '${AppStrings.chatLastedFor} 5 ${AppStrings.mins}',
-                          avatar: AppAssets.skilledProfileJpg,
-                        ),
-                        _ChatItem(
-                          name: 'Lisa Dancer',
-                          duration: '${AppStrings.chatLastedFor} 20 ${AppStrings.mins}',
-                          avatar: AppAssets.professionalProfileJpg,
-                        ),
-                        _ChatItem(
-                          name: 'Lisa Dancer',
-                          duration: '${AppStrings.chatLastedFor} 1 ${AppStrings.hour}',
-                          avatar: AppAssets.professionalProfileJpg,
-                        ),
-                      ]),
-                    ],
-                  ),
-                ),
+                child: _buildChatHistoryContent(apiConversations, isLoading),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildChatHistoryContent(
+    List<ConversationResponse> apiConversations,
+    bool isLoading,
+  ) {
+    // If API returned data, map it
+    if (apiConversations.isNotEmpty) {
+      final items = apiConversations.map((c) {
+        return _ChatItem(
+          name: c.participantId ?? 'User',
+          duration: c.latestMessage?.content?.text ?? '',
+          avatar: AppAssets.professionalProfileJpg,
+        );
+      }).toList();
+
+      return SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+        child: _buildChatGroup(items),
+      );
+    }
+
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    // Fallback dummy data
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomText(
+            AppStrings.today,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Neue',
+            color: AppColors.foundationBlack20,
+          ),
+          SizedBox(height: 12.h),
+          _buildChatGroup([
+            _ChatItem(
+              name: 'Lisa Dancer',
+              duration: '${AppStrings.chatLastedFor} 20 ${AppStrings.mins}',
+              avatar: AppAssets.professionalProfileJpg,
+            ),
+            _ChatItem(
+              name: 'SamSinger',
+              duration: '${AppStrings.chatLastedFor} 20 ${AppStrings.mins}',
+              avatar: AppAssets.skilledProfileJpg,
+            ),
+            _ChatItem(
+              name: 'Lisa Dancer',
+              duration: '${AppStrings.chatLastedFor} 1 ${AppStrings.hour}',
+              avatar: AppAssets.professionalProfileJpg,
+            ),
+          ]),
+          SizedBox(height: 24.h),
+          CustomText(
+            AppStrings.yesterday,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Neue',
+            color: AppColors.foundationBlack20,
+          ),
+          SizedBox(height: 12.h),
+          _buildChatGroup([
+            _ChatItem(
+              name: 'SamSinger',
+              duration: '${AppStrings.chatLastedFor} 5 ${AppStrings.mins}',
+              avatar: AppAssets.skilledProfileJpg,
+            ),
+            _ChatItem(
+              name: 'Lisa Dancer',
+              duration: '${AppStrings.chatLastedFor} 20 ${AppStrings.mins}',
+              avatar: AppAssets.professionalProfileJpg,
+            ),
+            _ChatItem(
+              name: 'Lisa Dancer',
+              duration: '${AppStrings.chatLastedFor} 1 ${AppStrings.hour}',
+              avatar: AppAssets.professionalProfileJpg,
+            ),
+          ]),
+        ],
       ),
     );
   }
@@ -143,10 +188,7 @@ class ChatHistoryScreen extends StatelessWidget {
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(
-                  color: AppColors.glassWhite12,
-                  width: 0.5,
-                ),
+                bottom: BorderSide(color: AppColors.glassWhite12, width: 0.5),
               ),
       ),
       child: Row(

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/document_models.dart';
 import '../../domain/document_service.dart';
 import '../../domain/registration_service.dart';
+import '../../../../core/services/session_prefs.dart';
 import '../onboarding_data_provider.dart';
 import '../states/registration_state.dart';
 
@@ -66,16 +67,68 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
         debugPrint('uploadPhoto (IMAGE) failed: ${imageResponse['message']}');
       }
 
+      // Append to imageDocumentIds array
+      final updatedImageIds = [...state.imageDocumentIds];
+      if (imageDocId.isNotEmpty && !updatedImageIds.contains(imageDocId)) {
+        updatedImageIds.add(imageDocId);
+      }
+
       state = state.copyWith(
         profilePhotoStatus: DocumentUploadStatus.uploaded,
         profileDocumentId: profileDocId,
-        imageDocumentId: imageDocId,
+        imageDocumentIds: updatedImageIds,
       );
       return profileDocId;
     } catch (e) {
       debugPrint('uploadProfilePhoto error: $e');
       state = state.copyWith(
         profilePhotoStatus: DocumentUploadStatus.error,
+        errorMessage: e.toString(),
+      );
+    }
+    return null;
+  }
+
+  /// Upload image document
+  Future<String?> uploadImage(File file) async {
+    state = state.copyWith(
+      imageStatus: DocumentUploadStatus.uploading,
+      errorMessage: '',
+    );
+
+    try {
+      final response = await _documentService.uploadDocument(
+        file: file,
+        type: DocumentType.image,
+      );
+
+      final success = response['success'] as bool? ?? false;
+      if (success) {
+        final data = response['data'] as Map<String, dynamic>?;
+        final doc = data?['document'] as Map<String, dynamic>? ?? {};
+        final docId = doc['id'] as String? ?? '';
+
+        final updatedImageIds = [...state.imageDocumentIds];
+        if (docId.isNotEmpty && !updatedImageIds.contains(docId)) {
+          updatedImageIds.add(docId);
+        }
+
+        state = state.copyWith(
+          imageStatus: DocumentUploadStatus.uploaded,
+          imageDocumentIds: updatedImageIds,
+        );
+        return docId;
+      } else {
+        final message = response['message'] as String? ?? 'Upload failed';
+        state = state.copyWith(
+          imageStatus: DocumentUploadStatus.error,
+          errorMessage: message,
+        );
+      }
+    } catch (e) {
+      debugPrint('uploadImage error: $e');
+      state = state.copyWith(
+        imageStatus: DocumentUploadStatus.error,
         errorMessage: e.toString(),
       );
     }
@@ -101,9 +154,15 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
         final doc = data?['document'] as Map<String, dynamic>? ?? {};
         final docId = doc['id'] as String? ?? '';
 
+        // Append to videoDocumentIds array
+        final updatedVideoIds = [...state.videoDocumentIds];
+        if (docId.isNotEmpty && !updatedVideoIds.contains(docId)) {
+          updatedVideoIds.add(docId);
+        }
+
         state = state.copyWith(
           videoStatus: DocumentUploadStatus.uploaded,
-          videoDocumentId: docId,
+          videoDocumentIds: updatedVideoIds,
         );
         return docId;
       } else {
@@ -139,7 +198,13 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
         final doc = data?['document'] as Map<String, dynamic>? ?? {};
         final docId = doc['id'] as String? ?? '';
 
-        state = state.copyWith(eventsDoneDocumentId: docId);
+        // Append to eventsDoneDocumentIds array
+        final updatedEventIds = [...state.eventsDoneDocumentIds];
+        if (docId.isNotEmpty && !updatedEventIds.contains(docId)) {
+          updatedEventIds.add(docId);
+        }
+
+        state = state.copyWith(eventsDoneDocumentIds: updatedEventIds);
         return docId;
       } else {
         final message = response['message'] as String? ?? 'Upload failed';
@@ -170,6 +235,7 @@ class RegistrationNotifier extends StateNotifier<RegistrationState> {
       debugPrint('registerProfile response: $response');
       final success = response['success'] as bool? ?? false;
       if (success) {
+        await SessionPrefs.instance.setProfileCreated(true);
         state = state.copyWith(status: RegistrationStatus.success);
       } else {
         final message = response['message'] as String? ?? 'Registration failed';

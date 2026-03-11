@@ -1,22 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 import 'package:skillioo/features/profile/presentation/widgets/bio_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/certificates_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/posts_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/shared_widgets.dart';
 
 import '../../../../core/widgets/custom_text.dart';
+import '../../dashboard/application/dashboard_providers.dart';
+import '../../dashboard/application/states/profile_list_state.dart';
 
-class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key, this.isOwnProfile = false});
+class UserProfileScreen extends ConsumerStatefulWidget {
+  const UserProfileScreen({
+    super.key,
+    required this.profileId,
+    this.isOwnProfile = false,
+  });
 
+  final String profileId;
   final bool isOwnProfile;
 
   @override
-  State<UserProfileScreen> createState() => _UserProfileScreenState();
+  ConsumerState<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _UserProfileScreenState extends State<UserProfileScreen> {
+class _UserProfileScreenState extends ConsumerState<UserProfileScreen> {
   int _selectedTabIndex = 0; // 0: Bio, 1: Posts, 2: Certificates
 
   // This controller allows the sheet to scroll the internal list
@@ -25,6 +34,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(profileListNotifierProvider);
+    final ProfileItem? profile = state.profiles
+        .where((p) => p.id == widget.profileId)
+        .firstOrNull;
+
+    if (profile == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF050505),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
       body: Stack(
@@ -43,18 +64,26 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     SizedBox(height: 60.h),
 
                     // Name & Title
-                    CustomText(
-                      'Lisa Dancer',
-                      fontSize: 24.sp,
-                      fontWeight: FontWeight.w700,
-                      color: Colors.white,
-                    ),
-                    SizedBox(height: 8.h),
-                    CustomText(
-                      'Dancer',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white70,
+                    Consumer(
+                      builder: (context, ref, child) {
+                        return Column(
+                          children: [
+                            CustomText(
+                              profile.displayName,
+                              fontSize: 24.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            SizedBox(height: 8.h),
+                            CustomText(
+                              '${profile.city}, ${profile.country}',
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     SizedBox(height: 16.h),
 
@@ -93,33 +122,44 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     SizedBox(height: 32.h),
 
                     // Stats Row 1
-                    _buildStatsContainer(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatItem('25K', 'Followers'),
-                          _buildStatItem('25K', 'Following'),
-                          _buildStatItem('25K', 'Reactions'),
-                          _buildStatItem('1M', 'Impressions'),
-                        ],
-                      ),
-                    ),
-
-                    SizedBox(height: 16.h),
-
-                    // Stats Row 2
-                    _buildStatsContainer(
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceAround,
-                        children: [
-                          _buildStatItem('25', 'Events'),
-                          _buildSocialStatItem(Icons.facebook, '10K Followers'),
-                          _buildSocialStatItem(
-                            Icons.camera_alt_outlined,
-                            '10K Followers',
-                          ),
-                        ],
-                      ),
+                    Consumer(
+                      builder: (context, ref, child) {
+                        final videoCount = profile.videos.length.toString();
+                        return Column(
+                          children: [
+                            _buildStatsContainer(
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildStatItem('0', 'Followers'),
+                                  _buildStatItem('0', 'Following'),
+                                  _buildStatItem('0', 'Reactions'),
+                                  _buildStatItem('0', 'Impressions'),
+                                ],
+                              ),
+                            ),
+                            SizedBox(height: 16.h),
+                            _buildStatsContainer(
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceAround,
+                                children: [
+                                  _buildStatItem(videoCount, 'Videos'),
+                                  _buildSocialStatItem(
+                                    Icons.facebook,
+                                    '0 Followers',
+                                  ),
+                                  _buildSocialStatItem(
+                                    Icons.camera_alt_outlined,
+                                    '0 Followers',
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -219,9 +259,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       IndexedStack(
                         index: _selectedTabIndex,
                         children: [
-                          const BioTab(),
-                          const PostsTab(),
-                          const CertificatesTab(),
+                          BioTab(profile: profile),
+                          PostsTab(profile: profile),
+                          CertificatesTab(profile: profile),
                         ],
                       ),
 
@@ -263,7 +303,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       case 1:
         text = "Create Post";
         icon = Icons.add;
-        onTap = () {};
+        onTap = () => context.push('/profile-create-post');
         break;
       case 2:
         text = "Upload Certificate";
@@ -311,6 +351,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Widget _buildHeaderSection() {
+    final state = ref.watch(profileListNotifierProvider);
+    final profilePhotoUrl = state.profiles
+        .where((p) => p.id == widget.profileId)
+        .map((p) => p.profilePhotoUrl)
+        .firstOrNull;
+
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.center,
@@ -318,11 +364,16 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         Container(
           height: 220.h,
           width: double.infinity,
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage('assets/images/skilled-profile.jpg'),
-              fit: BoxFit.cover,
-            ),
+          decoration: BoxDecoration(
+            image: profilePhotoUrl != null && profilePhotoUrl.isNotEmpty
+                ? DecorationImage(
+                    image: NetworkImage(profilePhotoUrl),
+                    fit: BoxFit.cover,
+                  )
+                : const DecorationImage(
+                    image: AssetImage('assets/images/skilled-profile.jpg'),
+                    fit: BoxFit.cover,
+                  ),
           ),
           child: Container(
             decoration: BoxDecoration(
@@ -347,10 +398,17 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(color: const Color(0xFF050505), width: 4.w),
-              image: const DecorationImage(
-                image: AssetImage('assets/images/professional-profile.jpg'),
-                fit: BoxFit.cover,
-              ),
+              image: profilePhotoUrl != null && profilePhotoUrl.isNotEmpty
+                  ? DecorationImage(
+                      image: NetworkImage(profilePhotoUrl),
+                      fit: BoxFit.cover,
+                    )
+                  : const DecorationImage(
+                      image: AssetImage(
+                        'assets/images/professional-profile.jpg',
+                      ),
+                      fit: BoxFit.cover,
+                    ),
             ),
           ),
         ),

@@ -1,11 +1,17 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../../constants/app_constants.dart';
+import '../../../../core/services/session_prefs.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
 import '../../../../core/widgets/icon_button.dart';
+import '../../../onboarding/domain/document_service.dart';
+import '../../domain/profile_update_service.dart';
 
 class EditProfileScreen extends StatefulWidget {
   const EditProfileScreen({super.key});
@@ -19,6 +25,10 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   late final TextEditingController _lastNameController;
   late final TextEditingController _eventsCountController;
 
+  bool _isSaving = false;
+  bool _isUploadingPhoto = false;
+  String _profilePhotoUrl = '';
+
   final List<_SocialAccount> _accounts = [
     _SocialAccount(icon: Icons.facebook, label: '10K ${AppStrings.followers}'),
     _SocialAccount(
@@ -30,9 +40,215 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _firstNameController = TextEditingController(text: 'Lisa');
-    _lastNameController = TextEditingController(text: 'Dancer');
-    _eventsCountController = TextEditingController(text: '25');
+    _firstNameController = TextEditingController();
+    _lastNameController = TextEditingController();
+    _eventsCountController = TextEditingController();
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadFromSession();
+    });
+  }
+
+  Future<void> _loadFromSession() async {
+    final profile = await SessionPrefs.instance.getProfile();
+    if (!mounted) return;
+
+    final firstName = profile?['firstName'] as String? ?? '';
+    final lastName = profile?['lastName'] as String? ?? '';
+    final fullName = profile?['name'] as String? ?? '';
+
+    String resolvedFirst = firstName;
+    String resolvedLast = lastName;
+    if (resolvedFirst.isEmpty && resolvedLast.isEmpty && fullName.isNotEmpty) {
+      final parts = fullName.trim().split(RegExp(r'\s+'));
+      if (parts.isNotEmpty) {
+        resolvedFirst = parts.first;
+        if (parts.length > 1) {
+          resolvedLast = parts.sublist(1).join(' ');
+        }
+      }
+    }
+
+    final totalEvents = profile?['totalEvents'];
+    _firstNameController.text = resolvedFirst;
+    _lastNameController.text = resolvedLast;
+    _eventsCountController.text = (totalEvents is int)
+        ? totalEvents.toString()
+        : (totalEvents is String ? totalEvents : '');
+
+    final rawUrl = profile?['profilePhotoUrl'] as String? ?? '';
+    _profilePhotoUrl = rawUrl.startsWith('http://')
+        ? rawUrl.replaceFirst('http://', 'https://')
+        : rawUrl;
+
+    if (_profilePhotoUrl.isEmpty) {
+      final accessToken = await SessionPrefs.instance.getAccessToken();
+      final profilePictureId = profile?['profilePictureId'] as String? ?? '';
+      if (accessToken.isNotEmpty && profilePictureId.isNotEmpty) {
+        try {
+          final docService = DocumentService();
+          final response = await docService.getDocumentsByIds(
+            ids: [profilePictureId],
+            accessToken: accessToken,
+          );
+          final success = response['success'] as bool? ?? false;
+          final docs = response['data'];
+          if (success && docs is List) {
+            final picked = docs
+                .cast<dynamic>()
+                .whereType<Map<String, dynamic>>()
+                .firstWhere(
+                  (e) => e['id'] == profilePictureId,
+                  orElse: () => <String, dynamic>{},
+                );
+            final url = picked['url'] as String? ?? '';
+            if (url.isNotEmpty) {
+              _profilePhotoUrl = url.startsWith('http://')
+                  ? url.replaceFirst('http://', 'https://')
+                  : url;
+              await SessionPrefs.instance.mergeProfile({
+                'profilePhotoUrl': _profilePhotoUrl,
+              });
+            }
+          }
+        } catch (_) {}
+      }
+    }
+
+    setState(() {});
+  }
+
+  Future<void> _onChangeProfilePicture() async {
+    if (_isUploadingPhoto) return;
+    final accessToken = await SessionPrefs.instance.getAccessToken();
+    final profileId = await SessionPrefs.instance.getProfileId();
+    if (accessToken.isEmpty || profileId.isEmpty) return;
+
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    setState(() {
+      _isUploadingPhoto = true;
+    });
+
+    try {
+      final docService = DocumentService();
+      final response = await docService.updateProfilePicture(
+        profileId: profileId,
+        accessToken: accessToken,
+        file: File(picked.path),
+      );
+
+      final success = response['success'] as bool? ?? false;
+      if (!success) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response['message'] as String? ??
+                  'Failed to update profile photo',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+      final updated = data['updatedDocument'] as Map<String, dynamic>? ?? {};
+      final id = updated['id'] as String? ?? '';
+      final rawUrl = updated['url'] as String? ?? '';
+      final url = rawUrl.startsWith('http://')
+          ? rawUrl.replaceFirst('http://', 'https://')
+          : rawUrl;
+
+      if (url.isNotEmpty) {
+        _profilePhotoUrl = url;
+        await SessionPrefs.instance.mergeProfile({
+          'profilePhotoUrl': url,
+          if (id.isNotEmpty) 'profilePictureId': id,
+        });
+      }
+
+      if (!mounted) return;
+      setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingPhoto = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _onSave() async {
+    if (_isSaving) return;
+
+    final accessToken = await SessionPrefs.instance.getAccessToken();
+    final profileId = await SessionPrefs.instance.getProfileId();
+    if (accessToken.isEmpty || profileId.isEmpty) return;
+
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final totalEvents = int.tryParse(_eventsCountController.text.trim()) ?? 0;
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final service = ProfileUpdateService();
+      final response = await service.updateProfile(
+        accessToken: accessToken,
+        body: {
+          'id': profileId,
+          'firstName': firstName,
+          'lastName': lastName,
+          'totalEvents': totalEvents,
+        },
+      );
+
+      final success = response['success'] as bool? ?? false;
+      if (!success) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              response['message'] as String? ?? 'Failed to update profile',
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      await SessionPrefs.instance.mergeProfile({
+        'firstName': firstName,
+        'lastName': lastName,
+        'name': [firstName, lastName].where((e) => e.isNotEmpty).join(' '),
+        'totalEvents': totalEvents,
+      });
+
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+        });
+      }
+    }
   }
 
   @override
@@ -96,18 +312,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   width: 3,
                                 ),
                                 image: DecorationImage(
-                                  image: AssetImage(
-                                    AppAssets.professionalProfileJpg,
-                                  ),
+                                  image: _profilePhotoUrl.isNotEmpty
+                                      ? NetworkImage(_profilePhotoUrl)
+                                      : const AssetImage(
+                                              AppAssets.professionalProfileJpg,
+                                            )
+                                            as ImageProvider,
                                   fit: BoxFit.cover,
                                 ),
                               ),
                             ),
                             SizedBox(height: 12.h),
                             GestureDetector(
-                              onTap: () {
-                                // TODO: open image picker
-                              },
+                              onTap: _onChangeProfilePicture,
                               child: CustomText(
                                 AppStrings.changeProfilePicture,
                                 fontSize: 14.sp,
@@ -170,10 +387,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               Padding(
                 padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
                 child: GestureDetector(
-                  onTap: () {
-                    // TODO: save profile changes
-                    Navigator.of(context).maybePop();
-                  },
+                  onTap: _isSaving ? null : _onSave,
                   child: Container(
                     width: double.infinity,
                     height: 58.h,
@@ -183,7 +397,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     ),
                     alignment: Alignment.center,
                     child: CustomText(
-                      AppStrings.saveChanges,
+                      _isSaving ? AppStrings.saving : AppStrings.saveChanges,
                       fontSize: 16.sp,
                       fontWeight: FontWeight.w600,
                       color: AppColors.foundationBlack20,

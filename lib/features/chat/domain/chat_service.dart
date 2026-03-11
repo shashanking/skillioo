@@ -11,13 +11,13 @@ class ChatService extends BaseServiceProvider {
   }
 
   Future<Map<String, dynamic>> getMessages({
-    required String recipientId,
+    required String conversationId,
     String? before,
     int limit = 30,
   }) async {
-    return getWithParams(ApiConfig.chat, {
+    return getWithParams(ApiConfig.message, {
+      'conversationId': conversationId,
       'limit': '$limit',
-      'recipientId': recipientId,
       if (before != null) 'before': before,
     });
   }

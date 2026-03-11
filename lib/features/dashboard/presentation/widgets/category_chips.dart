@@ -3,8 +3,13 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 class CategoryChips extends StatefulWidget {
   final List<String> categories;
+  final Function(String?)? onCategoryChanged;
 
-  const CategoryChips({super.key, required this.categories});
+  const CategoryChips({
+    super.key,
+    required this.categories,
+    this.onCategoryChanged,
+  });
 
   @override
   State<CategoryChips> createState() => _CategoryChipsState();
@@ -24,7 +29,12 @@ class _CategoryChipsState extends State<CategoryChips> {
         itemBuilder: (context, index) {
           final isSelected = index == _selectedIndex;
           return GestureDetector(
-            onTap: () => setState(() => _selectedIndex = index),
+            onTap: () {
+              setState(() => _selectedIndex = index);
+              widget.onCategoryChanged?.call(
+                index == 0 ? null : widget.categories[index],
+              );
+            },
             child: Container(
               margin: EdgeInsets.only(right: 12.w),
               padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),

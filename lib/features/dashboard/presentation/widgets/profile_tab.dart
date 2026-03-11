@@ -1,103 +1,219 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../chat/application/chat_providers.dart';
+import '../../application/dashboard_providers.dart';
 import 'profile_cards.dart';
 import 'profile_dropdown.dart';
 
-class ProfileTab extends StatefulWidget {
+class ProfileTab extends ConsumerStatefulWidget {
   const ProfileTab({super.key});
 
   @override
   ProfileTabState createState() => ProfileTabState();
 }
 
-class ProfileTabState extends State<ProfileTab> {
-  ProfileType? _selectedProfileType;
+class ProfileTabState extends ConsumerState<ProfileTab> {
+  static const int _perPage = 20;
 
-  void updateProfileType(ProfileType? type) {
-    setState(() {
-      _selectedProfileType = type;
+  String? _category;
+  String? _proficiency;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref
+          .read(profileListNotifierProvider.notifier)
+          .loadProfiles(perPage: _perPage, refresh: true);
     });
   }
 
-  List<ProfileCardData> get _allCards => [
-    ProfileCardData(
-      name: 'Alex Johnson',
-      role: 'UI/UX Designer',
-      imagePath: 'assets/images/professional-profile.jpg',
-      followers: '12.5K',
-      posts: '48',
-      isProfessional: true,
-      following: '23K',
-      views: '2M',
-      socialFollowers: '312K',
-      isOnline: true,
-    ),
-    ProfileCardData(
-      name: 'Sarah Williams',
-      role: 'Photographer',
-      imagePath: 'assets/images/skilled-profile.jpg',
-      followers: '8.2K',
-      posts: '126',
-      isProfessional: false,
-      following: '23K',
-      views: '2M',
-      socialFollowers: '312K',
-      isOnline: true,
-    ),
-    ProfileCardData(
-      name: 'Mike Chen',
-      role: 'Video Editor',
-      imagePath: 'assets/images/profile-img-1.jpg',
-      followers: '15.7K',
-      posts: '89',
-      isProfessional: true,
-      following: '23K',
-      views: '2M',
-      socialFollowers: '312K',
-    ),
-    ProfileCardData(
-      name: 'Emma Davis',
-      role: 'Content Creator',
-      imagePath: 'assets/images/profile-img-1.jpg',
-      followers: '6.8K',
-      posts: '234',
-      isProfessional: false,
-      following: '23K',
-      views: '2M',
-      socialFollowers: '312K',
-    ),
-    ProfileCardData(
-      name: 'James Wilson',
-      role: 'Brand Designer',
-      imagePath: 'assets/professional.jpg',
-      followers: '9.3K',
-      posts: '67',
-      isProfessional: true,
-      following: '23K',
-      views: '2M',
-      socialFollowers: '312K',
-    ),
-  ];
-
-  List<ProfileCardData> get _filteredCards {
-    if (_selectedProfileType == null) {
-      return _allCards; // Show all when "Profile" is selected
+  void updateProfileType(ProfileType? type) {
+    String? proficiency;
+    if (type == ProfileType.professional) {
+      proficiency = 'PROFESSIONAL';
+    } else if (type == ProfileType.skilled) {
+      proficiency = 'SKILLED';
     }
 
-    return _allCards.where((card) {
-      switch (_selectedProfileType) {
-        case ProfileType.professional:
-          return card.isProfessional;
-        case ProfileType.skilled:
-          return !card.isProfessional;
-        case null:
-          return true; // Show all cards
-      }
-    }).toList();
+    _proficiency = proficiency;
+
+    ref
+        .read(profileListNotifierProvider.notifier)
+        .loadProfiles(
+          perPage: _perPage,
+          refresh: true,
+          category: _category,
+          proficiency: _proficiency,
+        );
+  }
+
+  void loadProfilesWithCategory(String? category) {
+    _category = category;
+    ref
+        .read(profileListNotifierProvider.notifier)
+        .loadProfiles(
+          perPage: _perPage,
+          refresh: true,
+          category: _category,
+          proficiency: _proficiency,
+        );
+  }
+
+  Future<void> _loadMore() async {
+    final state = ref.read(profileListNotifierProvider);
+    if (state.isLoading || !state.hasMore) return;
+    await ref
+        .read(profileListNotifierProvider.notifier)
+        .loadProfiles(
+          perPage: _perPage,
+          page: state.currentPage + 1,
+          refresh: false,
+          category: _category,
+          proficiency: _proficiency,
+        );
+  }
+
+  Future<void> _retry() async {
+    await ref
+        .read(profileListNotifierProvider.notifier)
+        .loadProfiles(
+          perPage: _perPage,
+          refresh: true,
+          category: _category,
+          proficiency: _proficiency,
+        );
+  }
+
+  Future<void> _handleCallTap(String recipientId) async {
+    final success = await ref
+        .read(chatNotifierProvider.notifier)
+        .initiateCall(recipientId);
+
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          success ? 'Calling $recipientId...' : 'Failed to initiate call',
+        ),
+        backgroundColor: success ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  void _handleChatTap(String recipientId) {
+    context.go(
+      '/landing?tab=3&recipientId=${Uri.encodeComponent(recipientId)}',
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return ProfileCardGrid(cards: _filteredCards);
+    final state = ref.watch(profileListNotifierProvider);
+
+    if (state.isLoading && state.profiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.h),
+          child: CircularProgressIndicator(
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
+      );
+    }
+
+    if (state.hasError && state.profiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                state.errorMessage.isNotEmpty
+                    ? state.errorMessage
+                    : 'Failed to load profiles',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 16.sp,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              SizedBox(
+                height: 44.h,
+                child: TextButton(
+                  onPressed: state.isLoading ? null : _retry,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 18.w),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(48.r),
+                    ),
+                    backgroundColor: Colors.white.withValues(alpha: 0.12),
+                  ),
+                  child: Text(
+                    'Retry',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (state.profiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.h),
+          child: Text(
+            'No profiles available',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final cards = state.profiles.map((profile) {
+      return ProfileCardData(
+        profileId: profile.id,
+        name: profile.displayName,
+        role: '${profile.city}, ${profile.country}',
+        imagePath: profile.profilePhotoUrl ?? 'assets/images/profile-img-1.jpg',
+        followers: '0',
+        posts: profile.videos.length.toString(),
+        isProfessional: profile.proficiency == 'PROFESSIONAL',
+        following: '0',
+        views: '0',
+        socialFollowers: '0',
+        isOnline: false,
+      );
+    }).toList();
+
+    return ProfileCardGrid(
+      cards: cards,
+      showLoadMore: state.hasMore,
+      isLoadingMore: state.isLoading && state.profiles.isNotEmpty,
+      onLoadMore: _loadMore,
+      onCall: (card) => _handleCallTap(card.profileId),
+      onChat: (card) => _handleChatTap(card.profileId),
+    );
   }
 }

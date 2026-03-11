@@ -135,7 +135,7 @@ class _CustomTrendingCarouselState extends State<CustomTrendingCarousel> {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      height: 200.h,
+      height: 160.h,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is ScrollStartNotification) {

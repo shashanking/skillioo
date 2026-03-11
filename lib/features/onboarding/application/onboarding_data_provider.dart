@@ -39,19 +39,16 @@ class OnboardingData {
   final double weeklyPricing;
   final double monthlyPricing;
 
-  // ── Follows ──
-  final int instaFollowers;
-  final int instaFollowing;
-  final int facebookFollowers;
-  final int facebookFollowing;
+  // ── Social Media Follows (new structure) ──
+  final List<Map<String, dynamic>> socialMediaFollows;
 
-  // ── Document IDs (filled after upload) ──
+  // ── Document IDs (filled after upload) - now arrays ──
   final String profileDocumentId;
-  final String videoDocumentId;
-  final String imageDocumentId;
-  final String eventsDoneDocumentId;
+  final List<String> videoDocumentIds;
+  final List<String> imageDocumentIds;
+  final List<String> eventsDoneDocumentIds;
 
-  // ── Social Links ──
+  // ── Social Links (legacy, can be removed later) ──
   final List<String> socialLinks;
 
   const OnboardingData({
@@ -81,14 +78,11 @@ class OnboardingData {
     this.dailyPricing = 0,
     this.weeklyPricing = 0,
     this.monthlyPricing = 0,
-    this.instaFollowers = 0,
-    this.instaFollowing = 0,
-    this.facebookFollowers = 0,
-    this.facebookFollowing = 0,
+    this.socialMediaFollows = const [],
     this.profileDocumentId = '',
-    this.videoDocumentId = '',
-    this.imageDocumentId = '',
-    this.eventsDoneDocumentId = '',
+    this.videoDocumentIds = const [],
+    this.imageDocumentIds = const [],
+    this.eventsDoneDocumentIds = const [],
     this.socialLinks = const [],
   });
 
@@ -119,14 +113,11 @@ class OnboardingData {
     double? dailyPricing,
     double? weeklyPricing,
     double? monthlyPricing,
-    int? instaFollowers,
-    int? instaFollowing,
-    int? facebookFollowers,
-    int? facebookFollowing,
+    List<Map<String, dynamic>>? socialMediaFollows,
     String? profileDocumentId,
-    String? videoDocumentId,
-    String? imageDocumentId,
-    String? eventsDoneDocumentId,
+    List<String>? videoDocumentIds,
+    List<String>? imageDocumentIds,
+    List<String>? eventsDoneDocumentIds,
     List<String>? socialLinks,
   }) {
     return OnboardingData(
@@ -156,14 +147,12 @@ class OnboardingData {
       dailyPricing: dailyPricing ?? this.dailyPricing,
       weeklyPricing: weeklyPricing ?? this.weeklyPricing,
       monthlyPricing: monthlyPricing ?? this.monthlyPricing,
-      instaFollowers: instaFollowers ?? this.instaFollowers,
-      instaFollowing: instaFollowing ?? this.instaFollowing,
-      facebookFollowers: facebookFollowers ?? this.facebookFollowers,
-      facebookFollowing: facebookFollowing ?? this.facebookFollowing,
+      socialMediaFollows: socialMediaFollows ?? this.socialMediaFollows,
       profileDocumentId: profileDocumentId ?? this.profileDocumentId,
-      videoDocumentId: videoDocumentId ?? this.videoDocumentId,
-      imageDocumentId: imageDocumentId ?? this.imageDocumentId,
-      eventsDoneDocumentId: eventsDoneDocumentId ?? this.eventsDoneDocumentId,
+      videoDocumentIds: videoDocumentIds ?? this.videoDocumentIds,
+      imageDocumentIds: imageDocumentIds ?? this.imageDocumentIds,
+      eventsDoneDocumentIds:
+          eventsDoneDocumentIds ?? this.eventsDoneDocumentIds,
       socialLinks: socialLinks ?? this.socialLinks,
     );
   }
@@ -230,15 +219,10 @@ class OnboardingData {
           'weeklyPricing': weeklyPricing,
           'monthlyPricing': monthlyPricing,
         },
-        'follows': {
-          'instaFollwers': instaFollowers,
-          'instaFollowing': instaFollowing,
-          'facebookFollowers': facebookFollowers,
-          'facebookFollowing': facebookFollowing,
-        },
-        'videoDocumentId': videoDocumentId,
-        'imageDocumentId': imageDocumentId,
-        'eventsDoneDocumentId': eventsDoneDocumentId,
+        'follows': socialMediaFollows,
+        'videoDocumentIds': videoDocumentIds,
+        'imageDocumentIds': imageDocumentIds,
+        'eventsDoneDocumentIds': eventsDoneDocumentIds,
       },
     };
   }

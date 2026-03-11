@@ -85,10 +85,7 @@ class LocationRequest {
   final double latitude;
   final double longitude;
 
-  const LocationRequest({
-    required this.latitude,
-    required this.longitude,
-  });
+  const LocationRequest({required this.latitude, required this.longitude});
 
   factory LocationRequest.fromJson(Map<String, dynamic> json) =>
       _$LocationRequestFromJson(json);
@@ -103,11 +100,11 @@ class PortfolioRequest {
   final String proficiency;
   final String bio;
   final int totalEvents;
-  final String? videoDocumentId;
-  final String? imageDocumentId;
-  final String? eventsDoneDocumentId;
+  final List<String>? videoDocumentIds;
+  final List<String>? imageDocumentIds;
+  final List<String>? eventsDoneDocumentIds;
   final HiringRateRequest? hiringRate;
-  final FollowsRequest? follows;
+  final List<SocialMediaFollowRequest>? follows;
 
   const PortfolioRequest({
     required this.category,
@@ -115,9 +112,9 @@ class PortfolioRequest {
     required this.proficiency,
     required this.bio,
     required this.totalEvents,
-    this.videoDocumentId,
-    this.imageDocumentId,
-    this.eventsDoneDocumentId,
+    this.videoDocumentIds,
+    this.imageDocumentIds,
+    this.eventsDoneDocumentIds,
     this.hiringRate,
     this.follows,
   });
@@ -149,23 +146,23 @@ class HiringRateRequest {
 }
 
 @JsonSerializable()
-class FollowsRequest {
-  final int? instaFollwers;
-  final int? instaFollowing;
-  final int? facebookFollowers;
-  final int? facebookFollowing;
+class SocialMediaFollowRequest {
+  final String socialMedia;
+  final String link;
+  final int? followers;
+  final int? following;
 
-  const FollowsRequest({
-    this.instaFollwers,
-    this.instaFollowing,
-    this.facebookFollowers,
-    this.facebookFollowing,
+  const SocialMediaFollowRequest({
+    required this.socialMedia,
+    required this.link,
+    this.followers,
+    this.following,
   });
 
-  factory FollowsRequest.fromJson(Map<String, dynamic> json) =>
-      _$FollowsRequestFromJson(json);
+  factory SocialMediaFollowRequest.fromJson(Map<String, dynamic> json) =>
+      _$SocialMediaFollowRequestFromJson(json);
 
-  Map<String, dynamic> toJson() => _$FollowsRequestToJson(this);
+  Map<String, dynamic> toJson() => _$SocialMediaFollowRequestToJson(this);
 }
 
 // ─── Response Models ───
@@ -247,10 +244,7 @@ class LocationResponse {
   final double latitude;
   final double longitude;
 
-  const LocationResponse({
-    required this.latitude,
-    required this.longitude,
-  });
+  const LocationResponse({required this.latitude, required this.longitude});
 
   factory LocationResponse.fromJson(Map<String, dynamic> json) =>
       _$LocationResponseFromJson(json);
@@ -299,4 +293,9 @@ class ContactType {
 class Proficiency {
   static const String professional = 'PROFESSIONAL';
   static const String skilled = 'SKILLED';
+}
+
+class SocialMediaType {
+  static const String instagram = 'INSTAGRAM';
+  static const String facebook = 'FACEBOOK';
 }

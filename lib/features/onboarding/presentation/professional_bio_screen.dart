@@ -29,14 +29,6 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
   final TextEditingController _dailyController = TextEditingController();
   final TextEditingController _weeklyController = TextEditingController();
   final TextEditingController _monthlyController = TextEditingController();
-  final TextEditingController _instaFollowersController =
-      TextEditingController();
-  final TextEditingController _instaFollowingController =
-      TextEditingController();
-  final TextEditingController _facebookFollowersController =
-      TextEditingController();
-  final TextEditingController _facebookFollowingController =
-      TextEditingController();
 
   bool _showContinue = false;
 
@@ -74,10 +66,6 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
     _dailyController.dispose();
     _weeklyController.dispose();
     _monthlyController.dispose();
-    _instaFollowersController.dispose();
-    _instaFollowingController.dispose();
-    _facebookFollowersController.dispose();
-    _facebookFollowingController.dispose();
     super.dispose();
   }
 
@@ -102,8 +90,6 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                       _buildBioSection(),
                       SizedBox(height: 28.h),
                       _buildHiringRatesSection(),
-                      SizedBox(height: 28.h),
-                      _buildFollowDetailsSection(),
                       SizedBox(height: 24.h),
                     ],
                   ),
@@ -164,7 +150,7 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                                     registrationNotifierProvider,
                                   );
 
-                                  // Update onboarding data with portfolio + docs + follow details
+                                  // Update onboarding data with portfolio + docs + social media follows
                                   final updatedData = ref
                                       .read(onboardingDataProvider)
                                       .copyWith(
@@ -187,38 +173,14 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                                             double.tryParse(weekly) ?? 0,
                                         monthlyPricing:
                                             double.tryParse(monthly) ?? 0,
-                                        instaFollowers:
-                                            int.tryParse(
-                                              _instaFollowersController.text
-                                                  .trim(),
-                                            ) ??
-                                            0,
-                                        instaFollowing:
-                                            int.tryParse(
-                                              _instaFollowingController.text
-                                                  .trim(),
-                                            ) ??
-                                            0,
-                                        facebookFollowers:
-                                            int.tryParse(
-                                              _facebookFollowersController.text
-                                                  .trim(),
-                                            ) ??
-                                            0,
-                                        facebookFollowing:
-                                            int.tryParse(
-                                              _facebookFollowingController.text
-                                                  .trim(),
-                                            ) ??
-                                            0,
                                         profileDocumentId:
                                             regState.profileDocumentId,
-                                        videoDocumentId:
-                                            regState.videoDocumentId,
-                                        imageDocumentId:
-                                            regState.imageDocumentId,
-                                        eventsDoneDocumentId:
-                                            regState.eventsDoneDocumentId,
+                                        videoDocumentIds:
+                                            regState.videoDocumentIds,
+                                        imageDocumentIds:
+                                            regState.imageDocumentIds,
+                                        eventsDoneDocumentIds:
+                                            regState.eventsDoneDocumentIds,
                                       );
                                   ref
                                           .read(onboardingDataProvider.notifier)
@@ -230,15 +192,15 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                                   if (updatedData.profileDocumentId.isEmpty) {
                                     missing.add('profile photo');
                                   }
-                                  if (updatedData.videoDocumentId.isEmpty) {
+                                  if (updatedData.videoDocumentIds.isEmpty) {
                                     missing.add('video');
                                   }
                                   if (proficiency == 'PROFESSIONAL') {
-                                    if (updatedData.imageDocumentId.isEmpty) {
+                                    if (updatedData.imageDocumentIds.isEmpty) {
                                       missing.add('portfolio image');
                                     }
                                     if (updatedData
-                                        .eventsDoneDocumentId
+                                        .eventsDoneDocumentIds
                                         .isEmpty) {
                                       missing.add(
                                         'events/certificates document',
@@ -272,9 +234,7 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                                   );
                                   if (finalState.status ==
                                       RegistrationStatus.success) {
-                                    GoRouter.of(
-                                      context,
-                                    ).go('/registration-success');
+                                    GoRouter.of(context).go('/enter-pin');
                                   } else if (finalState.status ==
                                       RegistrationStatus.error) {
                                     ScaffoldMessenger.of(context).showSnackBar(
@@ -467,134 +427,6 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
         _buildRateField('Weekly Pricing', _weeklyController),
         SizedBox(height: 12.h),
         _buildRateField('Monthly Pricing', _monthlyController),
-      ],
-    );
-  }
-
-  Widget _buildFollowDetailsSection() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Social Media Following (Optional)',
-          style: TextStyle(
-            fontFamily: 'Neue',
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFFF5F5F5),
-          ),
-        ),
-        SizedBox(height: 6.h),
-        Text(
-          'Add your social media stats to boost your profile visibility.',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 14.sp,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFFF5F5F5),
-          ),
-        ),
-        SizedBox(height: 16.h),
-        Text(
-          'Instagram',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFFF5F5F5),
-          ),
-        ),
-        SizedBox(height: 10.h),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFollowField('Followers', _instaFollowersController),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: _buildFollowField('Following', _instaFollowingController),
-            ),
-          ],
-        ),
-        SizedBox(height: 16.h),
-        Text(
-          'Facebook',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 15.sp,
-            fontWeight: FontWeight.w600,
-            color: const Color(0xFFF5F5F5),
-          ),
-        ),
-        SizedBox(height: 10.h),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFollowField(
-                'Followers',
-                _facebookFollowersController,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: _buildFollowField(
-                'Following',
-                _facebookFollowingController,
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFollowField(String label, TextEditingController controller) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 13.sp,
-            fontWeight: FontWeight.w500,
-            color: const Color(0xFFF5F5F5),
-          ),
-        ),
-        SizedBox(height: 8.h),
-        Container(
-          height: 48.h,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(24.r),
-          ),
-          alignment: Alignment.centerLeft,
-          padding: EdgeInsets.symmetric(horizontal: 16.w),
-          child: TextField(
-            controller: controller,
-            keyboardType: TextInputType.number,
-            textInputAction: TextInputAction.next,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFFF5F5F5),
-            ),
-            cursorColor: Colors.white,
-            decoration: InputDecoration(
-              border: InputBorder.none,
-              hintText: '0',
-              hintStyle: TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 14.sp,
-                fontWeight: FontWeight.w400,
-                color: Colors.white.withValues(alpha: 0.4),
-              ),
-              isCollapsed: true,
-            ),
-          ),
-        ),
       ],
     );
   }

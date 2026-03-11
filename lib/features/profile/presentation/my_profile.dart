@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:skillioo/features/profile/presentation/widgets/bio_tab.dart';
@@ -7,17 +8,19 @@ import 'package:skillioo/features/profile/presentation/widgets/posts_tab.dart';
 import 'package:skillioo/features/profile/presentation/widgets/shared_widgets.dart';
 
 import '../../../core/widgets/custom_text.dart';
+import '../../dashboard/application/dashboard_providers.dart';
+import '../../dashboard/application/states/profile_list_state.dart';
 
-class MyProfileScreen extends StatefulWidget {
+class MyProfileScreen extends ConsumerStatefulWidget {
   const MyProfileScreen({super.key, this.isOwnProfile = true});
 
   final bool isOwnProfile;
 
   @override
-  State<MyProfileScreen> createState() => _MyProfileScreenState();
+  ConsumerState<MyProfileScreen> createState() => _MyProfileScreenState();
 }
 
-class _MyProfileScreenState extends State<MyProfileScreen> {
+class _MyProfileScreenState extends ConsumerState<MyProfileScreen> {
   int _selectedTabIndex = 0;
 
   final DraggableScrollableController _sheetController =
@@ -25,6 +28,18 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final state = ref.watch(profileListNotifierProvider);
+    final ProfileItem? profile = state.profiles.isNotEmpty
+        ? state.profiles.first
+        : null;
+
+    if (profile == null) {
+      return const Scaffold(
+        backgroundColor: Color(0xFF050505),
+        body: Center(child: CircularProgressIndicator(color: Colors.white)),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFF050505),
       body: Stack(
@@ -202,9 +217,9 @@ class _MyProfileScreenState extends State<MyProfileScreen> {
                       IndexedStack(
                         index: _selectedTabIndex,
                         children: [
-                          const BioTab(),
-                          const PostsTab(),
-                          const CertificatesTab(),
+                          BioTab(profile: profile),
+                          PostsTab(profile: profile),
+                          CertificatesTab(profile: profile),
                         ],
                       ),
 

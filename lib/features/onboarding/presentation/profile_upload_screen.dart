@@ -260,6 +260,17 @@ class _ProfileUploadScreenState extends ConsumerState<ProfileUploadScreen> {
         GestureDetector(
           onTap: () {
             if (isUploading) return;
+            if (!hasSelected) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Please upload your profile photo to continue.',
+                  ),
+                  backgroundColor: Colors.red,
+                ),
+              );
+              return;
+            }
             final type = ref.read(talentTypeProvider);
             final nextRoute = type == TalentType.professional
                 ? '/professional-events'
@@ -281,7 +292,7 @@ class _ProfileUploadScreenState extends ConsumerState<ProfileUploadScreen> {
                 );
               },
               child: Text(
-                hasSelected ? 'Continue' : 'Skip',
+                'Continue',
                 style: TextStyle(
                   fontFamily: 'Outfit',
                   fontSize: 16.sp,

@@ -46,7 +46,7 @@ class StartScreen extends ConsumerWidget {
             children: [
               // Logo section with Hero animation
               Expanded(
-                flex: 2,
+                flex: 1,
                 child: Center(
                   child: Hero(
                     tag: 'logo',
@@ -61,13 +61,13 @@ class StartScreen extends ConsumerWidget {
 
               // Content cards section — animated carousel (same as dashboard)
               Expanded(
-                flex: 3,
+                flex: 2,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [CustomTrendingCarousel(talents: _welcomeTalents)],
                 ),
               ),
-
+              SizedBox(height: 40.h),
               // Welcome section
               Expanded(
                 flex: 2,

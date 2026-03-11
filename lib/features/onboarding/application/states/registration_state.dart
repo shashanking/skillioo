@@ -15,9 +15,9 @@ class RegistrationState with _$RegistrationState {
     @Default(DocumentUploadStatus.initial) DocumentUploadStatus videoStatus,
     @Default(DocumentUploadStatus.initial) DocumentUploadStatus imageStatus,
     @Default('') String profileDocumentId,
-    @Default('') String videoDocumentId,
-    @Default('') String imageDocumentId,
-    @Default('') String eventsDoneDocumentId,
+    @Default([]) List<String> videoDocumentIds,
+    @Default([]) List<String> imageDocumentIds,
+    @Default([]) List<String> eventsDoneDocumentIds,
     @Default('') String errorMessage,
   }) = _RegistrationState;
 }

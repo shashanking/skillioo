@@ -36,6 +36,9 @@ MessageResponse _$MessageResponseFromJson(Map<String, dynamic> json) =>
           ? null
           : MessageContent.fromJson(json['content'] as Map<String, dynamic>),
       status: json['status'] as String?,
+      readAt: json['readAt'] as String?,
+      isDeleted: json['isDeleted'] as bool?,
+      createdAt: json['createdAt'] as String?,
     );
 
 Map<String, dynamic> _$MessageResponseToJson(MessageResponse instance) =>
@@ -45,6 +48,9 @@ Map<String, dynamic> _$MessageResponseToJson(MessageResponse instance) =>
       'recipientId': instance.recipientId,
       'content': instance.content,
       'status': instance.status,
+      'readAt': instance.readAt,
+      'isDeleted': instance.isDeleted,
+      'createdAt': instance.createdAt,
     };
 
 ConversationResponse _$ConversationResponseFromJson(

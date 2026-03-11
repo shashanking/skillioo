@@ -5,6 +5,7 @@ import 'package:skillioo/features/dashboard/presentation/landing_view.dart';
 import '../../core/widgets/loader_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/auth/presentation/phone_number_screen.dart';
+import '../../features/auth/presentation/enter_pin_screen.dart';
 import '../../features/auth/presentation/pin_setup_screen.dart';
 import '../../features/auth/presentation/verification_success_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
@@ -26,6 +27,7 @@ import '../../features/onboarding/presentation/talent_category_screen.dart';
 import '../../features/onboarding/presentation/talent_subcategory_screen.dart';
 import '../../features/onboarding/presentation/talent_type_selection_screen.dart';
 import '../../features/onboarding/presentation/upload_videos_screen.dart';
+import '../../features/posts/presentation/create_post_screen.dart';
 import '../widgets/menu_screens/about_us_screen.dart';
 import '../widgets/menu_screens/terms_and_conditions_screen.dart';
 import '../widgets/menu_screens/help_and_support_screen.dart';
@@ -158,6 +160,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/phone',
       builder: (context, state) => const PhoneNumberScreen(),
+    ),
+    GoRoute(
+      path: '/enter-pin',
+      builder: (context, state) => const EnterPinScreen(),
     ),
     GoRoute(path: '/otp', builder: (context, state) => const OtpScreen()),
     GoRoute(
@@ -395,8 +401,26 @@ final appRouter = GoRouter(
           key: state.pageKey,
           child: const VerificationSuccessScreen(
             title: 'Files Uploaded Successfully!',
-            subtitle: 'Directing to Bio',
-            nextRoute: '/skilled-bio',
+            subtitle: 'Directing to Social Media Links',
+            nextRoute: '/skilled-social-links',
+          ),
+          transitionDuration: const Duration(milliseconds: 800),
+          reverseTransitionDuration: const Duration(milliseconds: 800),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        );
+      },
+    ),
+    GoRoute(
+      path: '/skilled-social-links',
+      pageBuilder: (context, state) {
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const SocialLinksScreen(
+            backFallbackRoute: '/skilled-documents-success',
+            skipNextRoute: '/options',
+            continueNextRoute: '/skilled-bio',
           ),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),
@@ -453,9 +477,14 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) {
         final tabStr = state.uri.queryParameters['tab'];
         final initialTab = int.tryParse(tabStr ?? '') ?? 0;
+        final initialRecipientId =
+            state.uri.queryParameters['recipientId'] ?? '';
         return CustomTransitionPage<void>(
-          key: state.pageKey,
-          child: Landing(initialTab: initialTab),
+          key: ValueKey('landing-${state.uri.queryParameters}'),
+          child: Landing(
+            initialTab: initialTab,
+            initialRecipientId: initialRecipientId,
+          ),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -623,12 +652,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) {
         return CustomTransitionPage<void>(
           key: state.pageKey,
-          child: const UploadVideosScreen(
-            backFallbackRoute: '/landing',
-            skipNextRoute: '/landing',
-            uploadSuccessRoute: '/landing',
-            showStepIndicator: false,
-          ),
+          child: const CreatePostScreen(backFallbackRoute: '/landing'),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -722,7 +746,7 @@ final appRouter = GoRouter(
       pageBuilder: (context, state) {
         return CustomTransitionPage<void>(
           key: state.pageKey,
-          child: const CommentsScreen(),
+          child: CommentsScreen(targetId: state.extra as String? ?? ''),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {

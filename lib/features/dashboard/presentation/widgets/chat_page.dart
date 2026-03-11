@@ -1,32 +1,43 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../constants/app_constants.dart';
+import '../../../../core/services/session_prefs.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
+import '../../../../core/widgets/online_indicator.dart';
+import '../../application/dashboard_providers.dart';
+import '../../application/states/profile_list_state.dart';
+import '../../../chat/application/chat_providers.dart';
+import '../../../chat/application/states/chat_state.dart';
 
-// ─── View states for the chat page ───
-enum ChatViewState { messages, search, searchResults, chat }
-
-class ChatPage extends StatefulWidget {
+class ChatPage extends ConsumerStatefulWidget {
   final Function(bool)? onChatStateChanged;
+  final String initialRecipientId;
 
-  const ChatPage({super.key, this.onChatStateChanged});
+  const ChatPage({
+    super.key,
+    this.onChatStateChanged,
+    this.initialRecipientId = '',
+  });
 
   @override
-  State<ChatPage> createState() => _ChatPageState();
+  ConsumerState<ChatPage> createState() => _ChatPageState();
 }
 
-class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
-  ChatViewState _viewState = ChatViewState.messages;
-  int _selectedChatIndex = -1;
+class _ChatPageState extends ConsumerState<ChatPage>
+    with TickerProviderStateMixin {
+  String _currentUserId = '';
   bool _isFullScreenChat = false;
   String _selectedSkill = '';
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
+  bool _didOpenInitialRecipient = false;
 
   // Animated text flip for chat header
   static const List<String> _roleWords = [
@@ -127,78 +138,6 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
     ),
   ];
 
-  final List<ChatConversation> _conversations = [
-    ChatConversation(
-      id: '1',
-      name: 'Lisa Dancer',
-      role: 'Hip-Hop Dancer',
-      avatar: AppAssets.professionalProfileJpg,
-      lastMessage: AppStrings.nowTalking,
-      timestamp: '',
-      unreadCount: 0,
-      isOnline: true,
-      isNowTalking: true,
-    ),
-    ChatConversation(
-      id: '2',
-      name: 'Sam Dances',
-      role: 'Classical Dancer',
-      avatar: AppAssets.skilledProfileJpg,
-      lastMessage: '',
-      timestamp: '',
-      unreadCount: 0,
-      isOnline: true,
-    ),
-    ChatConversation(
-      id: '3',
-      name: 'Perfect Dance',
-      role: 'Classical Dancer',
-      avatar: AppAssets.profileImg1,
-      lastMessage: '',
-      timestamp: '',
-      unreadCount: 0,
-      isOnline: false,
-    ),
-    ChatConversation(
-      id: '4',
-      name: 'Sam Dances',
-      role: 'Classical Dancer',
-      avatar: AppAssets.professionalProfileJpg,
-      lastMessage: '',
-      timestamp: '',
-      unreadCount: 0,
-      isOnline: true,
-    ),
-    ChatConversation(
-      id: '5',
-      name: 'Perfect Dance',
-      role: 'Classical Dancer',
-      avatar: AppAssets.skilledProfileJpg,
-      lastMessage: '',
-      timestamp: '',
-      unreadCount: 0,
-      isOnline: true,
-    ),
-  ];
-
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text: 'Hello, How are you?',
-      isOwn: false,
-      timestamp: '12:00 PM',
-    ),
-    ChatMessage(
-      text: "I'm fine thank you for asking",
-      isOwn: true,
-      timestamp: '12:00 PM',
-    ),
-    ChatMessage(
-      text: 'Lets start discussion',
-      isOwn: false,
-      timestamp: '12:00 PM',
-    ),
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -211,6 +150,36 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       curve: Curves.easeInOut,
     );
     _startRoleFlip();
+
+    // Load current user ID and fetch conversations
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      _currentUserId = await SessionPrefs.instance.getProfileId();
+
+      final notifier = ref.read(chatNotifierProvider.notifier);
+      await notifier.fetchConversations(refresh: true);
+
+      // Open chat with initial recipient if provided
+      if (widget.initialRecipientId.isNotEmpty && !_didOpenInitialRecipient) {
+        _didOpenInitialRecipient = true;
+        await notifier.openChatWithRecipient(widget.initialRecipientId);
+        widget.onChatStateChanged?.call(true);
+      }
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant ChatPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.initialRecipientId != oldWidget.initialRecipientId &&
+        widget.initialRecipientId.isNotEmpty) {
+      _didOpenInitialRecipient = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        final notifier = ref.read(chatNotifierProvider.notifier);
+        await notifier.fetchConversations(refresh: true);
+        await notifier.openChatWithRecipient(widget.initialRecipientId);
+        widget.onChatStateChanged?.call(true);
+      });
+    }
   }
 
   void _startRoleFlip() {
@@ -260,6 +229,109 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         .toList();
   }
 
+  List<ChatConversation> _mapConversations(ChatState chatState) {
+    final profileState = ref.watch(profileListNotifierProvider);
+    final activeRecipientId = chatState.activeRecipientId;
+    return chatState.conversations.map((c) {
+      final participantId = c.participantId ?? '';
+      final profile = _findProfileById(profileState.profiles, participantId);
+      return ChatConversation(
+        conversationId: c.conversationId ?? '',
+        participantId: participantId,
+        name:
+            profile?.displayName ??
+            (participantId.isNotEmpty ? participantId : 'User'),
+        role: profile?.proficiency ?? '',
+        avatar: profile?.profilePhotoUrl ?? AppAssets.professionalProfileJpg,
+        lastMessage: c.latestMessage?.content?.text ?? '',
+        timestamp: '',
+        unreadCount: 0,
+        isOnline: true,
+        isNowTalking:
+            chatState.viewMode == ChatViewMode.chat &&
+            participantId == activeRecipientId,
+      );
+    }).toList();
+  }
+
+  ProfileItem? _findProfileById(List<ProfileItem> profiles, String profileId) {
+    for (final profile in profiles) {
+      if (profile.id == profileId) {
+        return profile;
+      }
+    }
+    return null;
+  }
+
+  String _displayNameForRecipient(String recipientId) {
+    if (recipientId.isEmpty) {
+      return 'User';
+    }
+    final profiles = ref.read(profileListNotifierProvider).profiles;
+    return _findProfileById(profiles, recipientId)?.displayName ?? recipientId;
+  }
+
+  ChatConversation? _activeConversationForState(
+    ChatState chatState,
+    List<ChatConversation> conversations,
+  ) {
+    final activeRecipientId = chatState.activeRecipientId;
+    if (activeRecipientId.isEmpty) {
+      return null;
+    }
+
+    for (final conversation in conversations) {
+      if (conversation.participantId == activeRecipientId) {
+        return conversation;
+      }
+    }
+    return null;
+  }
+
+  String _avatarForRecipient(String recipientId) {
+    if (recipientId.isEmpty) {
+      return AppAssets.professionalProfileJpg;
+    }
+
+    final profiles = ref.read(profileListNotifierProvider).profiles;
+    final profile = _findProfileById(profiles, recipientId);
+    return profile?.profilePhotoUrl ?? AppAssets.professionalProfileJpg;
+  }
+
+  String _formatMessageTime(String? rawTimestamp) {
+    if (rawTimestamp == null || rawTimestamp.trim().isEmpty) {
+      return '';
+    }
+
+    final parsed = DateTime.tryParse(rawTimestamp)?.toLocal();
+    if (parsed == null) {
+      return rawTimestamp;
+    }
+
+    final hour = parsed.hour % 12 == 0 ? 12 : parsed.hour % 12;
+    final minute = parsed.minute.toString().padLeft(2, '0');
+    final period = parsed.hour >= 12 ? 'PM' : 'AM';
+    return '$hour:$minute $period';
+  }
+
+  void _exitChatDetail() {
+    ref.read(chatNotifierProvider.notifier).exitChat();
+    setState(() {
+      _isFullScreenChat = false;
+    });
+    widget.onChatStateChanged?.call(false);
+    if (widget.initialRecipientId.isNotEmpty) {
+      context.go('/landing');
+    }
+  }
+
+  ImageProvider _avatarImage(String avatarPath) {
+    if (avatarPath.startsWith('http://') || avatarPath.startsWith('https://')) {
+      return NetworkImage(avatarPath);
+    }
+    return AssetImage(avatarPath);
+  }
+
   Map<String, List<CreatorProfile>> get _creatorsGrouped {
     final creators = _filteredCreators;
     final grouped = <String, List<CreatorProfile>>{};
@@ -274,6 +346,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final chatState = ref.watch(chatNotifierProvider);
+    final viewMode = chatState.viewMode;
+
     return CommonBackground(
       child: SafeArea(
         child: AnimatedSwitcher(
@@ -281,23 +356,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           transitionBuilder: (child, animation) =>
               FadeTransition(opacity: animation, child: child),
           child: KeyedSubtree(
-            key: ValueKey(_viewState),
-            child: _buildCurrentView(),
+            key: ValueKey(viewMode),
+            child: _buildCurrentView(viewMode),
           ),
         ),
       ),
     );
   }
 
-  Widget _buildCurrentView() {
-    switch (_viewState) {
-      case ChatViewState.messages:
+  Widget _buildCurrentView(ChatViewMode viewMode) {
+    switch (viewMode) {
+      case ChatViewMode.messages:
         return _buildMessagesScreen();
-      case ChatViewState.search:
+      case ChatViewMode.search:
         return _buildSearchScreen();
-      case ChatViewState.searchResults:
+      case ChatViewMode.searchResults:
         return _buildSearchResultsScreen();
-      case ChatViewState.chat:
+      case ChatViewMode.chat:
         return _buildChatScreen();
     }
   }
@@ -328,10 +403,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
               // Search Bar (tappable, navigates to search)
               GestureDetector(
                 onTap: () {
-                  setState(() {
-                    _viewState = ChatViewState.search;
-                    _searchController.clear();
-                  });
+                  ref
+                      .read(chatNotifierProvider.notifier)
+                      .setViewMode(ChatViewMode.search);
+                  _searchController.clear();
                   WidgetsBinding.instance.addPostFrameCallback((_) {
                     _searchFocusNode.requestFocus();
                   });
@@ -377,30 +452,78 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
         ),
         // Conversation List
-        Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-            itemCount: _conversations.length,
-            itemBuilder: (context, index) {
-              return _buildConversationTile(index);
-            },
-          ),
-        ),
+        Expanded(child: _buildConversationList()),
       ],
     );
   }
 
-  Widget _buildConversationTile(int index) {
-    final chat = _conversations[index];
+  Widget _buildConversationList() {
+    final chatState = ref.watch(chatNotifierProvider);
+    final apiConversations = chatState.conversations;
+    final isLoading = chatState.conversationsStatus == ChatStatus.loading;
+
+    // Show loading indicator
+    if (isLoading && apiConversations.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    // Show empty state if no conversations
+    if (apiConversations.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.chat_bubble_outline,
+              size: 64.w,
+              color: AppColors.foundationBlack80,
+            ),
+            SizedBox(height: 16.h),
+            CustomText(
+              'No conversations yet',
+              fontSize: 18.sp,
+              fontWeight: FontWeight.w600,
+              color: AppColors.foundationBlack80,
+            ),
+            SizedBox(height: 8.h),
+            CustomText(
+              'Start a conversation by searching for creators',
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w400,
+              color: AppColors.foundationBlack80,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Build conversation list from API data
+    final displayConversations = _mapConversations(chatState);
+
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      itemCount: displayConversations.length,
+      itemBuilder: (context, index) {
+        return _buildConversationTile(index, displayConversations);
+      },
+    );
+  }
+
+  Widget _buildConversationTile(
+    int index,
+    List<ChatConversation> conversations,
+  ) {
+    final chat = conversations[index];
     final isFirst = index == 0;
-    final isLast = index == _conversations.length - 1;
+    final isLast = index == conversations.length - 1;
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _selectedChatIndex = index;
-          _viewState = ChatViewState.chat;
-        });
+        // Use notifier to select conversation
+        ref.read(chatNotifierProvider.notifier).selectConversation(index);
         widget.onChatStateChanged?.call(true);
       },
       child: Container(
@@ -423,7 +546,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
-                      image: AssetImage(chat.avatar),
+                      image: _avatarImage(chat.avatar),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -431,15 +554,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 Positioned(
                   top: 0,
                   right: 0,
-                  child: Container(
-                    width: 12.w,
-                    height: 12.w,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: chat.isOnline
-                          ? AppColors.foundationGreenNormal
-                          : AppColors.foundationErrorDark,
-                    ),
+                  child: OnlineIndicator(
+                    userId: chat.participantId,
+                    size: 12,
+                    onlineColor: AppColors.foundationGreenNormal,
+                    offlineColor: AppColors.foundationErrorDark,
                   ),
                 ),
               ],
@@ -502,10 +621,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   SizedBox(width: 12.w),
                   GestureDetector(
                     onTap: () {
-                      setState(() {
-                        _selectedChatIndex = index;
-                        _viewState = ChatViewState.chat;
-                      });
+                      ref
+                          .read(chatNotifierProvider.notifier)
+                          .selectConversation(index);
                       widget.onChatStateChanged?.call(true);
                     },
                     child: Container(
@@ -557,10 +675,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 children: [
                   GestureDetector(
                     onTap: () {
-                      setState(() {
-                        _viewState = ChatViewState.messages;
-                        _searchController.clear();
-                      });
+                      ref
+                          .read(chatNotifierProvider.notifier)
+                          .setViewMode(ChatViewMode.messages);
+                      _searchController.clear();
                     },
                     child: Container(
                       width: 48.w,
@@ -690,8 +808,10 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 onTap: () {
                   setState(() {
                     _selectedSkill = entry.value;
-                    _viewState = ChatViewState.searchResults;
                   });
+                  ref
+                      .read(chatNotifierProvider.notifier)
+                      .setViewMode(ChatViewMode.searchResults);
                 },
                 child: Container(
                   width: double.infinity,
@@ -743,9 +863,9 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             children: [
               GestureDetector(
                 onTap: () {
-                  setState(() {
-                    _viewState = ChatViewState.search;
-                  });
+                  ref
+                      .read(chatNotifierProvider.notifier)
+                      .setViewMode(ChatViewMode.search);
                 },
                 child: Container(
                   width: 48.w,
@@ -998,6 +1118,18 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildChatHeader() {
+    final chatState = ref.watch(chatNotifierProvider);
+    final displayConversations = _mapConversations(chatState);
+    final activeRecipientId = chatState.activeRecipientId;
+    final activeConversation = _activeConversationForState(
+      chatState,
+      displayConversations,
+    );
+    final headerAvatar =
+        activeConversation?.avatar ?? _avatarForRecipient(activeRecipientId);
+    final headerName =
+        activeConversation?.name ?? _displayNameForRecipient(activeRecipientId);
+
     return Container(
       padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
       decoration: BoxDecoration(color: Colors.white12),
@@ -1005,14 +1137,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         children: [
           // Back button
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedChatIndex = -1;
-                _isFullScreenChat = false;
-                _viewState = ChatViewState.messages;
-              });
-              widget.onChatStateChanged?.call(false);
-            },
+            onTap: _exitChatDetail,
             child: Container(
               width: 48.w,
               height: 48.w,
@@ -1031,7 +1156,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               image: DecorationImage(
-                image: AssetImage(_conversations[_selectedChatIndex].avatar),
+                image: _avatarImage(headerAvatar),
                 fit: BoxFit.cover,
               ),
             ),
@@ -1039,46 +1164,40 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           SizedBox(width: 16.w),
           // "Chat With" + animated role text
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
+            child: Row(
               children: [
-                Row(
-                  children: [
-                    ShaderMask(
-                      shaderCallback: (bounds) => const LinearGradient(
-                        colors: [AppColors.accentPink, AppColors.accentCyan],
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                      ).createShader(bounds),
-                      child: CustomText(
-                        AppStrings.chatWith,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Neue',
-                        color: Colors.white,
+                ShaderMask(
+                  shaderCallback: (bounds) => const LinearGradient(
+                    colors: [AppColors.accentPink, AppColors.accentCyan],
+                    begin: Alignment.topRight,
+                    end: Alignment.bottomLeft,
+                  ).createShader(bounds),
+                  child: CustomText(
+                    AppStrings.chatWith,
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Neue',
+                    color: Colors.white,
+                  ),
+                ),
+                SizedBox(width: 4.w),
+                AnimatedBuilder(
+                  animation: _flipAnimation,
+                  builder: (context, child) {
+                    return Opacity(
+                      opacity: 1.0 - _flipAnimation.value,
+                      child: Transform.translate(
+                        offset: Offset(0, _flipAnimation.value * -12),
+                        child: CustomText(
+                          _roleWords[_currentRoleIndex],
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                          fontFamily: 'Neue',
+                          color: AppColors.foundationBlack20,
+                        ),
                       ),
-                    ),
-                    SizedBox(width: 4.w),
-                    AnimatedBuilder(
-                      animation: _flipAnimation,
-                      builder: (context, child) {
-                        return Opacity(
-                          opacity: 1.0 - _flipAnimation.value,
-                          child: Transform.translate(
-                            offset: Offset(0, _flipAnimation.value * -12),
-                            child: CustomText(
-                              _roleWords[_currentRoleIndex],
-                              fontSize: 18.sp,
-                              fontWeight: FontWeight.w700,
-                              fontFamily: 'Neue',
-                              color: AppColors.foundationBlack20,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ],
             ),
@@ -1120,9 +1239,23 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildNowTalkingCard() {
-    final talkingChat = _conversations.where((c) => c.isNowTalking).toList();
-    if (talkingChat.isEmpty) return const SizedBox.shrink();
-    final chat = talkingChat.first;
+    final chatState = ref.watch(chatNotifierProvider);
+    final displayConversations = _mapConversations(chatState);
+    final chat = _activeConversationForState(chatState, displayConversations);
+
+    // Get recipient info - either from existing conversation or from activeRecipientId
+    final activeRecipientId = chatState.activeRecipientId;
+    if (chat == null && activeRecipientId.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    // Use chat data if available, otherwise build from activeRecipientId
+    final displayName =
+        chat?.name ?? _displayNameForRecipient(activeRecipientId);
+    final displayAvatar =
+        chat?.avatar ?? _avatarForRecipient(activeRecipientId);
+    final displayRole = chat?.role ?? '';
+    final participantId = chat?.participantId ?? activeRecipientId;
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
       decoration: BoxDecoration(
@@ -1150,7 +1283,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
-                      image: AssetImage(chat.avatar),
+                      image: _avatarImage(displayAvatar),
                       fit: BoxFit.cover,
                     ),
                   ),
@@ -1158,15 +1291,11 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 Positioned(
                   top: 0,
                   right: 0,
-                  child: Container(
-                    width: 12.w,
-                    height: 12.w,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: chat.isOnline
-                          ? AppColors.foundationGreenNormal
-                          : AppColors.foundationErrorDark,
-                    ),
+                  child: OnlineIndicator(
+                    userId: participantId,
+                    size: 12,
+                    onlineColor: AppColors.foundationGreenNormal,
+                    offlineColor: AppColors.foundationErrorDark,
                   ),
                 ),
               ],
@@ -1177,19 +1306,20 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CustomText(
-                    chat.name,
+                    displayName,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w700,
                     fontFamily: 'Neue',
                     color: AppColors.foundationBlack20,
                   ),
                   SizedBox(height: 4.h),
-                  CustomText(
-                    chat.role,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.foundationBlack20,
-                  ),
+                  if (displayRole.isNotEmpty)
+                    CustomText(
+                      displayRole,
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w400,
+                      color: AppColors.foundationBlack20,
+                    ),
                 ],
               ),
             ),
@@ -1206,29 +1336,91 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
   }
 
   Widget _buildAvailableHirersList() {
+    final chatState = ref.watch(chatNotifierProvider);
+    final displayConversations = _mapConversations(chatState);
+
+    // Check if we need to show the new recipient card that isn't in conversations yet
+    final activeRecipientId = chatState.activeRecipientId;
+    final hasActiveRecipient = activeRecipientId.isNotEmpty;
+    final activeChatInList = displayConversations.any(
+      (c) => c.participantId == activeRecipientId,
+    );
+
+    // If no conversations and no active recipient, show empty
+    if (displayConversations.isEmpty &&
+        (!hasActiveRecipient || activeChatInList)) {
+      return const SizedBox.shrink();
+    }
+
+    // We either have conversations, or a new active recipient, or both
+    int itemCount = displayConversations.length;
+    if (hasActiveRecipient &&
+        !activeChatInList &&
+        chatState.viewMode == ChatViewMode.chat) {
+      itemCount += 1; // Add one for the new recipient
+    }
+
+    if (itemCount == 0) return const SizedBox.shrink();
+
     return Container(
-      height: 260.h,
+      height: 0.27.sh,
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(24.r)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24.r),
         child: ListView.builder(
           padding: EdgeInsets.zero,
-          itemCount: _conversations.length,
-          itemBuilder: (context, index) => _buildHirerTile(index),
+          itemCount: itemCount,
+          itemBuilder: (context, index) {
+            // Handle the new recipient case (we put it at the top)
+            if (hasActiveRecipient &&
+                !activeChatInList &&
+                chatState.viewMode == ChatViewMode.chat) {
+              if (index == 0) {
+                // Build a temporary ChatConversation for the new recipient
+                final profileState = ref.read(profileListNotifierProvider);
+                final profile = _findProfileById(
+                  profileState.profiles,
+                  activeRecipientId,
+                );
+
+                final newChat = ChatConversation(
+                  conversationId: '',
+                  participantId: activeRecipientId,
+                  name: profile?.displayName ?? 'User',
+                  role: profile?.proficiency ?? '',
+                  avatar:
+                      profile?.profilePhotoUrl ??
+                      AppAssets.professionalProfileJpg,
+                  lastMessage: '',
+                  timestamp: '',
+                  unreadCount: 0,
+                  isOnline: true,
+                  isNowTalking: true,
+                );
+
+                // We pass a single item list to _buildHirerTile since it just needs the index and list to determine isFirst/isLast
+                return _buildHirerTile(0, [newChat]);
+              }
+              // For other items, offset the index
+              return _buildHirerTile(index - 1, displayConversations);
+            }
+
+            // Normal case
+            return _buildHirerTile(index, displayConversations);
+          },
         ),
       ),
     );
   }
 
-  Widget _buildHirerTile(int index) {
-    final chat = _conversations[index];
+  Widget _buildHirerTile(int index, List<ChatConversation> conversations) {
+    final chat = conversations[index];
     final isFirst = index == 0;
-    final isLast = index == _conversations.length - 1;
+    final isLast = index == conversations.length - 1;
 
-    return Container(
+    Widget child = Container(
       padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: Colors.white12,
         borderRadius: BorderRadius.vertical(
           top: isFirst ? Radius.circular(24.r) : Radius.zero,
           bottom: isLast ? Radius.circular(24.r) : Radius.zero,
@@ -1245,7 +1437,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   image: DecorationImage(
-                    image: AssetImage(chat.avatar),
+                    image: _avatarImage(chat.avatar),
                     fit: BoxFit.cover,
                   ),
                 ),
@@ -1300,41 +1492,56 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Container(
-                  width: 44.w,
-                  height: 44.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white12,
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      AppAssets.callSvg,
-                      width: 24.w,
-                      height: 24.w,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
+                GestureDetector(
+                  onTap: () {
+                    ref
+                        .read(chatNotifierProvider.notifier)
+                        .initiateCall(chat.participantId);
+                  },
+                  child: Container(
+                    width: 44.w,
+                    height: 44.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white12,
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        AppAssets.callSvg,
+                        width: 24.w,
+                        height: 24.w,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),
                 ),
                 SizedBox(width: 12.w),
-                Container(
-                  width: 44.w,
-                  height: 44.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white12,
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      AppAssets.messageSvg,
-                      width: 24.w,
-                      height: 24.w,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
+                GestureDetector(
+                  onTap: () {
+                    ref
+                        .read(chatNotifierProvider.notifier)
+                        .selectConversation(index);
+                    widget.onChatStateChanged?.call(true);
+                  },
+                  child: Container(
+                    width: 44.w,
+                    height: 44.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white12,
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        AppAssets.messageSvg,
+                        width: 24.w,
+                        height: 24.w,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),
@@ -1344,9 +1551,60 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
         ],
       ),
     );
+
+    if (chat.isNowTalking) {
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(24.r),
+            bottom: Radius.circular(24.r),
+          ),
+          gradient: const LinearGradient(
+            colors: [AppColors.accentCyan, AppColors.accentPink],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+        ),
+        padding: EdgeInsets.all(1.w), // Border width
+        child: Container(
+          decoration: BoxDecoration(
+            // color: const Color(
+            //   0xFF1E1E2A,
+            // ), // Match the background color to create the border effect
+            borderRadius: BorderRadius.vertical(
+              top: Radius.circular(23.r),
+              bottom: Radius.circular(23.r),
+            ),
+          ),
+          child: child,
+        ),
+      );
+    }
+
+    return child;
   }
 
   Widget _buildChatMessagesContainer({double? height}) {
+    final chatState = ref.watch(chatNotifierProvider);
+    final apiMessages = [...chatState.messages]
+      ..sort((a, b) {
+        final aTime =
+            DateTime.tryParse(a.createdAt ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final bTime =
+            DateTime.tryParse(b.createdAt ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        return aTime.compareTo(bTime);
+      });
+
+    final displayMessages = apiMessages.map((m) {
+      return ChatMessage(
+        text: m.content?.text ?? '',
+        isOwn: m.senderId == _currentUserId,
+        timestamp: _formatMessageTime(m.createdAt),
+      );
+    }).toList();
+
     final content = Container(
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24.r),
@@ -1354,18 +1612,25 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24.r),
-        child: ListView(
+        child: ListView.builder(
+          reverse: true, // Reverse the list to keep it at the bottom
           shrinkWrap: height != null,
           physics: height != null
               ? const NeverScrollableScrollPhysics()
               : const AlwaysScrollableScrollPhysics(),
           padding: EdgeInsets.all(24.w),
-          children: [
-            for (int i = 0; i < _messages.length; i++) ...[
-              _buildMessageBubble(_messages[i]),
-              if (i < _messages.length - 1) SizedBox(height: 24.h),
-            ],
-          ],
+          itemCount: displayMessages.length,
+          itemBuilder: (context, index) {
+            // Since it's reversed, index 0 is the last item in the list
+            final reversedIndex = displayMessages.length - 1 - index;
+            return Padding(
+              padding: EdgeInsets.only(
+                // Add bottom padding to all items except the visually bottom one (which is index 0 in reversed list)
+                bottom: index == 0 ? 0 : 24.h,
+              ),
+              child: _buildMessageBubble(displayMessages[reversedIndex]),
+            );
+          },
         ),
       ),
     );
@@ -1492,18 +1757,26 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
                     ),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      if (_messageController.text.trim().isNotEmpty) {
-                        setState(() {
-                          _messages.add(
-                            ChatMessage(
-                              text: _messageController.text.trim(),
-                              isOwn: true,
-                              timestamp: '12:00 PM',
-                            ),
+                    onTap: () async {
+                      final text = _messageController.text.trim();
+                      final activeRecipient = ref
+                          .read(chatNotifierProvider)
+                          .activeRecipientId;
+
+                      if (text.isEmpty || activeRecipient.isEmpty) {
+                        return;
+                      }
+
+                      _messageController.clear();
+                      final success = await ref
+                          .read(chatNotifierProvider.notifier)
+                          .sendMessage(
+                            recipientId: activeRecipient,
+                            text: text,
                           );
-                          _messageController.clear();
-                        });
+
+                      if (!success && mounted) {
+                        _messageController.text = text;
                       }
                     },
                     child: Container(
@@ -1527,14 +1800,7 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
           ),
           SizedBox(width: 16.w),
           GestureDetector(
-            onTap: () {
-              setState(() {
-                _selectedChatIndex = -1;
-                _isFullScreenChat = false;
-                _viewState = ChatViewState.messages;
-              });
-              widget.onChatStateChanged?.call(false);
-            },
+            onTap: _exitChatDetail,
             child: Container(
               height: 56.h,
               padding: EdgeInsets.symmetric(horizontal: 12.w),
@@ -1561,7 +1827,8 @@ class _ChatPageState extends State<ChatPage> with TickerProviderStateMixin {
 // ─── Data Models ───
 
 class ChatConversation {
-  final String id;
+  final String conversationId;
+  final String participantId;
   final String name;
   final String role;
   final String avatar;
@@ -1572,7 +1839,8 @@ class ChatConversation {
   final bool isNowTalking;
 
   ChatConversation({
-    required this.id,
+    required this.conversationId,
+    required this.participantId,
     required this.name,
     required this.role,
     required this.avatar,

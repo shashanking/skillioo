@@ -1,25 +1,27 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../constants/app_constants.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
+import '../../../chat/application/chat_providers.dart';
 
 enum CallViewState { callLog, incomingCall, activeCall, callEnded }
 
 enum CallType { missed, outgoing, incoming }
 
-class CallPage extends StatefulWidget {
+class CallPage extends ConsumerStatefulWidget {
   final Function(bool)? onCallStateChanged;
 
   const CallPage({super.key, this.onCallStateChanged});
 
   @override
-  State<CallPage> createState() => _CallPageState();
+  ConsumerState<CallPage> createState() => _CallPageState();
 }
 
-class _CallPageState extends State<CallPage> {
+class _CallPageState extends ConsumerState<CallPage> {
   CallViewState _viewState = CallViewState.callLog;
   bool _isRecording = false;
   bool _isMuted = false;
@@ -34,60 +36,8 @@ class _CallPageState extends State<CallPage> {
     avatar: AppAssets.professionalProfileJpg,
   );
 
-  final Map<String, List<CallLog>> _groupedCallLogs = {
-    AppStrings.today: [
-      CallLog(
-        id: '1',
-        name: 'Lisa Dancer',
-        avatar: AppAssets.professionalProfileJpg,
-        time: '09:00 AM',
-        duration: '',
-        callType: CallType.missed,
-      ),
-      CallLog(
-        id: '2',
-        name: 'Samsing',
-        avatar: AppAssets.skilledProfileJpg,
-        time: '09:00 AM',
-        duration: '1min 25secs',
-        callType: CallType.outgoing,
-      ),
-      CallLog(
-        id: '3',
-        name: 'Samsing',
-        avatar: AppAssets.profileImg1,
-        time: '09:00 AM',
-        duration: '1hr 20mins',
-        callType: CallType.incoming,
-      ),
-    ],
-    AppStrings.yesterday: [
-      CallLog(
-        id: '4',
-        name: 'Lisa Dancer',
-        avatar: AppAssets.professionalProfileJpg,
-        time: '09:00 AM',
-        duration: '',
-        callType: CallType.missed,
-      ),
-      CallLog(
-        id: '5',
-        name: 'Samsing',
-        avatar: AppAssets.skilledProfileJpg,
-        time: '09:00 AM',
-        duration: '12s',
-        callType: CallType.outgoing,
-      ),
-      CallLog(
-        id: '6',
-        name: 'Samsing',
-        avatar: AppAssets.profileImg1,
-        time: '09:00 AM',
-        duration: '12s',
-        callType: CallType.incoming,
-      ),
-    ],
-  };
+  // Empty call logs - will show empty state
+  final Map<String, List<CallLog>> _groupedCallLogs = {};
 
   @override
   void dispose() {
@@ -187,16 +137,47 @@ class _CallPageState extends State<CallPage> {
             ],
           ),
         ),
-        // Call log groups
+        // Call log groups or empty state
         Expanded(
-          child: ListView.builder(
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
-            itemCount: groups.length,
-            itemBuilder: (context, groupIndex) {
-              final group = groups[groupIndex];
-              return _buildCallGroup(group.key, group.value);
-            },
-          ),
+          child: groups.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.call_outlined,
+                        size: 64.w,
+                        color: AppColors.foundationBlack80,
+                      ),
+                      SizedBox(height: 16.h),
+                      CustomText(
+                        'No call history',
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.foundationBlack80,
+                      ),
+                      SizedBox(height: 8.h),
+                      CustomText(
+                        'Your call history will appear here',
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w400,
+                        color: AppColors.foundationBlack80,
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 16.h,
+                  ),
+                  itemCount: groups.length,
+                  itemBuilder: (context, groupIndex) {
+                    final group = groups[groupIndex];
+                    return _buildCallGroup(group.key, group.value);
+                  },
+                ),
         ),
       ],
     );
@@ -429,6 +410,13 @@ class _CallPageState extends State<CallPage> {
                 iconColor: AppColors.foundationGreenLight,
                 size: 72,
                 onTap: () {
+                  // Accept call via API
+                  final activeCall = ref.read(chatNotifierProvider).activeCall;
+                  if (activeCall?.id != null) {
+                    ref
+                        .read(chatNotifierProvider.notifier)
+                        .acceptCall(activeCall!.id!);
+                  }
                   setState(() {
                     _viewState = CallViewState.activeCall;
                     _isRecording = false;
@@ -445,6 +433,13 @@ class _CallPageState extends State<CallPage> {
                 iconColor: AppColors.foundationBlack20,
                 size: 72,
                 onTap: () {
+                  // Reject call via API
+                  final activeCall = ref.read(chatNotifierProvider).activeCall;
+                  if (activeCall?.id != null) {
+                    ref
+                        .read(chatNotifierProvider.notifier)
+                        .rejectCall(activeCall!.id!);
+                  }
                   setState(() {
                     _viewState = CallViewState.callLog;
                   });
@@ -575,6 +570,13 @@ class _CallPageState extends State<CallPage> {
                 iconColor: AppColors.foundationBlack20,
                 size: 72,
                 onTap: () {
+                  // End call via API
+                  final activeCall = ref.read(chatNotifierProvider).activeCall;
+                  if (activeCall?.id != null) {
+                    ref
+                        .read(chatNotifierProvider.notifier)
+                        .endCall(activeCall!.id!);
+                  }
                   _stopCallTimer();
                   setState(() {
                     _viewState = CallViewState.callEnded;

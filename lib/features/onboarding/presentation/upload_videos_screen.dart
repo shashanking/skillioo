@@ -6,13 +6,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:video_player/video_player.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
 import '../application/registration_providers.dart';
+import '../application/states/registration_state.dart';
+import '../application/talent_type_provider.dart';
 
-enum _UploadStepState { notes, preview, list }
+enum _UploadStepState { notes, list }
 
 class UploadVideosScreen extends ConsumerStatefulWidget {
   const UploadVideosScreen({
@@ -34,26 +35,50 @@ class UploadVideosScreen extends ConsumerStatefulWidget {
 
 class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
   _UploadStepState _state = _UploadStepState.notes;
-  String? _pickedFileName;
-  File? _pickedFile;
-  VideoPlayerController? _videoController;
-  bool _isVideoInitializing = false;
+
+  final List<File> _pickedVideos = <File>[];
+  final List<String> _pickedVideoNames = <String>[];
+
+  final List<File> _pickedImages = <File>[];
+  final List<String> _pickedImageNames = <String>[];
+
   bool _isUploading = false;
+
+  void _removeVideoAt(int index) {
+    if (index < 0 || index >= _pickedVideos.length) return;
+    setState(() {
+      _pickedVideos.removeAt(index);
+      _pickedVideoNames.removeAt(index);
+      if (_pickedVideos.isEmpty && _pickedImages.isEmpty) {
+        _state = _UploadStepState.notes;
+      }
+    });
+  }
+
+  void _removeImageAt(int index) {
+    if (index < 0 || index >= _pickedImages.length) return;
+    setState(() {
+      _pickedImages.removeAt(index);
+      _pickedImageNames.removeAt(index);
+      if (_pickedVideos.isEmpty && _pickedImages.isEmpty) {
+        _state = _UploadStepState.notes;
+      }
+    });
+  }
 
   /// Copies [source] into the app's temp directory so the path remains
   /// valid even after the picker cache is cleared.
-  Future<File> _stableCopy(File source) async {
+  Future<File> _stableCopy(File source, {required String prefix}) async {
     final dir = await getTemporaryDirectory();
     final ext = source.path.split('.').last;
     final dest = File(
-      '${dir.path}/skillioo_video_${DateTime.now().millisecondsSinceEpoch}.$ext',
+      '${dir.path}/$prefix${DateTime.now().millisecondsSinceEpoch}.$ext',
     );
     return source.copy(dest.path);
   }
 
   @override
   void dispose() {
-    _videoController?.dispose();
     super.dispose();
   }
 
@@ -75,8 +100,6 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
                 SizedBox(height: 24.h),
                 if (_state == _UploadStepState.notes)
                   _buildNotesCard()
-                else if (_state == _UploadStepState.preview)
-                  _buildPreviewCard()
                 else
                   _buildFilesList(),
                 const Spacer(),
@@ -93,111 +116,152 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
     );
   }
 
-  Widget _buildPreviewCard() {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        height: 260.h,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24.r),
-          gradient: const LinearGradient(
-            colors: [Color(0xFF4D1CFF), Color(0xFF0B0B0F)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+  Widget _buildFilesList() {
+    final hasVideos = _pickedVideos.isNotEmpty;
+    final hasImages = _pickedImages.isNotEmpty;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Selected media',
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFFF5F5F5),
           ),
         ),
-        clipBehavior: Clip.antiAlias,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            if (_videoController != null &&
-                _videoController!.value.isInitialized)
-              FittedBox(
-                fit: BoxFit.cover,
-                child: SizedBox(
-                  width: _videoController!.value.size.width,
-                  height: _videoController!.value.size.height,
-                  child: VideoPlayer(_videoController!),
-                ),
-              )
-            else
-              Container(color: Colors.black.withValues(alpha: 0.15)),
-            Container(color: Colors.black.withValues(alpha: 0.25)),
-            if (_isVideoInitializing)
-              const CircularProgressIndicator(color: Colors.white),
-            GestureDetector(
-              onTap: () {
-                final controller = _videoController;
-                if (controller == null || !controller.value.isInitialized) {
-                  return;
-                }
-                setState(() {
-                  if (controller.value.isPlaying) {
-                    controller.pause();
-                  } else {
-                    controller.play();
-                  }
-                });
-              },
-              child: Container(
-                width: 64.w,
-                height: 64.w,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  (_videoController?.value.isPlaying ?? false)
-                      ? Icons.pause_rounded
-                      : Icons.play_arrow_rounded,
-                  size: 36.sp,
-                  color: const Color(0xFF111111),
-                ),
-              ),
+        SizedBox(height: 12.h),
+        _buildSectionHeader(
+          'Videos',
+          hasVideos ? '${_pickedVideos.length}' : '0',
+        ),
+        SizedBox(height: 8.h),
+        if (!hasVideos)
+          _buildEmptyRow('No videos selected')
+        else
+          for (int i = 0; i < _pickedVideoNames.length; i++)
+            _buildFileRow(
+              _pickedVideoNames[i],
+              onRemove: _isUploading ? null : () => _removeVideoAt(i),
             ),
-          ],
+        SizedBox(height: 16.h),
+        _buildSectionHeader(
+          'Photos',
+          hasImages ? '${_pickedImages.length}' : '0',
+        ),
+        SizedBox(height: 8.h),
+        if (!hasImages)
+          _buildEmptyRow('No photos selected')
+        else
+          for (int i = 0; i < _pickedImageNames.length; i++)
+            _buildFileRow(
+              _pickedImageNames[i],
+              onRemove: _isUploading ? null : () => _removeImageAt(i),
+            ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader(String title, String count) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          title,
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.9),
+          ),
+        ),
+        Text(
+          count,
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyRow(String text) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'Outfit',
+          fontSize: 14.sp,
+          fontWeight: FontWeight.w400,
+          color: Colors.white.withValues(alpha: 0.6),
         ),
       ),
     );
   }
 
-  Widget _buildFilesList() {
-    final files = _pickedFileName != null ? [_pickedFileName!] : <String>[];
-
-    return Column(
-      children: [
-        for (final file in files)
-          Container(
-            width: double.infinity,
-            margin: EdgeInsets.only(bottom: 12.h),
-            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(16.r),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.insert_drive_file_outlined,
-                  color: Colors.white.withValues(alpha: 0.9),
-                  size: 20.sp,
-                ),
-                SizedBox(width: 12.w),
-                Expanded(
-                  child: Text(
-                    file,
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      color: const Color(0xFFF5F5F5),
-                    ),
-                  ),
-                ),
-              ],
+  Widget _buildFileRow(String file, {VoidCallback? onRemove}) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            Icons.insert_drive_file_outlined,
+            color: Colors.white.withValues(alpha: 0.9),
+            size: 20.sp,
+          ),
+          SizedBox(width: 12.w),
+          Expanded(
+            child: Text(
+              file,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFFF5F5F5),
+              ),
             ),
           ),
-      ],
+          if (onRemove != null) ...[
+            SizedBox(width: 12.w),
+            GestureDetector(
+              onTap: onRemove,
+              child: Container(
+                width: 28.w,
+                height: 28.w,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(10.r),
+                ),
+                child: Icon(
+                  Icons.close,
+                  color: Colors.white.withValues(alpha: 0.85),
+                  size: 16.sp,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
@@ -207,15 +271,9 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
       children: [
         GestureDetector(
           onTap: () {
-            if (_state == _UploadStepState.preview) {
-              setState(() {
-                _state = _UploadStepState.notes;
-              });
-              return;
-            }
             if (_state == _UploadStepState.list) {
               setState(() {
-                _state = _UploadStepState.preview;
+                _state = _UploadStepState.notes;
               });
               return;
             }
@@ -260,7 +318,7 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Upload Skill Videos or Attachments',
+          'Upload Skill Videos and Photos',
           style: TextStyle(
             fontFamily: 'Neue',
             fontSize: 20.sp,
@@ -270,7 +328,7 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
         ),
         SizedBox(height: 4.h),
         Text(
-          'Upload a video and any extra files that highlight what you can do.',
+          'Upload videos and photos that highlight what you can do.',
           style: TextStyle(
             fontFamily: 'Outfit',
             fontSize: 16.sp,
@@ -344,156 +402,17 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
   }
 
   Widget _buildBottomButtonsInitial(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: SizedBox(
-            height: 54.h,
-            child: TextButton(
-              onPressed: () {
-                // Skip upload for now and go to next major step
-                GoRouter.of(context).go(widget.skipNextRoute);
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-              ),
-              child: Text(
-                'Upload Later',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFFF5F5F5),
-                ),
-              ),
-            ),
-          ),
-        ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: SizedBox(
-            height: 54.h,
-            child: TextButton(
-              onPressed: () async {
-                final picker = ImagePicker();
-                final picked = await picker.pickVideo(
-                  source: ImageSource.gallery,
-                );
-                if (picked == null) return;
-
-                final rawFile = File(picked.path);
-                final fileSize = await rawFile.length();
-                const maxBytes = 50 * 1024 * 1024; // 50 MB
-                if (fileSize > maxBytes && context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Video is too large. Please choose a file under 50 MB.',
-                      ),
-                      backgroundColor: Colors.red,
-                    ),
-                  );
-                  return;
-                }
-
-                final file = await _stableCopy(rawFile);
-                setState(() {
-                  _pickedFileName = picked.name;
-                  _pickedFile = file;
-                  _state = _UploadStepState.preview;
-                  _isVideoInitializing = true;
-                });
-
-                await _videoController?.dispose();
-                final controller = VideoPlayerController.file(file);
-                _videoController = controller;
-                await controller.initialize();
-                controller.setLooping(true);
-                if (!mounted) return;
-                setState(() {
-                  _isVideoInitializing = false;
-                });
-              },
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                backgroundColor: Colors.transparent,
-              ),
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: AppColors.ctaGradient,
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                child: Center(
-                  child: Text(
-                    'Upload Now',
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFF5F5F5),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBottomSingleCta(BuildContext context) {
-    final regState = ref.watch(registrationNotifierProvider);
-    final uploadDone = regState.videoDocumentId.isNotEmpty;
     return SizedBox(
       width: double.infinity,
       height: 54.h,
       child: TextButton(
-        onPressed: _isUploading
-            ? null
-            : () async {
-                if (_state == _UploadStepState.preview) {
-                  setState(() {
-                    _state = _UploadStepState.list;
-                  });
-                  return;
-                }
-                // list state — ensure upload is done before navigating
-                if (uploadDone) {
-                  GoRouter.of(context).go(widget.uploadSuccessRoute);
-                  return;
-                }
-                // Upload hasn't finished yet — trigger/retry and wait
-                if (_pickedFile != null) {
-                  setState(() => _isUploading = true);
-                  await ref
-                      .read(registrationNotifierProvider.notifier)
-                      .uploadVideo(_pickedFile!);
-                  if (!context.mounted) return;
-                  setState(() => _isUploading = false);
-                  final updated = ref.read(registrationNotifierProvider);
-                  if (updated.videoDocumentId.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          updated.errorMessage.isNotEmpty
-                              ? updated.errorMessage
-                              : 'Video upload failed. Please try again.',
-                        ),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
-                    return;
-                  }
-                }
-                GoRouter.of(context).go(widget.uploadSuccessRoute);
-              },
+        onPressed: () async {
+          await _showPickerSheet(context);
+          if (!mounted) return;
+          if (_pickedVideos.isNotEmpty || _pickedImages.isNotEmpty) {
+            setState(() => _state = _UploadStepState.list);
+          }
+        },
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
@@ -507,27 +426,339 @@ class _UploadVideosScreenState extends ConsumerState<UploadVideosScreen> {
             borderRadius: BorderRadius.circular(48.r),
           ),
           child: Center(
-            child: _isUploading
-                ? SizedBox(
-                    width: 22.w,
-                    height: 22.w,
-                    child: const CircularProgressIndicator(
-                      color: Colors.white,
-                      strokeWidth: 2.5,
-                    ),
-                  )
-                : Text(
-                    _state == _UploadStepState.list ? 'Continue' : 'Upload Now',
-                    style: TextStyle(
-                      fontFamily: 'Outfit',
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: const Color(0xFFF5F5F5),
-                    ),
-                  ),
+            child: Text(
+              'Upload Now',
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFF5F5F5),
+              ),
+            ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildBottomSingleCta(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: SizedBox(
+            height: 54.h,
+            child: TextButton(
+              onPressed: _isUploading
+                  ? null
+                  : () async {
+                      await _showPickerSheet(context);
+                      if (!mounted) return;
+                      setState(() {});
+                    },
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(48.r),
+                ),
+                backgroundColor: Colors.white.withValues(alpha: 0.12),
+              ),
+              child: Center(
+                child: Text(
+                  'Select more',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w600,
+                    color: const Color(0xFFF5F5F5),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(width: 12.w),
+        Expanded(
+          child: SizedBox(
+            height: 54.h,
+            child: TextButton(
+              onPressed: _isUploading
+                  ? null
+                  : () async {
+                      final talentType = ref.read(talentTypeProvider);
+                      final isProfessional =
+                          talentType == TalentType.professional;
+
+                      if (_pickedVideos.isEmpty && _pickedImages.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              isProfessional
+                                  ? 'Please select at least 1 video and 1 photo to continue.'
+                                  : 'Please select at least one video or photo to continue.',
+                            ),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+
+                      if (isProfessional) {
+                        if (_pickedVideos.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select at least 1 video to continue.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          if (!context.mounted) return;
+                          await _showPickerSheet(context, forceVideo: true);
+                          if (!context.mounted) return;
+                          setState(() {});
+                          if (_pickedVideos.isEmpty) return;
+                        }
+
+                        if (_pickedImages.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Please select at least 1 photo to continue.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          if (!context.mounted) return;
+                          await _showPickerSheet(context, forcePhoto: true);
+                          if (!context.mounted) return;
+                          setState(() {});
+                          if (_pickedImages.isEmpty) return;
+                        }
+                      }
+
+                      setState(() => _isUploading = true);
+
+                      for (final v in _pickedVideos) {
+                        await ref
+                            .read(registrationNotifierProvider.notifier)
+                            .uploadVideo(v);
+                        if (!context.mounted) return;
+                        final updated = ref.read(registrationNotifierProvider);
+                        if (updated.videoStatus == DocumentUploadStatus.error) {
+                          setState(() => _isUploading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                updated.errorMessage.isNotEmpty
+                                    ? updated.errorMessage
+                                    : 'Video upload failed. Please try again.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
+                      for (final img in _pickedImages) {
+                        await ref
+                            .read(registrationNotifierProvider.notifier)
+                            .uploadImage(img);
+                        if (!context.mounted) return;
+                        final updated = ref.read(registrationNotifierProvider);
+                        if (updated.imageStatus == DocumentUploadStatus.error) {
+                          setState(() => _isUploading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                updated.errorMessage.isNotEmpty
+                                    ? updated.errorMessage
+                                    : 'Photo upload failed. Please try again.',
+                              ),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                          return;
+                        }
+                      }
+
+                      if (!context.mounted) return;
+                      setState(() => _isUploading = false);
+                      GoRouter.of(context).go(widget.uploadSuccessRoute);
+                    },
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(48.r),
+                ),
+                backgroundColor: Colors.transparent,
+              ),
+              child: Ink(
+                decoration: BoxDecoration(
+                  gradient: AppColors.ctaGradient,
+                  borderRadius: BorderRadius.circular(48.r),
+                ),
+                child: Center(
+                  child: _isUploading
+                      ? SizedBox(
+                          width: 22.w,
+                          height: 22.w,
+                          child: const CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                      : Text(
+                          'Continue',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w600,
+                            color: const Color(0xFFF5F5F5),
+                          ),
+                        ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _showPickerSheet(
+    BuildContext context, {
+    bool forceVideo = false,
+    bool forcePhoto = false,
+  }) async {
+    if (forceVideo) {
+      await _pickVideo(context);
+      return;
+    }
+    if (forcePhoto) {
+      await _pickPhotos(context);
+      return;
+    }
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: const Color(0xFF111111),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _sheetItem(
+                  ctx,
+                  title: 'Add videos',
+                  icon: Icons.videocam_outlined,
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    await _pickVideo(context);
+                  },
+                ),
+                SizedBox(height: 12.h),
+                _sheetItem(
+                  ctx,
+                  title: 'Add photos',
+                  icon: Icons.photo_outlined,
+                  onTap: () async {
+                    Navigator.of(ctx).pop();
+                    await _pickPhotos(context);
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _sheetItem(
+    BuildContext context, {
+    required String title,
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(16.r),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: Colors.white.withValues(alpha: 0.9)),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Text(
+                title,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 16.sp,
+                  fontWeight: FontWeight.w600,
+                  color: const Color(0xFFF5F5F5),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickVideo(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickVideo(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final rawFile = File(picked.path);
+    final fileSize = await rawFile.length();
+    const maxBytes = 50 * 1024 * 1024;
+    if (fileSize > maxBytes && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Video is too large. Please choose a file under 50 MB.',
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final file = await _stableCopy(rawFile, prefix: 'skillioo_video_');
+    if (!mounted) return;
+    setState(() {
+      _pickedVideos.add(file);
+      _pickedVideoNames.add(picked.name);
+      _state = _UploadStepState.list;
+    });
+  }
+
+  Future<void> _pickPhotos(BuildContext context) async {
+    final picker = ImagePicker();
+    final picked = await picker.pickMultiImage();
+    if (picked.isEmpty) return;
+
+    for (final p in picked) {
+      final file = await _stableCopy(File(p.path), prefix: 'skillioo_image_');
+      if (!mounted) return;
+      setState(() {
+        _pickedImages.add(file);
+        _pickedImageNames.add(p.name);
+        _state = _UploadStepState.list;
+      });
+    }
   }
 }

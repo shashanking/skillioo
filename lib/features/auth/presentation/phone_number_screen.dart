@@ -31,23 +31,25 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
     super.dispose();
   }
 
-  void _onVerify() {
+  Future<void> _sendOtpForPurpose(String purpose) async {
     final value = _controller.text.trim();
     final isValid = RegExp(r'^\d{10}$').hasMatch(value);
     setState(() {
       _showError = !isValid;
     });
-    if (isValid) {
-      final phoneNumber = '+91$value';
-      ref.read(onboardingDataProvider.notifier).state = ref
-          .read(onboardingDataProvider)
-          .copyWith(phoneNumber: phoneNumber);
-      ref
-          .read(authNotifierProvider.notifier)
-          .sendOtp(phoneNumber: phoneNumber, purpose: 'SIGNUP');
-    } else {
+    if (!isValid) {
       setState(() => _errorText = "Invalid number. Fix it and we're good.");
+      return;
     }
+
+    final phoneNumber = '+91$value';
+    ref.read(onboardingDataProvider.notifier).state = ref
+        .read(onboardingDataProvider)
+        .copyWith(phoneNumber: phoneNumber);
+
+    await ref
+        .read(authNotifierProvider.notifier)
+        .sendOtp(phoneNumber: phoneNumber, purpose: purpose);
   }
 
   @override
@@ -210,36 +212,74 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
                   Center(
                     child: SizedBox(
                       width: double.infinity,
-                      height: 78.h,
-                      child: TextButton(
-                        onPressed: isLoading ? null : _onVerify,
-                        style: TextButton.styleFrom(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 20,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(48.r),
-                          ),
-                          backgroundColor: Colors.transparent,
-                        ),
-                        child: Ink(
-                          decoration: BoxDecoration(
-                            gradient: AppColors.ctaGradient,
-                            borderRadius: BorderRadius.circular(48.r),
-                          ),
-                          child: Center(
-                            child: Text(
-                              'Verify',
-                              style: TextStyle(
-                                fontFamily: 'Outfit',
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xFFF5F5F5),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: SizedBox(
+                              height: 54.h,
+                              child: TextButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => _sendOtpForPurpose('LOGIN'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(48.r),
+                                  ),
+                                  backgroundColor: Colors.white.withValues(
+                                    alpha: 0.12,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'Login',
+                                    style: TextStyle(
+                                      fontFamily: 'Outfit',
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xFFF5F5F5),
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                        ),
+                          SizedBox(width: 12.w),
+                          Expanded(
+                            child: SizedBox(
+                              height: 54.h,
+                              child: TextButton(
+                                onPressed: isLoading
+                                    ? null
+                                    : () => _sendOtpForPurpose('SIGNUP'),
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(48.r),
+                                  ),
+                                  backgroundColor: Colors.transparent,
+                                ),
+                                child: Ink(
+                                  decoration: BoxDecoration(
+                                    gradient: AppColors.ctaGradient,
+                                    borderRadius: BorderRadius.circular(48.r),
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      'Signup',
+                                      style: TextStyle(
+                                        fontFamily: 'Outfit',
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: const Color(0xFFF5F5F5),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),

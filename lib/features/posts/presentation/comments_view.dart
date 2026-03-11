@@ -1,10 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../../core/services/session_prefs.dart';
 import '../../../core/widgets/common_background.dart';
 import '../../../core/widgets/custom_text.dart';
 import '../../../core/widgets/icon_button.dart';
+import '../application/post_providers.dart';
+import '../application/states/post_state.dart';
+import '../domain/post_models.dart';
 
 class CommentModel {
   final String id;
@@ -24,43 +29,45 @@ class CommentModel {
   });
 }
 
-class CommentsScreen extends StatefulWidget {
-  const CommentsScreen({super.key});
+class CommentsScreen extends ConsumerStatefulWidget {
+  const CommentsScreen({super.key, required this.targetId});
+
+  final String targetId;
 
   @override
-  State<CommentsScreen> createState() => _CommentsScreenState();
+  ConsumerState<CommentsScreen> createState() => _CommentsScreenState();
 }
 
-class _CommentsScreenState extends State<CommentsScreen> {
+class _CommentsScreenState extends ConsumerState<CommentsScreen> {
   final TextEditingController _commentController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  bool _isSendingComment = false;
+  String _currentUserId = '';
+  String _currentUserNickName = '';
 
-  final List<CommentModel> _comments = [
-    CommentModel(
-      id: '1',
-      username: 'Lisa Dancer',
-      userImage: AppAssets.professionalProfileJpg,
-      text: "You\u2019re improving every day, love to see it!",
-      likes: 20,
-      isLiked: true,
-    ),
-    CommentModel(
-      id: '2',
-      username: 'SamSinger',
-      userImage: AppAssets.skilledProfileJpg,
-      text: 'Why is this better than my whole life?',
-      likes: 15,
-      isLiked: false,
-    ),
-    CommentModel(
-      id: '3',
-      username: 'Lisa Dancer',
-      userImage: AppAssets.professionalProfileJpg,
-      text: "You\u2019re improving every day, love to see it!",
-      likes: 20,
-      isLiked: true,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadCurrentUserIdentity();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.targetId.isEmpty) {
+        return;
+      }
+      ref
+          .read(postNotifierProvider.notifier)
+          .fetchComments(targetId: widget.targetId, refresh: true);
+    });
+  }
+
+  Future<void> _loadCurrentUserIdentity() async {
+    final userId = (await SessionPrefs.instance.getProfileId()).trim();
+    final nickName = (await SessionPrefs.instance.getNickName()).trim();
+    if (!mounted) return;
+    setState(() {
+      _currentUserId = userId;
+      _currentUserNickName = nickName;
+    });
+  }
 
   @override
   void dispose() {
@@ -69,36 +76,52 @@ class _CommentsScreenState extends State<CommentsScreen> {
     super.dispose();
   }
 
-  void _handleSendComment() {
+  Future<void> _handleSendComment() async {
+    if (_isSendingComment) return;
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || widget.targetId.isEmpty) return;
 
     setState(() {
-      _comments.insert(
-        0,
-        CommentModel(
-          id: DateTime.now().toString(),
-          username: 'Lisa Dancer',
-          userImage: AppAssets.skilledProfileJpg,
-          text: text,
-          likes: 0,
-        ),
-      );
+      _isSendingComment = true;
     });
 
-    _commentController.clear();
-    FocusScope.of(context).unfocus();
-    if (_scrollController.hasClients) {
-      _scrollController.animateTo(
-        0,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+    final success = await ref
+        .read(postNotifierProvider.notifier)
+        .createComment(targetId: widget.targetId, text: text);
+    if (!mounted) return;
+    setState(() {
+      _isSendingComment = false;
+    });
+
+    if (success) {
+      _commentController.clear();
+      FocusScope.of(context).unfocus();
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          0,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
     }
+  }
+
+  String _resolveAuthorLabel(CommentResponse comment) {
+    final userRef = (comment.userReferenceId ?? '').trim();
+    if (userRef.isEmpty) return 'User';
+    if (userRef == _currentUserId || userRef == _currentUserNickName) {
+      return _currentUserNickName.isNotEmpty ? _currentUserNickName : 'You';
+    }
+    return userRef;
   }
 
   @override
   Widget build(BuildContext context) {
+    final postState = ref.watch(postNotifierProvider);
+    final comments = postState.comments;
+    final isLoading = postState.commentsStatus == PostStatus.loading;
+    final hasTargetId = widget.targetId.isNotEmpty;
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: CommonBackground(
@@ -107,17 +130,39 @@ class _CommentsScreenState extends State<CommentsScreen> {
             children: [
               _buildHeader(),
               Expanded(
-                child: ListView.builder(
-                  controller: _scrollController,
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 24.h,
-                  ),
-                  itemCount: _comments.length,
-                  itemBuilder: (context, index) {
-                    return _buildCommentCard(_comments[index]);
-                  },
-                ),
+                child: !hasTargetId
+                    ? Center(
+                        child: CustomText(
+                          AppStrings.noCommentsYet,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.foundationBlack80,
+                        ),
+                      )
+                    : isLoading && comments.isEmpty
+                    ? const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      )
+                    : comments.isEmpty
+                    ? Center(
+                        child: CustomText(
+                          AppStrings.noCommentsYet,
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.foundationBlack80,
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: 16.w,
+                          vertical: 24.h,
+                        ),
+                        itemCount: comments.length,
+                        itemBuilder: (context, index) {
+                          return _buildCommentCard(comments[index]);
+                        },
+                      ),
               ),
               _buildInputSection(),
             ],
@@ -132,6 +177,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
       padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
       decoration: BoxDecoration(color: AppColors.glassWhite12),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           IconCircleButton(
             icon: Icons.arrow_back,
@@ -150,7 +196,14 @@ class _CommentsScreenState extends State<CommentsScreen> {
     );
   }
 
-  Widget _buildCommentCard(CommentModel comment) {
+  Widget _buildCommentCard(CommentResponse comment) {
+    final username = _resolveAuthorLabel(comment);
+    final text = comment.content?.text ?? '';
+    final totalLikes =
+        comment.reach?.reactionsCount?['like'] as int? ??
+        comment.reach?.reactionCount?['like'] as int? ??
+        0;
+
     return Container(
       margin: EdgeInsets.only(bottom: 24.h),
       padding: EdgeInsets.all(24.w),
@@ -168,31 +221,30 @@ class _CommentsScreenState extends State<CommentsScreen> {
                 height: 48.w,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: AssetImage(comment.userImage),
-                    fit: BoxFit.cover,
-                  ),
+                  color: AppColors.glassWhite12,
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: AppColors.foundationBlack80,
+                  size: 24.sp,
                 ),
               ),
               SizedBox(width: 24.w),
               Expanded(
                 child: CustomText(
-                  comment.username,
+                  username,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
                   fontFamily: 'Neue',
                   color: AppColors.foundationBlack20,
                 ),
               ),
-              IconCircleButton(
-                icon: comment.isLiked ? Icons.favorite : Icons.favorite_border,
-                onTap: () {},
-              ),
+              IconCircleButton(icon: Icons.favorite_border, onTap: () {}),
             ],
           ),
           SizedBox(height: 12.h),
           CustomText(
-            comment.text,
+            text,
             fontSize: 16.sp,
             fontWeight: FontWeight.w400,
             color: AppColors.foundationBlack20,
@@ -201,7 +253,7 @@ class _CommentsScreenState extends State<CommentsScreen> {
           Row(
             children: [
               CustomText(
-                '${comment.likes} ${AppStrings.likes}',
+                '$totalLikes ${AppStrings.likes}',
                 fontSize: 14.sp,
                 fontWeight: FontWeight.w500,
                 color: AppColors.foundationBlack100,
@@ -271,13 +323,15 @@ class _CommentsScreenState extends State<CommentsScreen> {
               ),
               SizedBox(width: 12.w),
               GestureDetector(
-                onTap: _handleSendComment,
+                onTap: _isSendingComment ? null : _handleSendComment,
                 child: Container(
                   width: 44.w,
                   height: 44.w,
                   decoration: const BoxDecoration(shape: BoxShape.circle),
                   child: Icon(
-                    Icons.send_rounded,
+                    _isSendingComment
+                        ? Icons.hourglass_top_rounded
+                        : Icons.send_rounded,
                     color: AppColors.foundationBlack20,
                     size: 22.sp,
                   ),

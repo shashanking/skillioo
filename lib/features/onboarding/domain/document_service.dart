@@ -47,6 +47,104 @@ class DocumentService {
     }
   }
 
+  /// GET /v1/document/:profileId
+  /// Fetches documents (urls + type + id) for the given profile.
+  Future<Map<String, dynamic>> getDocumentsForProfile({
+    required String profileId,
+    required String accessToken,
+  }) async {
+    final uri = Uri.parse('$baseUrl${ApiConfig.document}/$profileId');
+    final response = await client.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+
+    try {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Failed to fetch documents. Please try again.',
+      };
+    }
+  }
+
+  /// GET /v1/document/?ids=uuid1,uuid2
+  /// Fetch documents by their IDs.
+  Future<Map<String, dynamic>> getDocumentsByIds({
+    required List<String> ids,
+    required String accessToken,
+  }) async {
+    final idsParam = ids.where((e) => e.trim().isNotEmpty).join(',');
+    if (idsParam.isEmpty) {
+      return {
+        'success': false,
+        'message': 'No document ids provided',
+        'data': <dynamic>[],
+      };
+    }
+
+    final uri = Uri.parse(
+      '$baseUrl${ApiConfig.document}/',
+    ).replace(queryParameters: {'ids': idsParam});
+
+    final response = await client.get(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $accessToken',
+      },
+    );
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+
+    try {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Failed to fetch documents. Please try again.',
+        'data': <dynamic>[],
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> updateProfilePicture({
+    required String profileId,
+    required String accessToken,
+    required File file,
+  }) async {
+    final uri = Uri.parse('$baseUrl/v1/document/$profileId/profile-picture');
+    final request = http.MultipartRequest('PUT', uri);
+    request.headers['Authorization'] = 'Bearer $accessToken';
+    request.files.add(await http.MultipartFile.fromPath('file', file.path));
+
+    final streamedResponse = await client.send(request);
+    final response = await http.Response.fromStream(streamedResponse);
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return json.decode(response.body) as Map<String, dynamic>;
+    }
+
+    try {
+      return json.decode(response.body) as Map<String, dynamic>;
+    } catch (_) {
+      return {
+        'success': false,
+        'message': 'Failed to update profile picture. Please try again.',
+      };
+    }
+  }
+
   void dispose() {
     client.close();
   }

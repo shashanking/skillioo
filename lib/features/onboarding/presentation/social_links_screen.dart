@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
-import '../application/social_links_provider.dart';
+import '../application/onboarding_data_provider.dart';
 
 class SocialLinksScreen extends ConsumerStatefulWidget {
   const SocialLinksScreen({
@@ -26,47 +27,30 @@ class SocialLinksScreen extends ConsumerStatefulWidget {
 }
 
 class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
-  final List<TextEditingController> _controllers = [];
-  final List<FocusNode> _focusNodes = [];
-
-  bool _showContinue = false;
+  final TextEditingController _instaLinkController = TextEditingController();
+  final TextEditingController _instaFollowersController =
+      TextEditingController();
+  final TextEditingController _instaFollowingController =
+      TextEditingController();
+  final TextEditingController _facebookLinkController = TextEditingController();
+  final TextEditingController _facebookFollowersController =
+      TextEditingController();
+  final TextEditingController _facebookFollowingController =
+      TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _addField();
-    _addField();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_focusNodes.isNotEmpty) {
-        _focusNodes.first.requestFocus();
-      }
-    });
-  }
-
-  void _addField() {
-    final controller = TextEditingController();
-    final focusNode = FocusNode();
-    controller.addListener(_onChanged);
-    _controllers.add(controller);
-    _focusNodes.add(focusNode);
-  }
-
-  void _onChanged() {
-    final anyText = _controllers.any((c) => c.text.trim().isNotEmpty);
-    setState(() {
-      _showContinue = anyText;
-    });
   }
 
   @override
   void dispose() {
-    for (final c in _controllers) {
-      c.removeListener(_onChanged);
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.dispose();
-    }
+    _instaLinkController.dispose();
+    _instaFollowersController.dispose();
+    _instaFollowingController.dispose();
+    _facebookLinkController.dispose();
+    _facebookFollowersController.dispose();
+    _facebookFollowingController.dispose();
     super.dispose();
   }
 
@@ -80,17 +64,16 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
             children: [
               Padding(
                 padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: ListView(
+                  // crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(height: 16.h),
                     _buildTopBar(context),
                     SizedBox(height: 24.h),
                     _buildHeader(),
                     SizedBox(height: 24.h),
-                    ..._buildInputs(),
-                    SizedBox(height: 14.h),
-                    _buildAddMoreButton(),
+                    _buildSocialSection(),
+                    SizedBox(height: 200),
                   ],
                 ),
               ),
@@ -100,9 +83,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
                 bottom: 24.h,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: _showContinue
-                      ? _buildContinueButton(context)
-                      : _buildBottomButtons(context),
+                  child: _buildContinueButton(context),
                 ),
               ),
             ],
@@ -169,7 +150,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
         ),
         SizedBox(height: 4.h),
         Text(
-          'Include links to your social pages to complete your profile.',
+          'Add at least one social media link (Instagram or Facebook) with optional follower counts.',
           style: TextStyle(
             fontFamily: 'Outfit',
             fontSize: 16.sp,
@@ -181,19 +162,74 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
     );
   }
 
-  List<Widget> _buildInputs() {
-    final widgets = <Widget>[];
-    for (var i = 0; i < _controllers.length; i++) {
-      widgets.add(_buildInput(i));
-      widgets.add(SizedBox(height: 12.h));
-    }
-    if (widgets.isNotEmpty) {
-      widgets.removeLast();
-    }
-    return widgets;
+  Widget _buildSocialSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Instagram',
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFFF5F5F5),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        _buildSocialLinkField('Instagram Link', _instaLinkController),
+        SizedBox(height: 10.h),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFollowField(
+                'Followers (Optional)',
+                _instaFollowersController,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: _buildFollowField(
+                'Following (Optional)',
+                _instaFollowingController,
+              ),
+            ),
+          ],
+        ),
+        SizedBox(height: 16.h),
+        Text(
+          'Facebook',
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w600,
+            color: const Color(0xFFF5F5F5),
+          ),
+        ),
+        SizedBox(height: 10.h),
+        _buildSocialLinkField('Facebook Link', _facebookLinkController),
+        SizedBox(height: 10.h),
+        Row(
+          children: [
+            Expanded(
+              child: _buildFollowField(
+                'Followers (Optional)',
+                _facebookFollowersController,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: _buildFollowField(
+                'Following (Optional)',
+                _facebookFollowingController,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
   }
 
-  Widget _buildInput(int index) {
+  Widget _buildSocialLinkField(String label, TextEditingController controller) {
     return Container(
       height: 56.h,
       decoration: BoxDecoration(
@@ -203,17 +239,8 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
       alignment: Alignment.centerLeft,
       padding: EdgeInsets.symmetric(horizontal: 24.w),
       child: TextField(
-        controller: _controllers[index],
-        focusNode: _focusNodes[index],
-        textInputAction: index == _controllers.length - 1
-            ? TextInputAction.done
-            : TextInputAction.next,
-        onSubmitted: (_) {
-          final nextIndex = index + 1;
-          if (nextIndex < _focusNodes.length) {
-            _focusNodes[nextIndex].requestFocus();
-          }
-        },
+        controller: controller,
+        keyboardType: TextInputType.url,
         style: TextStyle(
           fontFamily: 'Outfit',
           fontSize: 16.sp,
@@ -223,7 +250,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
         cursorColor: Colors.white,
         decoration: InputDecoration(
           border: InputBorder.none,
-          hintText: 'Link ${index + 1}',
+          hintText: label,
           hintStyle: TextStyle(
             fontFamily: 'Outfit',
             fontSize: 16.sp,
@@ -236,104 +263,50 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
     );
   }
 
-  Widget _buildAddMoreButton() {
-    return TextButton(
-      onPressed: () {
-        setState(() {
-          _addField();
-        });
-      },
-      style: TextButton.styleFrom(
-        padding: EdgeInsets.zero,
-        foregroundColor: const Color(0xFFF5F5F5),
-      ),
-      child: Text(
-        'Add more',
-        style: TextStyle(
-          fontFamily: 'Outfit',
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w600,
-          decoration: TextDecoration.underline,
-          color: const Color(0xFFF5F5F5),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBottomButtons(BuildContext context) {
-    return Row(
+  Widget _buildFollowField(String label, TextEditingController controller) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: SizedBox(
-            height: 54.h,
-            child: TextButton(
-              onPressed: () {
-                GoRouter.of(context).go(widget.skipNextRoute);
-              },
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-              ),
-              child: Text(
-                'Upload Later',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w500,
-                  color: const Color(0xFFF5F5F5),
-                ),
-              ),
-            ),
+        Text(
+          label,
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 13.sp,
+            fontWeight: FontWeight.w500,
+            color: const Color(0xFFF5F5F5),
           ),
         ),
-        SizedBox(width: 12.w),
-        Expanded(
-          child: SizedBox(
-            height: 54.h,
-            child: TextButton(
-              onPressed: () {
-                if (_focusNodes.isNotEmpty) {
-                  _focusNodes.first.requestFocus();
-                }
-              },
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                backgroundColor: Colors.transparent,
+        SizedBox(height: 8.h),
+        Container(
+          height: 48.h,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(24.r),
+          ),
+          alignment: Alignment.centerLeft,
+          padding: EdgeInsets.symmetric(horizontal: 16.w),
+          child: TextField(
+            controller: controller,
+            keyboardType: TextInputType.number,
+            textInputAction: TextInputAction.next,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w500,
+              color: const Color(0xFFF5F5F5),
+            ),
+            cursorColor: Colors.white,
+            decoration: InputDecoration(
+              border: InputBorder.none,
+              hintText: '0',
+              hintStyle: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withValues(alpha: 0.4),
               ),
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: AppColors.ctaGradient,
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                child: Center(
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Image.asset(
-                        AppAssets.uploadIconPng,
-                        width: 18.w,
-                        height: 18.w,
-                      ),
-                      SizedBox(width: 8.w),
-                      Text(
-                        'Upload Now',
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w600,
-                          color: const Color(0xFFF5F5F5),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              isCollapsed: true,
             ),
           ),
         ),
@@ -347,11 +320,47 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
       height: 58.h,
       child: TextButton(
         onPressed: () {
-          final values = _controllers
-              .map((c) => c.text.trim())
-              .where((v) => v.isNotEmpty)
-              .toList();
-          ref.read(socialLinksProvider.notifier).state = values;
+          final socialMediaFollows = <Map<String, dynamic>>[];
+
+          final instaLink = _instaLinkController.text.trim();
+          if (instaLink.isNotEmpty) {
+            socialMediaFollows.add({
+              'socialMedia': 'INSTAGRAM',
+              'link': instaLink,
+              'followers': int.tryParse(_instaFollowersController.text.trim()),
+              'following': int.tryParse(_instaFollowingController.text.trim()),
+            });
+          }
+
+          final facebookLink = _facebookLinkController.text.trim();
+          if (facebookLink.isNotEmpty) {
+            socialMediaFollows.add({
+              'socialMedia': 'FACEBOOK',
+              'link': facebookLink,
+              'followers': int.tryParse(
+                _facebookFollowersController.text.trim(),
+              ),
+              'following': int.tryParse(
+                _facebookFollowingController.text.trim(),
+              ),
+            });
+          }
+
+          if (socialMediaFollows.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Please add at least one social media link to continue.',
+                ),
+                backgroundColor: Colors.red,
+              ),
+            );
+            return;
+          }
+
+          ref.read(onboardingDataProvider.notifier).state = ref
+              .read(onboardingDataProvider)
+              .copyWith(socialMediaFollows: socialMediaFollows);
           GoRouter.of(context).go(widget.continueNextRoute);
         },
         style: TextButton.styleFrom(

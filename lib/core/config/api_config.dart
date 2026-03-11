@@ -17,6 +17,7 @@ class ApiConfig {
 
   // ── Customer MS: Profile / Registration ──
   static const String profile = '/v1/profile';
+  static const String profileLogin = '/v1/profile/login';
   static const String profileHiringRate = '/v1/profile/hiringRate';
   static const String profileCounts = '/v1/profile/counts';
 

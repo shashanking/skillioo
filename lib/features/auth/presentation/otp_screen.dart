@@ -5,7 +5,9 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../../core/services/auth_prefs.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../onboarding/application/onboarding_data_provider.dart';
 import '../application/auth_providers.dart';
 import '../application/states/auth_state.dart';
 
@@ -77,10 +79,34 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
 
     ref.listen(authNotifierProvider, (prev, next) {
       if (next.status == AuthStatus.otpVerified) {
-        GoRouter.of(context).go('/verified');
+        if (next.purpose == 'LOGIN') {
+          GoRouter.of(context).go('/enter-pin');
+        } else {
+          GoRouter.of(context).go('/verified');
+        }
       } else if (next.status == AuthStatus.error &&
           next.errorMessage.isNotEmpty) {
-        setState(() => _showError = true);
+        final msg = next.errorMessage.toLowerCase();
+        if (msg.contains('otp has already been verified') ||
+            msg.contains('already been verified')) {
+          // Check if the user has a PIN to determine correct action.
+          final router = GoRouter.of(context);
+          AuthPrefs.instance.hasPin().then((hasPinSet) {
+            if (!mounted) return;
+            ref.read(onboardingDataProvider.notifier).state = ref
+                .read(onboardingDataProvider)
+                .copyWith(phoneVerificationId: next.verificationId);
+            if (hasPinSet && next.purpose == 'LOGIN') {
+              // Fully registered user — send them to PIN login.
+              router.go('/enter-pin');
+            } else {
+              // Incomplete onboarding — continue signup.
+              router.go('/verified');
+            }
+          });
+        } else {
+          setState(() => _showError = true);
+        }
       }
     });
 

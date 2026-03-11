@@ -399,6 +399,7 @@ class AppStrings {
   static const String shareYourThoughts = 'Share your thoughts....';
   static const String reply = 'Reply';
   static const String likes = 'Likes';
+  static const String noCommentsYet = 'No comments yet';
 
   static const String skip = 'Skip';
 

@@ -7,12 +7,14 @@ class PostService extends BaseServiceProvider {
   // ── Short User ──
 
   Future<Map<String, dynamic>> createShortUser(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     return post(ApiConfig.shortUser, data);
   }
 
   Future<Map<String, dynamic>> updateShortUser(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     return put(ApiConfig.shortUser, data);
   }
 
@@ -39,29 +41,27 @@ class PostService extends BaseServiceProvider {
 
   Future<Map<String, dynamic>> getMediaByUser(
     String userReferenceId, {
+    required String service,
     String? mediaType,
     int limit = 10,
     int page = 1,
   }) async {
     final params = <String, String>{
+      'service': service,
       'limit': '$limit',
       'page': '$page',
     };
     if (mediaType != null) params['mediaType'] = mediaType;
-    return getWithParams(
-        '${ApiConfig.media}/user/$userReferenceId', params);
+    return getWithParams('${ApiConfig.media}/user/$userReferenceId', params);
   }
 
   Future<Map<String, dynamic>> getMedia({
-    String? mediaType,
+    required String mediaType,
     int limit = 10,
     int page = 1,
   }) async {
-    final params = <String, String>{
-      'limit': '$limit',
-      'page': '$page',
-    };
-    if (mediaType != null) params['mediaType'] = mediaType;
+    final params = <String, String>{'limit': '$limit', 'page': '$page'};
+    params['mediaType'] = mediaType;
     return getWithParams(ApiConfig.media, params);
   }
 
@@ -78,8 +78,7 @@ class PostService extends BaseServiceProvider {
 
   // ── Comment ──
 
-  Future<Map<String, dynamic>> createComment(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createComment(Map<String, dynamic> data) async {
     return post(ApiConfig.comment, data);
   }
 
@@ -88,14 +87,13 @@ class PostService extends BaseServiceProvider {
     int limit = 10,
     int page = 1,
   }) async {
-    return getWithParams(
-      '${ApiConfig.comment}/$targetId',
-      {'limit': '$limit', 'page': '$page'},
-    );
+    return getWithParams('${ApiConfig.comment}/$targetId', {
+      'limit': '$limit',
+      'page': '$page',
+    });
   }
 
-  Future<Map<String, dynamic>> updateComment(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateComment(Map<String, dynamic> data) async {
     return put(ApiConfig.comment, data);
   }
 
@@ -108,8 +106,7 @@ class PostService extends BaseServiceProvider {
 
   // ── Reaction ──
 
-  Future<Map<String, dynamic>> createReaction(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createReaction(Map<String, dynamic> data) async {
     return post(ApiConfig.reaction, data);
   }
 
@@ -118,14 +115,13 @@ class PostService extends BaseServiceProvider {
     int limit = 10,
     int page = 1,
   }) async {
-    return getWithParams(
-      '${ApiConfig.reaction}/$targetId',
-      {'limit': '$limit', 'page': '$page'},
-    );
+    return getWithParams('${ApiConfig.reaction}/$targetId', {
+      'limit': '$limit',
+      'page': '$page',
+    });
   }
 
-  Future<Map<String, dynamic>> updateReaction(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> updateReaction(Map<String, dynamic> data) async {
     return put(ApiConfig.reaction, data);
   }
 

@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../core/widgets/custom_text.dart';
+import '../application/subscription_providers.dart';
+import '../application/states/subscription_state.dart';
 
-class SubscriptionScreen extends StatefulWidget {
+class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
 
   @override
-  State<SubscriptionScreen> createState() => _SubscriptionScreenState();
+  ConsumerState<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
-class _SubscriptionScreenState extends State<SubscriptionScreen>
+class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   int _currentIndex = 0;
@@ -26,6 +29,11 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           _currentIndex = _tabController.index;
         });
       }
+    });
+
+    // Fetch plans from API
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(subscriptionNotifierProvider.notifier).fetchPlans();
     });
   }
 
@@ -141,41 +149,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
               SizedBox(height: 24.h),
 
               // 4. Cards Tab View
-              Expanded(
-                child: TabBarView(
-                  controller: _tabController,
-                  children: [
-                    // PRO CARD
-                    _buildSubscriptionCard(
-                      planName: 'Pro Plan',
-                      price: '21',
-                      description: 'Everything unlocked. No limits.',
-                      bgImage: 'assets/images/pro-bg.png',
-                      icon: Icons.star_border,
-                      tags: ['Unlimited Chat & Calls', '24 hrs valid'],
-                      benefits: [
-                        'Direct access to top talents.',
-                        'Connect anytime, explore professionals and groups.',
-                        'View unlimited profiles.',
-                      ],
-                    ),
-                    // ELITE CARD
-                    _buildSubscriptionCard(
-                      planName: 'Elite Plan',
-                      price: '59',
-                      description: 'Maximum visibility. Top priority access',
-                      bgImage: 'assets/images/elite-bg.png',
-                      icon: Icons.workspace_premium, // Crown icon equivalent
-                      tags: ['Unlimited Chat & Calls', '10 days valid'],
-                      benefits: [
-                        'Direct access to top talents.',
-                        'Connect anytime, explore professionals and groups.',
-                        'View unlimited profiles.',
-                      ],
-                    ),
-                  ],
-                ),
-              ),
+              Expanded(child: _buildPlansTabView()),
 
               // 5. Indicators
               Padding(
@@ -193,6 +167,87 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildPlansTabView() {
+    final subState = ref.watch(subscriptionNotifierProvider);
+    final plans = subState.plans;
+    final isLoading = subState.plansStatus == SubscriptionStatus.loading;
+
+    if (isLoading && plans.isEmpty) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    // Find pro and elite plans from API, fallback to dummy values
+    final proPlan = plans
+        .where(
+          (p) =>
+              (p.code?.toLowerCase().contains('pro') ?? false) &&
+              !(p.code?.toLowerCase().contains('elite') ?? false),
+        )
+        .toList();
+    final elitePlan = plans
+        .where((p) => p.code?.toLowerCase().contains('elite') ?? false)
+        .toList();
+
+    final proPrice = proPlan.isNotEmpty
+        ? ((proPlan.first.priceInPaise ?? 2100) / 100).toStringAsFixed(0)
+        : '21';
+    final proValidity = proPlan.isNotEmpty
+        ? '${proPlan.first.validity ?? 1} days valid'
+        : '24 hrs valid';
+    final proPlanId = proPlan.isNotEmpty ? proPlan.first.id : null;
+    final proDesc = proPlan.isNotEmpty
+        ? (proPlan.first.description ?? 'Everything unlocked. No limits.')
+        : 'Everything unlocked. No limits.';
+
+    final elitePrice = elitePlan.isNotEmpty
+        ? ((elitePlan.first.priceInPaise ?? 5900) / 100).toStringAsFixed(0)
+        : '59';
+    final eliteValidity = elitePlan.isNotEmpty
+        ? '${elitePlan.first.validity ?? 10} days valid'
+        : '10 days valid';
+    final elitePlanId = elitePlan.isNotEmpty ? elitePlan.first.id : null;
+    final eliteDesc = elitePlan.isNotEmpty
+        ? (elitePlan.first.description ??
+              'Maximum visibility. Top priority access')
+        : 'Maximum visibility. Top priority access';
+
+    return TabBarView(
+      controller: _tabController,
+      children: [
+        _buildSubscriptionCard(
+          planName: 'Pro Plan',
+          price: proPrice,
+          description: proDesc,
+          bgImage: 'assets/images/pro-bg.png',
+          icon: Icons.star_border,
+          tags: ['Unlimited Chat & Calls', proValidity],
+          benefits: [
+            'Direct access to top talents.',
+            'Connect anytime, explore professionals and groups.',
+            'View unlimited profiles.',
+          ],
+          planId: proPlanId,
+        ),
+        _buildSubscriptionCard(
+          planName: 'Elite Plan',
+          price: elitePrice,
+          description: eliteDesc,
+          bgImage: 'assets/images/elite-bg.png',
+          icon: Icons.workspace_premium,
+          tags: ['Unlimited Chat & Calls', eliteValidity],
+          benefits: [
+            'Direct access to top talents.',
+            'Connect anytime, explore professionals and groups.',
+            'View unlimited profiles.',
+          ],
+          planId: elitePlanId,
+        ),
+      ],
     );
   }
 
@@ -217,6 +272,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
     required IconData icon,
     required List<String> tags,
     required List<String> benefits,
+    String? planId,
   }) {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 20.w),
@@ -365,7 +421,16 @@ class _SubscriptionScreenState extends State<SubscriptionScreen>
                 const Spacer(),
 
                 // Upgrade Button
-                _GradientBorderButton(text: 'Upgrade', onTap: () {}),
+                _GradientBorderButton(
+                  text: 'Upgrade',
+                  onTap: () {
+                    if (planId != null) {
+                      ref
+                          .read(subscriptionNotifierProvider.notifier)
+                          .initiateSubscription(planId);
+                    }
+                  },
+                ),
               ],
             ),
           ),

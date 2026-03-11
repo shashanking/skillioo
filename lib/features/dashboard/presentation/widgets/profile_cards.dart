@@ -6,6 +6,7 @@ import '../../../../core/widgets/custom_text.dart';
 import 'custom_follow_snackbar.dart';
 
 class ProfileCard extends StatefulWidget {
+  final String profileId;
   final String name;
   final String role;
   final String imagePath;
@@ -25,6 +26,7 @@ class ProfileCard extends StatefulWidget {
 
   const ProfileCard({
     super.key,
+    required this.profileId,
     required this.name,
     required this.role,
     required this.imagePath,
@@ -54,12 +56,16 @@ class _ProfileCardState extends State<ProfileCard> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: () {
-        Navigator.of(
-          context,
-        ).push(MaterialPageRoute(builder: (context) => UserProfileScreen()));
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) =>
+                UserProfileScreen(profileId: widget.profileId),
+          ),
+        );
       },
       child: Container(
         width: double.infinity,
+
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(24.r),
           color: const Color(0xFF1F1F1F),
@@ -78,10 +84,15 @@ class _ProfileCardState extends State<ProfileCard> {
                     color: Colors.white.withValues(alpha: 0.1),
                     width: 1.w,
                   ),
-                  image: DecorationImage(
-                    image: AssetImage(widget.imagePath),
-                    fit: BoxFit.cover,
-                  ),
+                  image: widget.imagePath.startsWith('http')
+                      ? DecorationImage(
+                          image: NetworkImage(widget.imagePath),
+                          fit: BoxFit.cover,
+                        )
+                      : DecorationImage(
+                          image: AssetImage(widget.imagePath),
+                          fit: BoxFit.cover,
+                        ),
                 ),
                 child: Container(
                   decoration: BoxDecoration(
@@ -172,35 +183,35 @@ class _ProfileCardState extends State<ProfileCard> {
 
                         // Bottom row with rating and action buttons
                         Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          mainAxisAlignment: MainAxisAlignment.end,
                           children: [
                             // Rating badge
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: 12.w,
-                                vertical: 8.h,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.5),
-                                borderRadius: BorderRadius.circular(16.r),
-                              ),
-                              child: Row(
-                                children: [
-                                  CustomText(
-                                    widget.rating.toString(),
-                                    fontSize: 14.sp,
-                                    fontWeight: FontWeight.w700,
-                                    color: Colors.white,
-                                  ),
-                                  SizedBox(width: 4.w),
-                                  Icon(
-                                    Icons.star,
-                                    color: const Color(0xFFFFB800),
-                                    size: 18.sp,
-                                  ),
-                                ],
-                              ),
-                            ),
+                            // Container(
+                            //   padding: EdgeInsets.symmetric(
+                            //     horizontal: 12.w,
+                            //     vertical: 8.h,
+                            //   ),
+                            //   decoration: BoxDecoration(
+                            //     color: Colors.black.withValues(alpha: 0.5),
+                            //     borderRadius: BorderRadius.circular(16.r),
+                            //   ),
+                            //   child: Row(
+                            //     children: [
+                            //       CustomText(
+                            //         widget.rating.toString(),
+                            //         fontSize: 14.sp,
+                            //         fontWeight: FontWeight.w700,
+                            //         color: Colors.white,
+                            //       ),
+                            //       SizedBox(width: 4.w),
+                            //       Icon(
+                            //         Icons.star,
+                            //         color: const Color(0xFFFFB800),
+                            //         size: 18.sp,
+                            //       ),
+                            //     ],
+                            //   ),
+                            // ),
 
                             // Like and Add buttons in one container
                             Container(
@@ -564,6 +575,7 @@ class _SocialStatItem extends StatelessWidget {
 }
 
 class ProfileCardData {
+  final String profileId;
   final String name;
   final String role;
   final String imagePath;
@@ -577,6 +589,7 @@ class ProfileCardData {
   final bool isProfessional;
 
   ProfileCardData({
+    required this.profileId,
     required this.name,
     required this.role,
     required this.imagePath,
@@ -594,7 +607,21 @@ class ProfileCardData {
 class ProfileCardGrid extends StatelessWidget {
   final List<ProfileCardData> cards;
 
-  const ProfileCardGrid({super.key, required this.cards});
+  final bool showLoadMore;
+  final bool isLoadingMore;
+  final VoidCallback? onLoadMore;
+  final void Function(ProfileCardData card)? onCall;
+  final void Function(ProfileCardData card)? onChat;
+
+  const ProfileCardGrid({
+    super.key,
+    required this.cards,
+    this.showLoadMore = false,
+    this.isLoadingMore = false,
+    this.onLoadMore,
+    this.onCall,
+    this.onChat,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -603,11 +630,55 @@ class ProfileCardGrid extends StatelessWidget {
       child: ListView.separated(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        itemCount: cards.length,
+        itemCount: cards.length + (showLoadMore ? 1 : 0),
         separatorBuilder: (context, index) => SizedBox(height: 16.h),
         itemBuilder: (context, index) {
+          if (showLoadMore && index == cards.length) {
+            if (isLoadingMore) {
+              return Padding(
+                padding: EdgeInsets.symmetric(vertical: 8.h),
+                child: Center(
+                  child: SizedBox(
+                    width: 22.w,
+                    height: 22.w,
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  ),
+                ),
+              );
+            }
+
+            return SizedBox(
+              height: 54.h,
+              child: TextButton(
+                onPressed: onLoadMore,
+                style: TextButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(48.r),
+                  ),
+                  backgroundColor: Colors.white.withValues(alpha: 0.12),
+                ),
+                child: Center(
+                  child: Text(
+                    'Load more',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: const Color(0xFFF5F5F5),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }
+
           final card = cards[index];
           return ProfileCard(
+            profileId: card.profileId,
             name: card.name,
             role: card.role,
             imagePath: card.imagePath,
@@ -619,6 +690,8 @@ class ProfileCardGrid extends StatelessWidget {
             rating: card.rating,
             isOnline: card.isOnline,
             isProfessional: card.isProfessional,
+            onCall: onCall == null ? null : () => onCall!(card),
+            onChat: onChat == null ? null : () => onChat!(card),
           );
         },
       ),

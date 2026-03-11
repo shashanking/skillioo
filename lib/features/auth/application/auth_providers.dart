@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../domain/profile_auth_service.dart';
 import '../domain/verification_service.dart';
 import 'notifiers/auth_notifier.dart';
 import 'states/auth_state.dart';
@@ -11,9 +12,17 @@ final verificationServiceProvider = Provider<VerificationService>((ref) {
   return service;
 });
 
+/// Service provider for ProfileAuthService (login)
+final profileAuthServiceProvider = Provider<ProfileAuthService>((ref) {
+  final service = ProfileAuthService();
+  ref.onDispose(() => service.dispose());
+  return service;
+});
+
 /// StateNotifier provider for auth flow
-final authNotifierProvider =
-    StateNotifierProvider<AuthNotifier, AuthState>((ref) {
+final authNotifierProvider = StateNotifierProvider<AuthNotifier, AuthState>((
+  ref,
+) {
   final service = ref.watch(verificationServiceProvider);
   return AuthNotifier(service);
 });

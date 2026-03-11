@@ -3,8 +3,8 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skillioo/core/services/session_prefs.dart';
 import 'package:skillioo/core/widgets/icon_button.dart';
-import 'package:skillioo/features/onboarding/presentation/splash_screen.dart';
 import 'package:skillioo/features/subscription/presentation/subscription.dart';
 
 import '../../../../core/widgets/custom_text.dart';
@@ -13,12 +13,16 @@ class ProfileSectionScreen extends StatelessWidget {
   final String name;
   final String role;
   final String avatarAssetPath;
+  final String avatarUrl;
+  final String bio;
 
   const ProfileSectionScreen({
     super.key,
     required this.name,
     required this.role,
     required this.avatarAssetPath,
+    this.avatarUrl = '',
+    this.bio = '',
   });
 
   @override
@@ -71,45 +75,59 @@ class ProfileSectionScreen extends StatelessWidget {
                         ),
                       ),
                       child: ClipOval(
-                        child: Image.asset(avatarAssetPath, fit: BoxFit.cover),
+                        child: avatarUrl.isNotEmpty
+                            ? Image.network(
+                                avatarUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Image.asset(
+                                    avatarAssetPath,
+                                    fit: BoxFit.cover,
+                                  );
+                                },
+                              )
+                            : Image.asset(avatarAssetPath, fit: BoxFit.cover),
                       ),
                     ),
                     SizedBox(width: 14.w),
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          CustomText(
-                            name,
-                            fontSize: 18.sp,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                          ),
-                          SizedBox(height: 4.h),
-                          CustomText(
-                            role,
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w500,
-                            color: Colors.white.withValues(alpha: 0.75),
-                          ),
-                          SizedBox(height: 6.h),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).pop();
-                              context.push('/edit-profile');
-                            },
-                            child: CustomText(
-                              'Edit Profile',
-                              fontSize: 12.sp,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white.withValues(alpha: 0.6),
-                              decoration: TextDecoration.underline,
-                              decorationColor: Colors.white.withValues(
-                                alpha: 0.6,
+                      child: Padding(
+                        padding: EdgeInsets.only(right: 6.w),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CustomText(
+                              name,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            SizedBox(height: 4.h),
+                            CustomText(
+                              role.isNotEmpty ? role : bio,
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.white.withValues(alpha: 0.75),
+                            ),
+                            SizedBox(height: 6.h),
+                            GestureDetector(
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                context.push('/edit-profile');
+                              },
+                              child: CustomText(
+                                'Edit Profile',
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white.withValues(alpha: 0.6),
+                                decoration: TextDecoration.underline,
+                                decorationColor: Colors.white.withValues(
+                                  alpha: 0.6,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
                     _GradientPillButton(
@@ -190,12 +208,10 @@ class ProfileSectionScreen extends StatelessWidget {
                   width: double.infinity,
                   height: 54.h,
                   child: ElevatedButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (context) => const SplashScreen(),
-                        ),
-                      );
+                    onPressed: () async {
+                      await SessionPrefs.instance.clear();
+                      if (!context.mounted) return;
+                      context.go('/start');
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFFB00000),

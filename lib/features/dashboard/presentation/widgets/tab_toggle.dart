@@ -108,8 +108,13 @@ class _TabToggleState extends State<TabToggle> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16.w),
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16.w),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(24),
+        color: Colors.white.withValues(alpha: 0.12),
+      ),
+
       child: Row(
         children: [
           _buildTab('Gallery', 0),
@@ -138,9 +143,7 @@ class _TabToggleState extends State<TabToggle> {
         child: Container(
           padding: EdgeInsets.symmetric(vertical: 12.h),
           decoration: BoxDecoration(
-            color: isSelected
-                ? Colors.white
-                : Colors.white.withValues(alpha: 0.12),
+            color: isSelected ? Colors.white : null,
             borderRadius: BorderRadius.circular(20.r),
           ),
           child: Center(

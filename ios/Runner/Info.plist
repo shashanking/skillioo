@@ -45,5 +45,43 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Camera permission for posts/reels -->
+	<key>NSCameraUsageDescription</key>
+	<string>Skillioo needs access to your camera to capture photos and videos for posts and reels.</string>
+	
+	<!-- Photo library permissions -->
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Skillioo needs access to your photo library to select photos and videos for posts and reels.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Skillioo needs permission to save photos and videos to your library.</string>
+	
+	<!-- Microphone permission for video recording and calls -->
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Skillioo needs access to your microphone to record videos and make voice/video calls.</string>
+	
+	<!-- Location permissions for address and location features -->
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Skillioo needs your location to show nearby professionals and provide location-based services.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Skillioo needs your location to provide location-based services even when the app is in the background.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Skillioo needs your location to provide location-based services.</string>
+	
+	<!-- Contacts permission (if needed for future features) -->
+	<key>NSContactsUsageDescription</key>
+	<string>Skillioo needs access to your contacts to help you connect with friends and professionals.</string>
+	
+	<!-- Face ID permission -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Skillioo uses Face ID to securely authenticate your login.</string>
+	
+	<!-- Background modes for socket connection -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+		<string>processing</string>
+	</array>
 </dict>
 </plist>

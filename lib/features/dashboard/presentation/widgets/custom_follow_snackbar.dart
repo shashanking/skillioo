@@ -118,23 +118,23 @@ class _SnackbarContentState extends State<_SnackbarContent>
               child: Row(
                 children: [
                   // Profile image
-                  Container(
-                    width: 48.w,
-                    height: 48.w,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12.r),
-                      border: Border.all(
-                        color: const Color(0xFF00D9FF),
-                        width: 1.5.w,
-                      ),
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(10.r),
-                      child: Image.asset(widget.imagePath, fit: BoxFit.cover),
-                    ),
-                  ),
+                  // Container(
+                  //   width: 48.w,
+                  //   height: 48.w,
+                  //   decoration: BoxDecoration(
+                  //     borderRadius: BorderRadius.circular(12.r),
+                  //     border: Border.all(
+                  //       color: const Color(0xFF00D9FF),
+                  //       width: 1.5.w,
+                  //     ),
+                  //   ),
+                  //   child: ClipRRect(
+                  //     borderRadius: BorderRadius.circular(10.r),
+                  //     child: Image.asset(widget.imagePath, fit: BoxFit.cover),
+                  //   ),
+                  // ),
 
-                  SizedBox(width: 16.w),
+                  // SizedBox(width: 16.w),
 
                   // Content
                   Expanded(

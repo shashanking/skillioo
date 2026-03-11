@@ -1,24 +1,39 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../core/widgets/custom_text.dart';
+import '../../../dashboard/application/states/profile_list_state.dart';
+import '../../application/hiring_rate_providers.dart';
 
-class BioTab extends StatelessWidget {
-  const BioTab({super.key});
+class BioTab extends ConsumerWidget {
+  final ProfileItem profile;
+
+  const BioTab({super.key, required this.profile});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final bioText = profile.nickName.isNotEmpty
+        ? profile.nickName
+        : "No bio provided";
+
+    final hiringRatesAsync = profile.portfolioId.isNotEmpty
+        ? ref.watch(hiringRateProvider(profile.portfolioId))
+        : null;
+
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 20.w),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CustomText(
-            "Include about your skills and talent. Don't include personal info like mobile number, email address etc.",
+            bioText,
             fontSize: 14.sp,
             fontWeight: FontWeight.w400,
             color: Colors.white.withValues(alpha: 0.9),
             height: 1.5,
+            maxLines: 5,
+            overflow: TextOverflow.ellipsis,
           ),
           SizedBox(height: 32.h),
 
@@ -30,10 +45,46 @@ class BioTab extends StatelessWidget {
           ),
           SizedBox(height: 24.h),
 
-          _buildRateRow("Hourly", "₹ 50/-"),
-          _buildRateRow("Daily", "₹ 500/-"),
-          _buildRateRow("Weekly", "₹ 5,000/-"),
-          _buildRateRow("Monthly", "₹ 2,00,000/-", isLast: true),
+          if (hiringRatesAsync == null)
+            CustomText(
+              'Hiring rates not available',
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w400,
+              color: Colors.white.withValues(alpha: 0.7),
+            )
+          else
+            hiringRatesAsync.when(
+              loading: () => const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+              error: (err, _) => CustomText(
+                'Failed to load hiring rates',
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w400,
+                color: Colors.white.withValues(alpha: 0.7),
+              ),
+              data: (data) {
+                final hourly = (data['hourlyPricing'] ?? '').toString();
+                final daily = (data['dailyPricing'] ?? '').toString();
+                final weekly = (data['weeklyPricing'] ?? '').toString();
+                final monthly = (data['monthlyPricing'] ?? '').toString();
+
+                String fmt(String raw) {
+                  final v = raw.trim();
+                  if (v.isEmpty) return '-';
+                  return '₹ $v';
+                }
+
+                return Column(
+                  children: [
+                    _buildRateRow('Hourly', fmt(hourly)),
+                    _buildRateRow('Daily', fmt(daily)),
+                    _buildRateRow('Weekly', fmt(weekly)),
+                    _buildRateRow('Monthly', fmt(monthly), isLast: true),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

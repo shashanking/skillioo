@@ -6,10 +6,12 @@ import 'profiles_reels_page.dart';
 import 'call_page.dart';
 
 class ReelsTab extends StatelessWidget {
-  const ReelsTab({super.key});
+  final bool isActive;
+
+  const ReelsTab({super.key, required this.isActive});
   @override
   Widget build(BuildContext context) {
-    return const ReelsPage();
+    return ReelsPage(isActive: isActive);
   }
 }
 
@@ -23,12 +25,21 @@ class ProfileMainTab extends StatelessWidget {
 
 class ChatTab extends StatelessWidget {
   final Function(bool)? onChatStateChanged;
+  final String initialRecipientId;
 
-  const ChatTab({super.key, this.onChatStateChanged});
+  const ChatTab({
+    super.key,
+    this.onChatStateChanged,
+    this.initialRecipientId = '',
+  });
 
   @override
   Widget build(BuildContext context) {
-    return ChatPage(onChatStateChanged: onChatStateChanged);
+    return ChatPage(
+      key: ValueKey('chat-page-$initialRecipientId'),
+      onChatStateChanged: onChatStateChanged,
+      initialRecipientId: initialRecipientId,
+    );
   }
 }
 

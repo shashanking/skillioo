@@ -109,20 +109,16 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
     // SET step behaviour
     if (!isConfirm) {
-      // When fewer than 4 digits are entered, button is "Skip" → go straight to Biometric.
       if (pinLength < 4) {
-        setState(() {
-          _currentTab = _AuthTab.biometric;
-          _pinStep = _PinStep.set;
-          _showPinError = false;
-        });
-        for (final c in _pinControllers) {
-          c.clear();
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please enter a 4-digit PIN to continue.'),
+            backgroundColor: Colors.red,
+          ),
+        );
         return;
       }
 
-      // Exactly 4 digits: button label is "Continue" and we proceed to confirm PIN.
       await _onPinContinue();
       return;
     }
@@ -253,7 +249,6 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   Widget _buildPinContent() {
     final isConfirm = _pinStep == _PinStep.confirm;
-    final pinLength = _currentPin().length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -283,11 +278,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         ],
         const Spacer(),
         _buildGradientButton(
-          // Set step: show Continue only when 4 digits entered, else Skip.
-          // Confirm step: always show Continue (action will only succeed when pins match).
-          label: isConfirm
-              ? 'Continue'
-              : (pinLength == 4 ? 'Continue' : 'Skip'),
+          label: 'Continue',
           onPressed: _onPinPrimaryButtonPressed,
         ),
       ],
@@ -357,9 +348,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         ),
         const Spacer(),
         _buildGradientButton(
-          label: 'Skip',
+          label: 'Continue',
           onPressed: () {
-            // Skip biometric setup and continue to the next step.
             GoRouter.of(context).go('/auth-success');
           },
         ),
@@ -370,6 +360,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       body: CommonBackground(
         child: SafeArea(
           child: Padding(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:skillioo/core/widgets/app_menu_screen.dart';
+import 'package:skillioo/core/services/session_prefs.dart';
 import 'package:skillioo/features/profile/presentation/profile.dart';
 import 'package:skillioo/features/profile/presentation/widgets/select_location_screen.dart';
 
@@ -63,6 +64,27 @@ class _AddMenuButton extends StatelessWidget {
 
     final router = GoRouter.of(context);
 
+    final isProfileCreated = await SessionPrefs.instance.isProfileCreated();
+    if (!context.mounted) return;
+
+    // If there is only one action, open Create Post directly.
+    if (isProfileCreated) {
+      router.push('/profile-create-post');
+      return;
+    }
+
+    final items = <PopupMenuEntry<_AddMenuAction>>[
+      const PopupMenuItem(
+        value: _AddMenuAction.upload,
+        child: _AddMenuItemRow(title: 'Upload'),
+      ),
+      if (!isProfileCreated)
+        const PopupMenuItem(
+          value: _AddMenuAction.createProfile,
+          child: _AddMenuItemRow(title: 'Create Profile'),
+        ),
+    ];
+
     final value = await showMenu<_AddMenuAction>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -71,16 +93,7 @@ class _AddMenuButton extends StatelessWidget {
         offset.dx + size.width,
         offset.dy + size.height + 200,
       ),
-      items: const [
-        PopupMenuItem(
-          value: _AddMenuAction.upload,
-          child: _AddMenuItemRow(title: 'Upload'),
-        ),
-        PopupMenuItem(
-          value: _AddMenuAction.createProfile,
-          child: _AddMenuItemRow(title: 'Create Profile'),
-        ),
-      ],
+      items: items,
       color: Colors.white,
       elevation: 8,
       shape: RoundedRectangleBorder(
@@ -96,7 +109,7 @@ class _AddMenuButton extends StatelessWidget {
 
     switch (value) {
       case _AddMenuAction.upload:
-        router.push('/upload-videos');
+        router.push('/profile-create-post');
         break;
       case _AddMenuAction.createProfile:
         router.push('/profile-type');
@@ -148,8 +161,8 @@ class _IconButton extends StatelessWidget {
       width: 48.w,
       height: 48.w,
       decoration: BoxDecoration(
+        shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12.r),
       ),
       child: Center(
         child: Image.asset(assetPath, width: 24.w, height: 24.w),
@@ -162,13 +175,32 @@ class _AvatarButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: () {
-        Navigator.of(context).push(
+      onTap: () async {
+        final navigator = Navigator.of(context);
+        final profile = await SessionPrefs.instance.getProfile();
+        if (!context.mounted) return;
+
+        final nickName = profile?['nickName'] as String? ?? '';
+        final displayName = profile?['name'] as String? ?? '';
+        final bio = profile?['bio'] as String? ?? '';
+        final rawAvatarUrl =
+            profile?['profilePhotoUrl'] as String? ??
+            profile?['avatarUrl'] as String? ??
+            '';
+        final avatarUrl = rawAvatarUrl.startsWith('http://')
+            ? rawAvatarUrl.replaceFirst('http://', 'https://')
+            : rawAvatarUrl;
+
+        navigator.push(
           MaterialPageRoute(
             builder: (context) => ProfileSectionScreen(
-              name: 'Praveen Chandra',
-              role: 'Software Engineer',
+              name: displayName.isNotEmpty
+                  ? displayName
+                  : (nickName.isNotEmpty ? nickName : 'Profile'),
+              role: '',
               avatarAssetPath: AppAssets.logoPng,
+              avatarUrl: avatarUrl,
+              bio: bio,
             ),
           ),
         );
@@ -183,11 +215,40 @@ class _AvatarButton extends StatelessWidget {
         child: Center(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12.r),
-            child: Image.asset(
-              AppAssets.logoPng,
-              width: 48.w,
-              height: 48.w,
-              fit: BoxFit.cover,
+            child: FutureBuilder<Map<String, dynamic>?>(
+              future: SessionPrefs.instance.getProfile(),
+              builder: (context, snapshot) {
+                final profile = snapshot.data;
+                final rawAvatarUrl =
+                    profile?['profilePhotoUrl'] as String? ??
+                    profile?['avatarUrl'] as String? ??
+                    '';
+                final avatarUrl = rawAvatarUrl.startsWith('http://')
+                    ? rawAvatarUrl.replaceFirst('http://', 'https://')
+                    : rawAvatarUrl;
+                if (avatarUrl.isNotEmpty) {
+                  return Image.network(
+                    avatarUrl,
+                    width: 48.w,
+                    height: 48.w,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        AppAssets.logoPng,
+                        width: 48.w,
+                        height: 48.w,
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  );
+                }
+                return Image.asset(
+                  AppAssets.logoPng,
+                  width: 48.w,
+                  height: 48.w,
+                  fit: BoxFit.cover,
+                );
+              },
             ),
           ),
         ),

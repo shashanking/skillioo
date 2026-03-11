@@ -1,16 +1,36 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../constants/app_constants.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
 import '../../../../core/widgets/icon_button.dart';
+import '../../../chat/application/chat_providers.dart';
+import '../../../chat/application/states/chat_state.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends ConsumerStatefulWidget {
   const NotificationsScreen({super.key});
 
   @override
+  ConsumerState<NotificationsScreen> createState() =>
+      _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends ConsumerState<NotificationsScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(chatNotifierProvider.notifier).fetchNotifications();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final chatState = ref.watch(chatNotifierProvider);
+    final apiNotifications = chatState.notifications;
+    final isLoading = chatState.notificationsStatus == ChatStatus.loading;
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -40,82 +60,109 @@ class NotificationsScreen extends StatelessWidget {
               ),
               // Content
               Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 16.w,
-                    vertical: 24.h,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Today
-                      CustomText(
-                        AppStrings.today,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Neue',
-                        color: AppColors.foundationBlack20,
-                      ),
-                      SizedBox(height: 12.h),
-                      _buildNotificationGroup([
-                        _NotificationItem(
-                          avatar: AppAssets.professionalProfileJpg,
-                          text: 'Lisa Dancer ${AppStrings.likedYourPost}',
-                          time: '12:30 PM',
-                          isUnread: true,
-                        ),
-                        _NotificationItem(
-                          avatar: AppAssets.professionalProfileJpg,
-                          text:
-                              'Lisa Dancer ${AppStrings.commentedOnYourPost} - "Excellent, Keep it up!".',
-                          time: '12:30 PM',
-                          isUnread: true,
-                        ),
-                        _NotificationItem(
-                          avatar: AppAssets.skilledProfileJpg,
-                          text: 'Sam Basketer ${AppStrings.likedYourPost}',
-                          time: '12:30 PM',
-                          isUnread: false,
-                        ),
-                      ]),
-                      SizedBox(height: 24.h),
-                      // Yesterday
-                      CustomText(
-                        AppStrings.yesterday,
-                        fontSize: 18.sp,
-                        fontWeight: FontWeight.w700,
-                        fontFamily: 'Neue',
-                        color: AppColors.foundationBlack20,
-                      ),
-                      SizedBox(height: 12.h),
-                      _buildNotificationGroup([
-                        _NotificationItem(
-                          avatar: AppAssets.professionalProfileJpg,
-                          text: 'Lisa Dancer ${AppStrings.likedYourPost}',
-                          time: '12:30 PM',
-                          isUnread: false,
-                        ),
-                        _NotificationItem(
-                          avatar: AppAssets.professionalProfileJpg,
-                          text:
-                              'Lisa Dancer ${AppStrings.commentedOnYourPost} - "Excellent, Keep it up!".',
-                          time: '12:30 PM',
-                          isUnread: false,
-                        ),
-                        _NotificationItem(
-                          avatar: AppAssets.skilledProfileJpg,
-                          text: 'Sam Basketer ${AppStrings.likedYourPost}',
-                          time: '12:30 PM',
-                          isUnread: false,
-                        ),
-                      ]),
-                    ],
-                  ),
-                ),
+                child: _buildNotificationsContent(apiNotifications, isLoading),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildNotificationsContent(
+    List<Map<String, dynamic>> apiNotifications,
+    bool isLoading,
+  ) {
+    // If API returned data, map it
+    if (apiNotifications.isNotEmpty) {
+      final items = apiNotifications.map((n) {
+        final body = n['bodyText'] as Map<String, dynamic>? ?? n;
+        return _NotificationItem(
+          avatar: AppAssets.professionalProfileJpg,
+          text: body['message'] as String? ?? body.toString(),
+          time: '',
+          isUnread: body['read'] != true,
+        );
+      }).toList();
+
+      return SingleChildScrollView(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+        child: _buildNotificationGroup(items),
+      );
+    }
+
+    if (isLoading) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
+    }
+
+    // Fallback dummy data
+    return SingleChildScrollView(
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 24.h),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomText(
+            AppStrings.today,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Neue',
+            color: AppColors.foundationBlack20,
+          ),
+          SizedBox(height: 12.h),
+          _buildNotificationGroup([
+            _NotificationItem(
+              avatar: AppAssets.professionalProfileJpg,
+              text: 'Lisa Dancer ${AppStrings.likedYourPost}',
+              time: '12:30 PM',
+              isUnread: true,
+            ),
+            _NotificationItem(
+              avatar: AppAssets.professionalProfileJpg,
+              text:
+                  'Lisa Dancer ${AppStrings.commentedOnYourPost} - "Excellent, Keep it up!".',
+              time: '12:30 PM',
+              isUnread: true,
+            ),
+            _NotificationItem(
+              avatar: AppAssets.skilledProfileJpg,
+              text: 'Sam Basketer ${AppStrings.likedYourPost}',
+              time: '12:30 PM',
+              isUnread: false,
+            ),
+          ]),
+          SizedBox(height: 24.h),
+          CustomText(
+            AppStrings.yesterday,
+            fontSize: 18.sp,
+            fontWeight: FontWeight.w700,
+            fontFamily: 'Neue',
+            color: AppColors.foundationBlack20,
+          ),
+          SizedBox(height: 12.h),
+          _buildNotificationGroup([
+            _NotificationItem(
+              avatar: AppAssets.professionalProfileJpg,
+              text: 'Lisa Dancer ${AppStrings.likedYourPost}',
+              time: '12:30 PM',
+              isUnread: false,
+            ),
+            _NotificationItem(
+              avatar: AppAssets.professionalProfileJpg,
+              text:
+                  'Lisa Dancer ${AppStrings.commentedOnYourPost} - "Excellent, Keep it up!".',
+              time: '12:30 PM',
+              isUnread: false,
+            ),
+            _NotificationItem(
+              avatar: AppAssets.skilledProfileJpg,
+              text: 'Sam Basketer ${AppStrings.likedYourPost}',
+              time: '12:30 PM',
+              isUnread: false,
+            ),
+          ]),
+        ],
       ),
     );
   }
@@ -139,20 +186,14 @@ class NotificationsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildNotificationTile(
-    _NotificationItem item, {
-    bool isLast = false,
-  }) {
+  Widget _buildNotificationTile(_NotificationItem item, {bool isLast = false}) {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
       decoration: BoxDecoration(
         border: isLast
             ? null
             : Border(
-                bottom: BorderSide(
-                  color: AppColors.glassWhite12,
-                  width: 0.5,
-                ),
+                bottom: BorderSide(color: AppColors.glassWhite12, width: 0.5),
               ),
       ),
       child: Row(

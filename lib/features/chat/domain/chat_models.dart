@@ -38,6 +38,9 @@ class MessageResponse {
   final String? recipientId;
   final MessageContent? content;
   final String? status;
+  final String? readAt;
+  final bool? isDeleted;
+  final String? createdAt;
 
   const MessageResponse({
     this.id,
@@ -45,6 +48,9 @@ class MessageResponse {
     this.recipientId,
     this.content,
     this.status,
+    this.readAt,
+    this.isDeleted,
+    this.createdAt,
   });
 
   factory MessageResponse.fromJson(Map<String, dynamic> json) =>

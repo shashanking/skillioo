@@ -90,25 +90,30 @@ Map<String, dynamic> _$LocationRequestToJson(LocationRequest instance) =>
       'longitude': instance.longitude,
     };
 
-PortfolioRequest _$PortfolioRequestFromJson(Map<String, dynamic> json) =>
-    PortfolioRequest(
-      category: json['category'] as String,
-      subCategory: json['subCategory'] as String,
-      proficiency: json['proficiency'] as String,
-      bio: json['bio'] as String,
-      totalEvents: (json['totalEvents'] as num).toInt(),
-      videoDocumentId: json['videoDocumentId'] as String?,
-      imageDocumentId: json['imageDocumentId'] as String?,
-      eventsDoneDocumentId: json['eventsDoneDocumentId'] as String?,
-      hiringRate: json['hiringRate'] == null
-          ? null
-          : HiringRateRequest.fromJson(
-              json['hiringRate'] as Map<String, dynamic>,
-            ),
-      follows: json['follows'] == null
-          ? null
-          : FollowsRequest.fromJson(json['follows'] as Map<String, dynamic>),
-    );
+PortfolioRequest _$PortfolioRequestFromJson(
+  Map<String, dynamic> json,
+) => PortfolioRequest(
+  category: json['category'] as String,
+  subCategory: json['subCategory'] as String,
+  proficiency: json['proficiency'] as String,
+  bio: json['bio'] as String,
+  totalEvents: (json['totalEvents'] as num).toInt(),
+  videoDocumentIds: (json['videoDocumentIds'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  imageDocumentIds: (json['imageDocumentIds'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  eventsDoneDocumentIds: (json['eventsDoneDocumentIds'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+  hiringRate: json['hiringRate'] == null
+      ? null
+      : HiringRateRequest.fromJson(json['hiringRate'] as Map<String, dynamic>),
+  follows: (json['follows'] as List<dynamic>?)
+      ?.map((e) => SocialMediaFollowRequest.fromJson(e as Map<String, dynamic>))
+      .toList(),
+);
 
 Map<String, dynamic> _$PortfolioRequestToJson(PortfolioRequest instance) =>
     <String, dynamic>{
@@ -117,9 +122,9 @@ Map<String, dynamic> _$PortfolioRequestToJson(PortfolioRequest instance) =>
       'proficiency': instance.proficiency,
       'bio': instance.bio,
       'totalEvents': instance.totalEvents,
-      'videoDocumentId': instance.videoDocumentId,
-      'imageDocumentId': instance.imageDocumentId,
-      'eventsDoneDocumentId': instance.eventsDoneDocumentId,
+      'videoDocumentIds': instance.videoDocumentIds,
+      'imageDocumentIds': instance.imageDocumentIds,
+      'eventsDoneDocumentIds': instance.eventsDoneDocumentIds,
       'hiringRate': instance.hiringRate,
       'follows': instance.follows,
     };
@@ -140,21 +145,23 @@ Map<String, dynamic> _$HiringRateRequestToJson(HiringRateRequest instance) =>
       'monthlyPricing': instance.monthlyPricing,
     };
 
-FollowsRequest _$FollowsRequestFromJson(Map<String, dynamic> json) =>
-    FollowsRequest(
-      instaFollwers: (json['instaFollwers'] as num?)?.toInt(),
-      instaFollowing: (json['instaFollowing'] as num?)?.toInt(),
-      facebookFollowers: (json['facebookFollowers'] as num?)?.toInt(),
-      facebookFollowing: (json['facebookFollowing'] as num?)?.toInt(),
-    );
+SocialMediaFollowRequest _$SocialMediaFollowRequestFromJson(
+  Map<String, dynamic> json,
+) => SocialMediaFollowRequest(
+  socialMedia: json['socialMedia'] as String,
+  link: json['link'] as String,
+  followers: (json['followers'] as num?)?.toInt(),
+  following: (json['following'] as num?)?.toInt(),
+);
 
-Map<String, dynamic> _$FollowsRequestToJson(FollowsRequest instance) =>
-    <String, dynamic>{
-      'instaFollwers': instance.instaFollwers,
-      'instaFollowing': instance.instaFollowing,
-      'facebookFollowers': instance.facebookFollowers,
-      'facebookFollowing': instance.facebookFollowing,
-    };
+Map<String, dynamic> _$SocialMediaFollowRequestToJson(
+  SocialMediaFollowRequest instance,
+) => <String, dynamic>{
+  'socialMedia': instance.socialMedia,
+  'link': instance.link,
+  'followers': instance.followers,
+  'following': instance.following,
+};
 
 ProfileResponse _$ProfileResponseFromJson(Map<String, dynamic> json) =>
     ProfileResponse(

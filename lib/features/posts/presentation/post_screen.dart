@@ -1,12 +1,19 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:skillioo/features/posts/presentation/full_post_view.dart';
+import 'package:video_player/video_player.dart';
 
-import '../../../../core/widgets/custom_text.dart';
+import '../../dashboard/application/states/profile_list_state.dart';
+import '../../../core/widgets/custom_text.dart';
+import '../../chat/application/chat_providers.dart';
+import '../application/post_providers.dart';
 
 class _PostData {
   final String image;
+  final String recipientId;
   final String name;
   final String views;
   final String avatar;
@@ -19,9 +26,12 @@ class _PostData {
   final String likes;
   final String comments;
   final String shares;
+  final bool isVideo;
+  final String? mediaId;
 
   const _PostData({
     required this.image,
+    required this.recipientId,
     required this.name,
     required this.views,
     required this.avatar,
@@ -34,59 +44,194 @@ class _PostData {
     required this.likes,
     required this.comments,
     required this.shares,
+    required this.isVideo,
+    this.mediaId,
   });
 }
 
-class PostViewScreen extends StatelessWidget {
-  const PostViewScreen({super.key});
+class PostViewScreen extends ConsumerStatefulWidget {
+  final ProfileItem? profile;
+  final List<MediaItem>? mediaItems;
+  final int initialIndex;
 
-  static const List<_PostData> _posts = [
-    _PostData(
-      image: 'assets/images/post-img.jpg',
-      name: 'Silent Sings',
-      views: '1M Views',
-      avatar: 'assets/images/professional-profile.jpg',
-      category: 'Singer',
-      subcategory: 'Classical Singer',
-      rating: '4.5 ⭐',
-      type: 'Professional',
-      events: '25',
-      music: 'Alan Walker - Faded',
-      likes: '10K',
-      comments: '5K',
-      shares: '2K',
-    ),
-    _PostData(
-      image: 'assets/images/skilled-profile.jpg',
-      name: 'Sam Basketer',
-      views: '500K Views',
-      avatar: 'assets/images/skilled-profile.jpg',
-      category: 'Dancer',
-      subcategory: 'Hip Hop Dancer',
-      rating: '4.8 ⭐',
-      type: 'Skilled',
-      events: '12',
-      music: 'Ed Sheeran - Shape of You',
-      likes: '8K',
-      comments: '3K',
-      shares: '1.5K',
-    ),
-    _PostData(
-      image: 'assets/images/profile-img-1.jpg',
-      name: 'Lisa Dancer',
-      views: '2M Views',
-      avatar: 'assets/images/profile-img-1.jpg',
-      category: 'Photographer',
-      subcategory: 'Portrait Photographer',
-      rating: '4.9 ⭐',
-      type: 'Professional',
-      events: '40',
-      music: 'Imagine Dragons - Believer',
-      likes: '15K',
-      comments: '7K',
-      shares: '4K',
-    ),
-  ];
+  const PostViewScreen({
+    super.key,
+    this.profile,
+    this.mediaItems,
+    this.initialIndex = 0,
+  }) : assert(profile != null || mediaItems != null);
+
+  @override
+  ConsumerState<PostViewScreen> createState() => _PostViewScreenState();
+}
+
+class _PostViewScreenState extends ConsumerState<PostViewScreen> {
+  late PageController _pageController;
+  int _currentIndex = 0;
+  final Map<int, VideoPlayerController> _videoControllers = {};
+
+  @override
+  void initState() {
+    super.initState();
+    _currentIndex = widget.initialIndex;
+    _pageController = PageController(initialPage: widget.initialIndex);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _manageVideos(_currentIndex);
+    });
+  }
+
+  @override
+  void dispose() {
+    _pageController.dispose();
+    for (final controller in _videoControllers.values) {
+      controller.dispose();
+    }
+    _videoControllers.clear();
+    super.dispose();
+  }
+
+  void _onPageChanged(int index) {
+    setState(() => _currentIndex = index);
+    _manageVideos(index);
+  }
+
+  Future<void> _manageVideos(int currentIndex) async {
+    final posts = _posts;
+
+    // Pause all videos
+    for (final controller in _videoControllers.values) {
+      if (controller.value.isPlaying) {
+        controller.pause();
+      }
+    }
+
+    // Dispose videos that are far away
+    final toRemove = <int>[];
+    for (final index in _videoControllers.keys) {
+      if ((index - currentIndex).abs() > 2) {
+        toRemove.add(index);
+      }
+    }
+    for (final index in toRemove) {
+      _videoControllers[index]?.dispose();
+      _videoControllers.remove(index);
+    }
+
+    // Preload current and next videos
+    if (currentIndex < posts.length && posts[currentIndex].isVideo) {
+      await _preloadVideo(currentIndex);
+      _videoControllers[currentIndex]?.play();
+    }
+    if (currentIndex + 1 < posts.length && posts[currentIndex + 1].isVideo) {
+      _preloadVideo(currentIndex + 1);
+    }
+  }
+
+  Future<void> _preloadVideo(int index) async {
+    final posts = _posts;
+    if (index >= posts.length || !posts[index].isVideo) return;
+    if (_videoControllers.containsKey(index)) return;
+
+    try {
+      final mediaUrl = posts[index].image.startsWith('http://')
+          ? posts[index].image.replaceFirst('http://', 'https://')
+          : posts[index].image;
+      final controller = VideoPlayerController.networkUrl(Uri.parse(mediaUrl));
+      _videoControllers[index] = controller;
+      await controller.initialize();
+      controller.setLooping(true);
+      controller.setVolume(1.0);
+      if (mounted) setState(() {});
+    } catch (e) {
+      _videoControllers.remove(index);
+    }
+  }
+
+  List<_PostData> get _posts {
+    if (widget.mediaItems != null && widget.mediaItems!.isNotEmpty) {
+      return widget.mediaItems!
+          .map(
+            (item) => _PostData(
+              image: item.mediaUrl.startsWith('http://')
+                  ? item.mediaUrl.replaceFirst('http://', 'https://')
+                  : item.mediaUrl,
+              recipientId: item.recipientId,
+              name: item.profileName,
+              views: '${item.totalViews ?? 0} Views',
+              avatar: item.profilePhotoUrl ?? 'assets/images/profile-img-1.jpg',
+              category: item.category,
+              subcategory: item.subcategory,
+              rating: '0',
+              type: item.proficiency,
+              events: '0',
+              music: '',
+              likes: '${item.totalLikes ?? 0}',
+              comments: '${item.totalComments ?? 0}',
+              shares: '0',
+              isVideo: item.isVideo,
+              mediaId: item.mediaId,
+            ),
+          )
+          .toList();
+    }
+
+    final profile = widget.profile;
+    if (profile == null) return const <_PostData>[];
+    final List<_PostData> items = [];
+    final avatarUrl =
+        profile.profilePhotoUrl ?? 'assets/images/profile-img-1.jpg';
+    final proficiencyType = profile.proficiency.isNotEmpty
+        ? profile.proficiency
+        : 'Professional';
+
+    for (final video in profile.videos) {
+      items.add(
+        _PostData(
+          image: video.normalizedUrl,
+          recipientId: profile.id,
+          name: profile.displayName,
+          views: '0 Views',
+          avatar: avatarUrl,
+          category: 'Creator',
+          subcategory: '${profile.city}, ${profile.country}',
+          rating: '0 ',
+          type: proficiencyType,
+          events: '0',
+          music: '',
+          likes: '0',
+          comments: '0',
+          shares: '0',
+          isVideo: true,
+          mediaId: video.normalizedUrl,
+        ),
+      );
+    }
+
+    for (final image in profile.images) {
+      items.add(
+        _PostData(
+          image: image.normalizedUrl,
+          recipientId: profile.id,
+          name: profile.displayName,
+          views: '0 Views',
+          avatar: avatarUrl,
+          category: 'Creator',
+          subcategory: '${profile.city}, ${profile.country}',
+          rating: '0 ',
+          type: proficiencyType,
+          events: '0',
+          music: '',
+          likes: '0',
+          comments: '0',
+          shares: '0',
+          isVideo: false,
+          mediaId: image.normalizedUrl,
+        ),
+      );
+    }
+
+    return items;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -119,13 +264,25 @@ class PostViewScreen extends StatelessWidget {
               ),
               SizedBox(height: 10.h),
               Expanded(
-                child: PageView.builder(
-                  scrollDirection: Axis.vertical,
-                  itemCount: _posts.length,
-                  itemBuilder: (context, index) {
-                    return _buildPostCard(context, _posts[index]);
-                  },
-                ),
+                child: _posts.isEmpty
+                    ? Center(
+                        child: CustomText(
+                          'No posts available',
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white70,
+                        ),
+                      )
+                    : PageView.builder(
+                        scrollDirection: Axis.vertical,
+                        itemCount: _posts.length,
+                        controller: _pageController,
+                        onPageChanged: _onPageChanged,
+                        allowImplicitScrolling: false,
+                        itemBuilder: (context, index) {
+                          return _buildPostCard(context, _posts[index], index);
+                        },
+                      ),
               ),
               SizedBox(height: 20.h),
             ],
@@ -135,169 +292,265 @@ class PostViewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPostCard(BuildContext context, _PostData post) {
+  Widget _buildPostCard(BuildContext context, _PostData post, int index) {
     return GestureDetector(
       onTap: () {
+        final mediaItems = _posts
+            .map(
+              (p) => MediaItem(
+                mediaUrl: p.image,
+                isVideo: p.isVideo,
+                recipientId: p.recipientId,
+                profileName: p.name,
+                profilePhotoUrl: p.avatar,
+                category: p.category,
+                subcategory: p.subcategory,
+                proficiency: p.type,
+                mediaId: p.mediaId,
+                totalComments: int.tryParse(p.comments) ?? 0,
+                totalLikes: int.tryParse(p.likes) ?? 0,
+                totalViews:
+                    int.tryParse(p.views.replaceAll(RegExp(r'[^0-9]'), '')) ??
+                    0,
+              ),
+            )
+            .toList();
+
         Navigator.push(
           context,
-          MaterialPageRoute(builder: (context) => const FullPostViewScreen()),
+          MaterialPageRoute(
+            builder: (context) =>
+                FullPostViewScreen(mediaItems: mediaItems, initialIndex: index),
+          ),
         );
       },
       child: Container(
-        margin: EdgeInsets.symmetric(horizontal: 20.w),
-        decoration: BoxDecoration(
+        margin: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.w),
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(24.r)),
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(24.r),
-          image: DecorationImage(
-            image: AssetImage(post.image),
-            fit: BoxFit.cover,
-          ),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(24.r),
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Colors.black.withValues(alpha: 0.3),
-                Colors.transparent,
-                Colors.black.withValues(alpha: 0.8),
-                Colors.black.withValues(alpha: 0.95),
-              ],
-              stops: const [0.0, 0.4, 0.7, 1.0],
-            ),
-          ),
-          child: Padding(
-            padding: EdgeInsets.all(20.w),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Background video or image
+              if (post.isVideo)
+                _buildVideoPlayer(index)
+              else
+                post.image.startsWith('http')
+                    ? CachedNetworkImage(
+                        imageUrl: post.image,
+                        fit: BoxFit.cover,
+                        memCacheWidth: 800,
+                        memCacheHeight: 1200,
+                        maxWidthDiskCache: 800,
+                        maxHeightDiskCache: 1200,
+                        placeholder: (context, url) => Container(
+                          color: Colors.black.withValues(alpha: 0.3),
+                          child: const Center(
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Container(
+                          color: Colors.black.withValues(alpha: 0.5),
+                          child: const Icon(
+                            Icons.error_outline,
+                            color: Colors.white54,
+                            size: 48,
+                          ),
+                        ),
+                      )
+                    : Image.asset(post.image, fit: BoxFit.cover),
+              // Gradient overlay
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.3),
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.8),
+                      Colors.black.withValues(alpha: 0.95),
+                    ],
+                    stops: const [0.0, 0.4, 0.7, 1.0],
+                  ),
+                ),
+              ),
+              // Content overlay
+              Padding(
+                padding: EdgeInsets.all(20.w),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CircleAvatar(
-                      radius: 20.r,
-                      backgroundImage: AssetImage(post.avatar),
-                    ),
-                    SizedBox(width: 12.w),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        CustomText(
-                          post.name,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                        CircleAvatar(
+                          radius: 20.r,
+                          backgroundImage: post.avatar.startsWith('http')
+                              ? NetworkImage(post.avatar) as ImageProvider
+                              : AssetImage(post.avatar),
                         ),
-                        CustomText(
-                          post.views,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white70,
+                        SizedBox(width: 12.w),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CustomText(
+                              post.name,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            CustomText(
+                              post.views,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white70,
+                            ),
+                          ],
                         ),
+                        const Spacer(),
+                        _buildFollowButton(),
                       ],
                     ),
                     const Spacer(),
-                    _buildFollowButton(),
-                  ],
-                ),
-                const Spacer(),
-                Row(
-                  children: [
-                    _buildIconAction(Icons.favorite_border, post.likes),
-                    SizedBox(width: 20.w),
-                    GestureDetector(
-                      onTap: () => context.push('/comments'),
-                      child: _buildIconAction(
-                        Icons.chat_bubble_outline,
-                        post.comments,
-                      ),
-                    ),
-                    SizedBox(width: 20.w),
-                    _buildIconAction(Icons.send_outlined, post.shares),
-                    const Spacer(),
-                    Icon(
-                      Icons.bookmark_border,
-                      color: Colors.white,
-                      size: 24.sp,
-                    ),
-                  ],
-                ),
-                SizedBox(height: 16.h),
-                Row(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    Row(
                       children: [
-                        CustomText(
-                          post.category,
-                          fontSize: 18.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                        Consumer(
+                          builder: (context, ref, _) {
+                            final postState = ref.watch(postNotifierProvider);
+                            final isLiked =
+                                post.mediaId != null &&
+                                postState.likedPostIds.contains(post.mediaId);
+
+                            return _buildIconAction(
+                              isLiked ? Icons.favorite : Icons.favorite_border,
+                              post.likes,
+                              color: isLiked ? Colors.red : Colors.white,
+                              onTap: () {
+                                if (post.mediaId != null) {
+                                  ref
+                                      .read(postNotifierProvider.notifier)
+                                      .toggleReaction(
+                                        targetId: post.mediaId!,
+                                        reactionType: 'like',
+                                      );
+                                }
+                              },
+                            );
+                          },
                         ),
-                        CustomText(
-                          post.subcategory,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white70,
+                        SizedBox(width: 20.w),
+                        GestureDetector(
+                          onTap: () => context.push(
+                            '/comments',
+                            extra: post.mediaId ?? '',
+                          ),
+                          child: _buildIconAction(
+                            Icons.chat_bubble_outline,
+                            post.comments,
+                          ),
+                        ),
+                        SizedBox(width: 20.w),
+                        _buildIconAction(Icons.send_outlined, post.shares),
+                        const Spacer(),
+                        Icon(
+                          Icons.bookmark_border,
+                          color: Colors.white,
+                          size: 24.sp,
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    _buildTag(post.rating),
-                    SizedBox(width: 8.w),
-                    _buildTag(post.type),
-                  ],
-                ),
-                SizedBox(height: 20.h),
-                Row(
-                  children: [
-                    _buildDropdownButton("Charges"),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: _buildGradientOutlineButton("Call", Icons.call),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: _buildGradientOutlineButton(
-                        "Chat",
-                        Icons.chat_bubble_outline,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 20.h),
-                Row(
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    SizedBox(height: 16.h),
+                    Row(
                       children: [
-                        CustomText(
-                          post.events,
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CustomText(
+                              post.category,
+                              fontSize: 18.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            CustomText(
+                              post.subcategory,
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white70,
+                            ),
+                          ],
                         ),
-                        CustomText(
-                          'Events',
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w400,
-                          color: Colors.white70,
+                        const Spacer(),
+                        _buildTag(post.rating),
+                        SizedBox(width: 8.w),
+                        _buildTag(post.type),
+                      ],
+                    ),
+                    SizedBox(height: 20.h),
+                    Row(
+                      children: [
+                        _buildDropdownButton("Charges"),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: _buildGradientOutlineButton(
+                            "Call",
+                            Icons.call,
+                            onTap: () =>
+                                _handleCallTap(post.recipientId, post.name),
+                          ),
+                        ),
+                        SizedBox(width: 12.w),
+                        Expanded(
+                          child: _buildGradientOutlineButton(
+                            "Chat",
+                            Icons.chat_bubble_outline,
+                            onTap: () => _handleChatTap(post.recipientId),
+                          ),
                         ),
                       ],
                     ),
-                    const Spacer(),
-                    Icon(Icons.music_note, color: Colors.white70, size: 16.sp),
-                    SizedBox(width: 4.w),
-                    CustomText(
-                      post.music,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w400,
-                      color: Colors.white,
+                    SizedBox(height: 20.h),
+                    Row(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            CustomText(
+                              post.events,
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.white,
+                            ),
+                            CustomText(
+                              'Events',
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w400,
+                              color: Colors.white70,
+                            ),
+                          ],
+                        ),
+                        const Spacer(),
+                        Icon(
+                          Icons.music_note,
+                          color: Colors.white70,
+                          size: 16.sp,
+                        ),
+                        SizedBox(width: 4.w),
+                        CustomText(
+                          post.music,
+                          fontSize: 12.sp,
+                          fontWeight: FontWeight.w400,
+                          color: Colors.white,
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -305,6 +558,27 @@ class PostViewScreen extends StatelessWidget {
   }
 
   // --- Helper Widgets ---
+
+  Widget _buildVideoPlayer(int index) {
+    final controller = _videoControllers[index];
+    if (controller == null || !controller.value.isInitialized) {
+      return Container(
+        color: Colors.black,
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+        ),
+      );
+    }
+
+    return FittedBox(
+      fit: BoxFit.cover,
+      child: SizedBox(
+        width: controller.value.size.width,
+        height: controller.value.size.height,
+        child: VideoPlayer(controller),
+      ),
+    );
+  }
 
   Widget _buildCircleButton(IconData icon, {VoidCallback? onTap}) {
     return GestureDetector(
@@ -352,18 +626,26 @@ class PostViewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildIconAction(IconData icon, String count) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.white, size: 24.sp),
-        SizedBox(width: 6.w),
-        CustomText(
-          count,
-          fontSize: 14.sp,
-          fontWeight: FontWeight.w500,
-          color: Colors.white,
-        ),
-      ],
+  Widget _buildIconAction(
+    IconData icon,
+    String count, {
+    VoidCallback? onTap,
+    Color? color,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Row(
+        children: [
+          Icon(icon, color: color ?? Colors.white, size: 24.sp),
+          SizedBox(width: 6.w),
+          CustomText(
+            count,
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w500,
+            color: color ?? Colors.white,
+          ),
+        ],
+      ),
     );
   }
 
@@ -405,7 +687,57 @@ class PostViewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildGradientOutlineButton(String text, IconData icon) {
+  void _handleCallTap(String profileId, String profileName) async {
+    final success = await ref
+        .read(chatNotifierProvider.notifier)
+        .initiateCall(profileId);
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Calling $profileName...'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to initiate call'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
+  void _handleChatTap(String recipientId) {
+    final resolvedRecipientId = recipientId.trim();
+    if (resolvedRecipientId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Unable to open chat for this post'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    context.go(
+      '/landing?tab=3&recipientId=${Uri.encodeComponent(resolvedRecipientId)}',
+    );
+  }
+
+  Widget _buildGradientOutlineButton(
+    String text,
+    IconData icon, {
+    VoidCallback? onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: _buildGradientButton(text, icon),
+    );
+  }
+
+  Widget _buildGradientButton(String text, IconData icon) {
     return Stack(
       children: [
         Container(

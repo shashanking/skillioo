@@ -23,9 +23,9 @@ mixin _$RegistrationState {
   DocumentUploadStatus get videoStatus => throw _privateConstructorUsedError;
   DocumentUploadStatus get imageStatus => throw _privateConstructorUsedError;
   String get profileDocumentId => throw _privateConstructorUsedError;
-  String get videoDocumentId => throw _privateConstructorUsedError;
-  String get imageDocumentId => throw _privateConstructorUsedError;
-  String get eventsDoneDocumentId => throw _privateConstructorUsedError;
+  List<String> get videoDocumentIds => throw _privateConstructorUsedError;
+  List<String> get imageDocumentIds => throw _privateConstructorUsedError;
+  List<String> get eventsDoneDocumentIds => throw _privateConstructorUsedError;
   String get errorMessage => throw _privateConstructorUsedError;
 
   /// Create a copy of RegistrationState
@@ -48,9 +48,9 @@ abstract class $RegistrationStateCopyWith<$Res> {
     DocumentUploadStatus videoStatus,
     DocumentUploadStatus imageStatus,
     String profileDocumentId,
-    String videoDocumentId,
-    String imageDocumentId,
-    String eventsDoneDocumentId,
+    List<String> videoDocumentIds,
+    List<String> imageDocumentIds,
+    List<String> eventsDoneDocumentIds,
     String errorMessage,
   });
 }
@@ -75,9 +75,9 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
     Object? videoStatus = null,
     Object? imageStatus = null,
     Object? profileDocumentId = null,
-    Object? videoDocumentId = null,
-    Object? imageDocumentId = null,
-    Object? eventsDoneDocumentId = null,
+    Object? videoDocumentIds = null,
+    Object? imageDocumentIds = null,
+    Object? eventsDoneDocumentIds = null,
     Object? errorMessage = null,
   }) {
     return _then(
@@ -102,18 +102,18 @@ class _$RegistrationStateCopyWithImpl<$Res, $Val extends RegistrationState>
                 ? _value.profileDocumentId
                 : profileDocumentId // ignore: cast_nullable_to_non_nullable
                       as String,
-            videoDocumentId: null == videoDocumentId
-                ? _value.videoDocumentId
-                : videoDocumentId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            imageDocumentId: null == imageDocumentId
-                ? _value.imageDocumentId
-                : imageDocumentId // ignore: cast_nullable_to_non_nullable
-                      as String,
-            eventsDoneDocumentId: null == eventsDoneDocumentId
-                ? _value.eventsDoneDocumentId
-                : eventsDoneDocumentId // ignore: cast_nullable_to_non_nullable
-                      as String,
+            videoDocumentIds: null == videoDocumentIds
+                ? _value.videoDocumentIds
+                : videoDocumentIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            imageDocumentIds: null == imageDocumentIds
+                ? _value.imageDocumentIds
+                : imageDocumentIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
+            eventsDoneDocumentIds: null == eventsDoneDocumentIds
+                ? _value.eventsDoneDocumentIds
+                : eventsDoneDocumentIds // ignore: cast_nullable_to_non_nullable
+                      as List<String>,
             errorMessage: null == errorMessage
                 ? _value.errorMessage
                 : errorMessage // ignore: cast_nullable_to_non_nullable
@@ -139,9 +139,9 @@ abstract class _$$RegistrationStateImplCopyWith<$Res>
     DocumentUploadStatus videoStatus,
     DocumentUploadStatus imageStatus,
     String profileDocumentId,
-    String videoDocumentId,
-    String imageDocumentId,
-    String eventsDoneDocumentId,
+    List<String> videoDocumentIds,
+    List<String> imageDocumentIds,
+    List<String> eventsDoneDocumentIds,
     String errorMessage,
   });
 }
@@ -165,9 +165,9 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
     Object? videoStatus = null,
     Object? imageStatus = null,
     Object? profileDocumentId = null,
-    Object? videoDocumentId = null,
-    Object? imageDocumentId = null,
-    Object? eventsDoneDocumentId = null,
+    Object? videoDocumentIds = null,
+    Object? imageDocumentIds = null,
+    Object? eventsDoneDocumentIds = null,
     Object? errorMessage = null,
   }) {
     return _then(
@@ -192,18 +192,18 @@ class __$$RegistrationStateImplCopyWithImpl<$Res>
             ? _value.profileDocumentId
             : profileDocumentId // ignore: cast_nullable_to_non_nullable
                   as String,
-        videoDocumentId: null == videoDocumentId
-            ? _value.videoDocumentId
-            : videoDocumentId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        imageDocumentId: null == imageDocumentId
-            ? _value.imageDocumentId
-            : imageDocumentId // ignore: cast_nullable_to_non_nullable
-                  as String,
-        eventsDoneDocumentId: null == eventsDoneDocumentId
-            ? _value.eventsDoneDocumentId
-            : eventsDoneDocumentId // ignore: cast_nullable_to_non_nullable
-                  as String,
+        videoDocumentIds: null == videoDocumentIds
+            ? _value._videoDocumentIds
+            : videoDocumentIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        imageDocumentIds: null == imageDocumentIds
+            ? _value._imageDocumentIds
+            : imageDocumentIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
+        eventsDoneDocumentIds: null == eventsDoneDocumentIds
+            ? _value._eventsDoneDocumentIds
+            : eventsDoneDocumentIds // ignore: cast_nullable_to_non_nullable
+                  as List<String>,
         errorMessage: null == errorMessage
             ? _value.errorMessage
             : errorMessage // ignore: cast_nullable_to_non_nullable
@@ -222,11 +222,13 @@ class _$RegistrationStateImpl implements _RegistrationState {
     this.videoStatus = DocumentUploadStatus.initial,
     this.imageStatus = DocumentUploadStatus.initial,
     this.profileDocumentId = '',
-    this.videoDocumentId = '',
-    this.imageDocumentId = '',
-    this.eventsDoneDocumentId = '',
+    final List<String> videoDocumentIds = const [],
+    final List<String> imageDocumentIds = const [],
+    final List<String> eventsDoneDocumentIds = const [],
     this.errorMessage = '',
-  });
+  }) : _videoDocumentIds = videoDocumentIds,
+       _imageDocumentIds = imageDocumentIds,
+       _eventsDoneDocumentIds = eventsDoneDocumentIds;
 
   @override
   @JsonKey()
@@ -243,22 +245,43 @@ class _$RegistrationStateImpl implements _RegistrationState {
   @override
   @JsonKey()
   final String profileDocumentId;
+  final List<String> _videoDocumentIds;
   @override
   @JsonKey()
-  final String videoDocumentId;
+  List<String> get videoDocumentIds {
+    if (_videoDocumentIds is EqualUnmodifiableListView)
+      return _videoDocumentIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_videoDocumentIds);
+  }
+
+  final List<String> _imageDocumentIds;
   @override
   @JsonKey()
-  final String imageDocumentId;
+  List<String> get imageDocumentIds {
+    if (_imageDocumentIds is EqualUnmodifiableListView)
+      return _imageDocumentIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_imageDocumentIds);
+  }
+
+  final List<String> _eventsDoneDocumentIds;
   @override
   @JsonKey()
-  final String eventsDoneDocumentId;
+  List<String> get eventsDoneDocumentIds {
+    if (_eventsDoneDocumentIds is EqualUnmodifiableListView)
+      return _eventsDoneDocumentIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableListView(_eventsDoneDocumentIds);
+  }
+
   @override
   @JsonKey()
   final String errorMessage;
 
   @override
   String toString() {
-    return 'RegistrationState(status: $status, profilePhotoStatus: $profilePhotoStatus, videoStatus: $videoStatus, imageStatus: $imageStatus, profileDocumentId: $profileDocumentId, videoDocumentId: $videoDocumentId, imageDocumentId: $imageDocumentId, eventsDoneDocumentId: $eventsDoneDocumentId, errorMessage: $errorMessage)';
+    return 'RegistrationState(status: $status, profilePhotoStatus: $profilePhotoStatus, videoStatus: $videoStatus, imageStatus: $imageStatus, profileDocumentId: $profileDocumentId, videoDocumentIds: $videoDocumentIds, imageDocumentIds: $imageDocumentIds, eventsDoneDocumentIds: $eventsDoneDocumentIds, errorMessage: $errorMessage)';
   }
 
   @override
@@ -275,12 +298,18 @@ class _$RegistrationStateImpl implements _RegistrationState {
                 other.imageStatus == imageStatus) &&
             (identical(other.profileDocumentId, profileDocumentId) ||
                 other.profileDocumentId == profileDocumentId) &&
-            (identical(other.videoDocumentId, videoDocumentId) ||
-                other.videoDocumentId == videoDocumentId) &&
-            (identical(other.imageDocumentId, imageDocumentId) ||
-                other.imageDocumentId == imageDocumentId) &&
-            (identical(other.eventsDoneDocumentId, eventsDoneDocumentId) ||
-                other.eventsDoneDocumentId == eventsDoneDocumentId) &&
+            const DeepCollectionEquality().equals(
+              other._videoDocumentIds,
+              _videoDocumentIds,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._imageDocumentIds,
+              _imageDocumentIds,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._eventsDoneDocumentIds,
+              _eventsDoneDocumentIds,
+            ) &&
             (identical(other.errorMessage, errorMessage) ||
                 other.errorMessage == errorMessage));
   }
@@ -293,9 +322,9 @@ class _$RegistrationStateImpl implements _RegistrationState {
     videoStatus,
     imageStatus,
     profileDocumentId,
-    videoDocumentId,
-    imageDocumentId,
-    eventsDoneDocumentId,
+    const DeepCollectionEquality().hash(_videoDocumentIds),
+    const DeepCollectionEquality().hash(_imageDocumentIds),
+    const DeepCollectionEquality().hash(_eventsDoneDocumentIds),
     errorMessage,
   );
 
@@ -318,9 +347,9 @@ abstract class _RegistrationState implements RegistrationState {
     final DocumentUploadStatus videoStatus,
     final DocumentUploadStatus imageStatus,
     final String profileDocumentId,
-    final String videoDocumentId,
-    final String imageDocumentId,
-    final String eventsDoneDocumentId,
+    final List<String> videoDocumentIds,
+    final List<String> imageDocumentIds,
+    final List<String> eventsDoneDocumentIds,
     final String errorMessage,
   }) = _$RegistrationStateImpl;
 
@@ -335,11 +364,11 @@ abstract class _RegistrationState implements RegistrationState {
   @override
   String get profileDocumentId;
   @override
-  String get videoDocumentId;
+  List<String> get videoDocumentIds;
   @override
-  String get imageDocumentId;
+  List<String> get imageDocumentIds;
   @override
-  String get eventsDoneDocumentId;
+  List<String> get eventsDoneDocumentIds;
   @override
   String get errorMessage;
 
