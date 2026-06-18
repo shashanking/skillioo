@@ -1,27 +1,30 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../../features/auth/application/auth_providers.dart';
+import '../../localization/locale_extension.dart';
+import '../../services/session_prefs.dart';
 import '../common_background.dart';
 import '../custom_text.dart';
+import '../gradient_cta_button.dart';
 import '../icon_button.dart';
 
-/// Pin Setup flow: OTP → New Pin → Confirm Pin
+/// Pin Setup flow: New Pin → Confirm Pin
 /// Each step has states: empty, filled, error, success
-enum _PinStep { otp, newPin, confirmPin }
+enum _PinStep { newPin, confirmPin }
 
 enum _PinFieldState { empty, filled, error, success }
 
-class MenuPinSetupScreen extends StatefulWidget {
+class MenuPinSetupScreen extends ConsumerStatefulWidget {
   const MenuPinSetupScreen({super.key});
 
   @override
-  State<MenuPinSetupScreen> createState() => _MenuPinSetupScreenState();
+  ConsumerState<MenuPinSetupScreen> createState() => _MenuPinSetupScreenState();
 }
 
-class _MenuPinSetupScreenState extends State<MenuPinSetupScreen> {
+class _MenuPinSetupScreenState extends ConsumerState<MenuPinSetupScreen> {
   @override
   void initState() {
     super.initState();
@@ -47,6 +50,7 @@ class _MenuPinSetupScreenState extends State<MenuPinSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = ref.tr;
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -59,12 +63,12 @@ class _MenuPinSetupScreenState extends State<MenuPinSetupScreen> {
                 child: Row(
                   children: [
                     IconCircleButton(
-                      icon: Icons.arrow_back,
+                      assetPath: 'assets/images/arrow-left.png',
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(width: 24.w),
                     CustomText(
-                      AppStrings.settings,
+                      tr.settings,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -80,16 +84,16 @@ class _MenuPinSetupScreenState extends State<MenuPinSetupScreen> {
                   children: [
                     _buildSettingsItem(
                       assetIcon: AppAssets.dialSquarePng,
-                      label: AppStrings.pinSetup,
+                      label: tr.pinSetup,
                       isFirst: true,
                     ),
                     _buildSettingsItem(
                       icon: Icons.fingerprint,
-                      label: AppStrings.biometrics,
+                      label: tr.biometrics,
                     ),
                     _buildSettingsItem(
                       icon: Icons.notifications_outlined,
-                      label: AppStrings.notificationPreferences,
+                      label: tr.notificationPreferences,
                       isLast: true,
                     ),
                   ],
@@ -144,28 +148,26 @@ class _MenuPinSetupScreenState extends State<MenuPinSetupScreen> {
   }
 }
 
-class _PinFlowSheet extends StatefulWidget {
+class _PinFlowSheet extends ConsumerStatefulWidget {
   const _PinFlowSheet();
 
   @override
-  State<_PinFlowSheet> createState() => _PinFlowSheetState();
+  ConsumerState<_PinFlowSheet> createState() => _PinFlowSheetState();
 }
 
-class _PinFlowSheetState extends State<_PinFlowSheet> {
-  _PinStep _currentStep = _PinStep.otp;
+class _PinFlowSheetState extends ConsumerState<_PinFlowSheet> {
+  _PinStep _currentStep = _PinStep.newPin;
   _PinFieldState _fieldState = _PinFieldState.empty;
 
-  final List<String> _otpDigits = ['', '', '', ''];
   final List<String> _newPinDigits = ['', '', '', ''];
   final List<String> _confirmPinDigits = ['', '', '', ''];
 
   int _activeIndex = 0;
   bool _isVerifying = false;
+  String? _errorMessage;
 
   List<String> get _currentDigits {
     switch (_currentStep) {
-      case _PinStep.otp:
-        return _otpDigits;
       case _PinStep.newPin:
         return _newPinDigits;
       case _PinStep.confirmPin:
@@ -176,17 +178,13 @@ class _PinFlowSheetState extends State<_PinFlowSheet> {
   String get _title {
     if (_fieldState == _PinFieldState.error) {
       switch (_currentStep) {
-        case _PinStep.otp:
-          return AppStrings.invalidOtp;
         case _PinStep.newPin:
           return AppStrings.enterNewPin;
         case _PinStep.confirmPin:
-          return AppStrings.pinMismatch;
+          return _errorMessage ?? AppStrings.pinMismatch;
       }
     }
     switch (_currentStep) {
-      case _PinStep.otp:
-        return AppStrings.enterOtp;
       case _PinStep.newPin:
         return AppStrings.enterNewPin;
       case _PinStep.confirmPin:
@@ -197,17 +195,15 @@ class _PinFlowSheetState extends State<_PinFlowSheet> {
   String get _subtitle {
     if (_fieldState == _PinFieldState.error) {
       switch (_currentStep) {
-        case _PinStep.otp:
-          return AppStrings.invalidOtpBody;
         case _PinStep.newPin:
           return AppStrings.enterNewPinBody;
         case _PinStep.confirmPin:
-          return AppStrings.pinMismatchBody;
+          return _errorMessage != null
+              ? 'Something went wrong. Please try again.'
+              : AppStrings.pinMismatchBody;
       }
     }
     switch (_currentStep) {
-      case _PinStep.otp:
-        return AppStrings.enterOtpBody;
       case _PinStep.newPin:
         return AppStrings.enterNewPinBody;
       case _PinStep.confirmPin:
@@ -219,8 +215,6 @@ class _PinFlowSheetState extends State<_PinFlowSheet> {
     if (_isVerifying) return AppStrings.verifying;
     if (!_allFilled) return AppStrings.skip;
     switch (_currentStep) {
-      case _PinStep.otp:
-        return AppStrings.verify;
       case _PinStep.newPin:
         return AppStrings.continueText;
       case _PinStep.confirmPin:
@@ -283,27 +277,6 @@ class _PinFlowSheetState extends State<_PinFlowSheet> {
     if (!_allFilled || _isVerifying) return;
 
     switch (_currentStep) {
-      case _PinStep.otp:
-        // Simulate OTP verification
-        setState(() => _isVerifying = true);
-        Future.delayed(const Duration(seconds: 1), () {
-          if (!mounted) return;
-          // Simulate success (in real app, validate OTP)
-          setState(() {
-            _fieldState = _PinFieldState.success;
-            _isVerifying = false;
-          });
-          Future.delayed(const Duration(milliseconds: 600), () {
-            if (!mounted) return;
-            setState(() {
-              _currentStep = _PinStep.newPin;
-              _fieldState = _PinFieldState.empty;
-              _activeIndex = 0;
-            });
-          });
-        });
-        break;
-
       case _PinStep.newPin:
         setState(() {
           _fieldState = _PinFieldState.success;
@@ -319,23 +292,78 @@ class _PinFlowSheetState extends State<_PinFlowSheet> {
         break;
 
       case _PinStep.confirmPin:
-        // Check if pins match
         final match = _newPinDigits.join() == _confirmPinDigits.join();
         if (match) {
-          setState(() {
-            _fieldState = _PinFieldState.success;
-            _isVerifying = true;
-          });
-          Future.delayed(const Duration(seconds: 1), () {
-            if (!mounted) return;
-            Navigator.of(context).pop(); // Close bottom sheet
-          });
+          _submitPinUpdate();
         } else {
           setState(() {
             _fieldState = _PinFieldState.error;
+            _errorMessage = null;
           });
         }
         break;
+    }
+  }
+
+  Future<void> _submitPinUpdate() async {
+    setState(() {
+      _isVerifying = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final service = ref.read(profileAuthServiceProvider);
+      final token = await SessionPrefs.instance.getAccessToken();
+      // Backend's /v1/profile/pin lookup keys on phone number. nickName
+      // works for some legacy creator accounts but not for hirer-type
+      // profiles whose nickName is a client-generated handle. Phone is
+      // the universal credential — fall back to nickName only when we
+      // truly have no phone stored (older installs from before this fix).
+      final phone = await SessionPrefs.instance.getLastPhoneNumber();
+      final fallbackNickName = await SessionPrefs.instance.getNickName();
+      final credential = phone.isNotEmpty ? phone : fallbackNickName;
+
+      if (token.isEmpty || credential.isEmpty) {
+        setState(() {
+          _isVerifying = false;
+          _fieldState = _PinFieldState.error;
+          _errorMessage = 'Session expired';
+        });
+        return;
+      }
+
+      final response = await service.updatePin(
+        credential: credential,
+        pin: _newPinDigits.join(),
+        accessToken: token,
+      );
+
+      if (!mounted) return;
+
+      final status = response['status'];
+      if (status == 200) {
+        setState(() {
+          _fieldState = _PinFieldState.success;
+          _isVerifying = false;
+        });
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (!mounted) return;
+          Navigator.of(context).pop();
+        });
+      } else {
+        setState(() {
+          _isVerifying = false;
+          _fieldState = _PinFieldState.error;
+          _errorMessage = response['message'] as String? ?? 'Update failed';
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isVerifying = false;
+        _fieldState = _PinFieldState.error;
+        _errorMessage = 'Something went wrong';
+      });
     }
   }
 
@@ -417,52 +445,15 @@ class _PinFlowSheetState extends State<_PinFlowSheet> {
             ),
             SizedBox(height: 24.h),
             // CTA Button
-            GestureDetector(
-              onTap: _allFilled
+            GradientCtaButton(
+              label: _buttonLabel,
+              onPressed: _allFilled
                   ? _onContinue
                   : () => Navigator.of(context).pop(),
-              child: Container(
-                width: double.infinity,
-                height: 58.h,
-                decoration: BoxDecoration(
-                  gradient: _allFilled
-                      ? AppColors.ctaGradient
-                      : AppColors.ctaGradientDeactivated,
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                alignment: Alignment.center,
-                child: CustomText(
-                  _buttonLabel,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: AppColors.foundationBlack20,
-                ),
-              ),
+              width: double.infinity,
+              borderRadius: BorderRadius.circular(48.r),
+              enabled: _allFilled,
             ),
-            // Resend OTP link (only on OTP step with error)
-            if (_currentStep == _PinStep.otp &&
-                _fieldState == _PinFieldState.error) ...[
-              SizedBox(height: 16.h),
-              GestureDetector(
-                onTap: () {
-                  setState(() {
-                    _fieldState = _PinFieldState.empty;
-                    _activeIndex = 0;
-                    for (int i = 0; i < 4; i++) {
-                      _otpDigits[i] = '';
-                    }
-                  });
-                },
-                child: Center(
-                  child: CustomText(
-                    AppStrings.resendOtp,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.foundationBlack20,
-                  ),
-                ),
-              ),
-            ],
             // Number pad
             SizedBox(height: 24.h),
             _buildNumberPad(),

@@ -1,47 +1,46 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../../../constants/app_constants.dart';
+import '../../../../core/localization/locale_extension.dart';
 import '../../../../core/services/session_prefs.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
+import '../../../../core/widgets/gradient_cta_button.dart';
 import '../../../../core/widgets/icon_button.dart';
 import '../../../onboarding/domain/document_service.dart';
 import '../../domain/profile_update_service.dart';
 
-class EditProfileScreen extends StatefulWidget {
+class EditProfileScreen extends ConsumerStatefulWidget {
   const EditProfileScreen({super.key});
 
   @override
-  State<EditProfileScreen> createState() => _EditProfileScreenState();
+  ConsumerState<EditProfileScreen> createState() => _EditProfileScreenState();
 }
 
-class _EditProfileScreenState extends State<EditProfileScreen> {
+class _EditProfileScreenState extends ConsumerState<EditProfileScreen> {
   late final TextEditingController _firstNameController;
   late final TextEditingController _lastNameController;
+  late final TextEditingController _groupNameController;
   late final TextEditingController _eventsCountController;
 
   bool _isSaving = false;
   bool _isUploadingPhoto = false;
   String _profilePhotoUrl = '';
-
-  final List<_SocialAccount> _accounts = [
-    _SocialAccount(icon: Icons.facebook, label: '10K ${AppStrings.followers}'),
-    _SocialAccount(
-      icon: Icons.camera_alt_outlined,
-      label: '10K ${AppStrings.followers}',
-    ),
-  ];
+  String _profileType = '';
+  List<Map<String, dynamic>> _socialFollows = [];
 
   @override
   void initState() {
     super.initState();
     _firstNameController = TextEditingController();
     _lastNameController = TextEditingController();
+    _groupNameController = TextEditingController();
     _eventsCountController = TextEditingController();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -53,9 +52,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final profile = await SessionPrefs.instance.getProfile();
     if (!mounted) return;
 
+    final portfolio = profile?['portfolio'] as Map<String, dynamic>? ?? {};
+    final nestedProfile = profile?['profile'] as Map<String, dynamic>? ?? {};
+
+    _profileType = (profile?['profileType'] as String? ??
+            nestedProfile['profileType'] as String? ??
+            '')
+        .toUpperCase();
+
     final firstName = profile?['firstName'] as String? ?? '';
     final lastName = profile?['lastName'] as String? ?? '';
     final fullName = profile?['name'] as String? ?? '';
+    final groupName = profile?['groupName'] as String? ??
+        nestedProfile['groupName'] as String? ??
+        '';
 
     String resolvedFirst = firstName;
     String resolvedLast = lastName;
@@ -69,12 +79,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       }
     }
 
-    final totalEvents = profile?['totalEvents'];
+    // Events count — check multiple locations
+    final totalEvents = profile?['totalEvents'] ??
+        profile?['eventsDone'] ??
+        portfolio['totalEvents'] ??
+        nestedProfile['totalEvents'];
+
     _firstNameController.text = resolvedFirst;
     _lastNameController.text = resolvedLast;
+    _groupNameController.text = groupName;
     _eventsCountController.text = (totalEvents is int)
         ? totalEvents.toString()
-        : (totalEvents is String ? totalEvents : '');
+        : (totalEvents is num)
+            ? totalEvents.toInt().toString()
+            : (totalEvents is String ? totalEvents : '');
+
+    // Social follows
+    final rawFollows = profile?['follows'] ??
+        portfolio['follows'] ??
+        portfolio['socialMediaFollow'] ??
+        profile?['socialMediaFollows'];
+    if (rawFollows is List) {
+      _socialFollows = rawFollows
+          .whereType<Map<String, dynamic>>()
+          .toList();
+    }
 
     final rawUrl = profile?['profilePhotoUrl'] as String? ?? '';
     _profilePhotoUrl = rawUrl.startsWith('http://')
@@ -133,21 +162,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
+      // 1. Upload document with type PROFILE_PHOTO
       final docService = DocumentService();
-      final response = await docService.updateProfilePicture(
-        profileId: profileId,
-        accessToken: accessToken,
+      final uploadResponse = await docService.uploadDocument(
         file: File(picked.path),
+        type: 'PROFILE_PHOTO',
+        accessToken: accessToken,
       );
 
-      final success = response['success'] as bool? ?? false;
-      if (!success) {
+      final uploadSuccess = uploadResponse['success'] as bool? ?? false;
+      if (!uploadSuccess) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              response['message'] as String? ??
-                  'Failed to update profile photo',
+              uploadResponse['message'] as String? ??
+                  'Failed to upload photo',
             ),
             backgroundColor: Colors.red,
           ),
@@ -155,19 +185,41 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return;
       }
 
-      final data = response['data'] as Map<String, dynamic>? ?? {};
-      final updated = data['updatedDocument'] as Map<String, dynamic>? ?? {};
-      final id = updated['id'] as String? ?? '';
-      final rawUrl = updated['url'] as String? ?? '';
+      final docData = uploadResponse['data'] as Map<String, dynamic>? ?? {};
+      final doc = docData['document'] as Map<String, dynamic>? ?? {};
+      final docId = doc['id'] as String? ?? '';
+      final rawUrl = doc['url'] as String? ?? '';
       final url = rawUrl.startsWith('http://')
           ? rawUrl.replaceFirst('http://', 'https://')
           : rawUrl;
 
+      if (docId.isEmpty) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to get document ID'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // 2. Update profile with new profile picture document ID
+      final profileService = ProfileUpdateService();
+      await profileService.updateProfile(
+        accessToken: accessToken,
+        body: {
+          'id': profileId,
+          'profileDocumentId': docId,
+        },
+      );
+
+      // 3. Save URL locally
       if (url.isNotEmpty) {
         _profilePhotoUrl = url;
         await SessionPrefs.instance.mergeProfile({
           'profilePhotoUrl': url,
-          if (id.isNotEmpty) 'profilePictureId': id,
+          'profilePictureId': docId,
         });
       }
 
@@ -196,6 +248,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
+    final groupName = _groupNameController.text.trim();
     final totalEvents = int.tryParse(_eventsCountController.text.trim()) ?? 0;
 
     setState(() {
@@ -203,39 +256,68 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     });
 
     try {
+      final body = <String, dynamic>{
+        'id': profileId,
+        'totalEvents': totalEvents,
+      };
+      if (_profileType == 'GROUP') {
+        body['groupName'] = groupName;
+      } else {
+        body['firstName'] = firstName;
+        body['lastName'] = lastName;
+      }
+
       final service = ProfileUpdateService();
       final response = await service.updateProfile(
         accessToken: accessToken,
-        body: {
-          'id': profileId,
-          'firstName': firstName,
-          'lastName': lastName,
-          'totalEvents': totalEvents,
-        },
+        body: body,
       );
 
-      final success = response['success'] as bool? ?? false;
+      final status = response['status'] as int? ?? 0;
+      final success = response['success'] as bool? ?? (status == 200);
       if (!success) {
         if (!mounted) return;
+        // Extract detailed error from API response
+        String errorMsg = response['message'] as String? ?? 'Failed to update profile';
+        final errors = response['errorSourse'] ?? response['errorSource'] ?? response['errors'];
+        if (errors is List && errors.isNotEmpty) {
+          final details = errors.map((e) {
+            if (e is Map) return e['message'] as String? ?? e.toString();
+            return e.toString();
+          }).join('. ');
+          if (details.isNotEmpty) errorMsg = details;
+        }
+        debugPrint('EditProfile: save error response=$response');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              response['message'] as String? ?? 'Failed to update profile',
-            ),
+            content: Text(errorMsg),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
-      await SessionPrefs.instance.mergeProfile({
-        'firstName': firstName,
-        'lastName': lastName,
-        'name': [firstName, lastName].where((e) => e.isNotEmpty).join(' '),
+      final sessionUpdates = <String, dynamic>{
         'totalEvents': totalEvents,
-      });
+      };
+      if (_profileType == 'GROUP') {
+        sessionUpdates['groupName'] = groupName;
+        sessionUpdates['name'] = groupName;
+      } else {
+        sessionUpdates['firstName'] = firstName;
+        sessionUpdates['lastName'] = lastName;
+        sessionUpdates['name'] =
+            [firstName, lastName].where((e) => e.isNotEmpty).join(' ');
+      }
+      await SessionPrefs.instance.mergeProfile(sessionUpdates);
 
       if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profile updated successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
       Navigator.of(context).maybePop();
     } catch (e) {
       if (!mounted) return;
@@ -251,16 +333,24 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     }
   }
 
+  static String _formatFollowers(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return count.toString();
+  }
+
   @override
   void dispose() {
     _firstNameController.dispose();
     _lastNameController.dispose();
+    _groupNameController.dispose();
     _eventsCountController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final tr = ref.tr;
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: CommonBackground(
@@ -274,12 +364,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Row(
                   children: [
                     IconCircleButton(
-                      icon: Icons.arrow_back,
+                      assetPath: 'assets/images/arrow-left.png',
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(width: 24.w),
                     CustomText(
-                      AppStrings.editProfile,
+                      tr.editProfile,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -326,7 +416,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                             GestureDetector(
                               onTap: _onChangeProfilePicture,
                               child: CustomText(
-                                AppStrings.changeProfilePicture,
+                                tr.changeProfilePicture,
                                 fontSize: 14.sp,
                                 fontWeight: FontWeight.w500,
                                 color: AppColors.accentCyan,
@@ -336,43 +426,63 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ),
                       ),
                       SizedBox(height: 32.h),
-                      // First Name
-                      _buildTextField(
-                        label: AppStrings.firstName,
-                        controller: _firstNameController,
-                      ),
-                      SizedBox(height: 20.h),
-                      // Last Name
-                      _buildTextField(
-                        label: AppStrings.lastName,
-                        controller: _lastNameController,
-                      ),
-                      SizedBox(height: 20.h),
+                      if (_profileType == 'GROUP') ...[
+                        _buildTextField(
+                          label: 'Group Name',
+                          controller: _groupNameController,
+                        ),
+                        SizedBox(height: 20.h),
+                      ] else ...[
+                        _buildTextField(
+                          label: tr.firstName,
+                          controller: _firstNameController,
+                        ),
+                        SizedBox(height: 20.h),
+                        _buildTextField(
+                          label: tr.lastName,
+                          controller: _lastNameController,
+                        ),
+                        SizedBox(height: 20.h),
+                      ],
                       // Events Count
                       _buildTextField(
-                        label: AppStrings.eventsCount,
+                        label: tr.eventsCount,
                         controller: _eventsCountController,
                         keyboardType: TextInputType.number,
                       ),
                       SizedBox(height: 32.h),
                       // Accounts Binded
                       CustomText(
-                        AppStrings.accountsBinded,
+                        tr.accountsBinded,
                         fontSize: 18.sp,
                         fontWeight: FontWeight.w700,
                         fontFamily: 'Neue',
                         color: AppColors.foundationBlack20,
                       ),
                       SizedBox(height: 16.h),
-                      Row(
+                      Wrap(
+                        spacing: 24.w,
+                        runSpacing: 16.h,
                         children: [
-                          ..._accounts.map((account) {
-                            return Padding(
-                              padding: EdgeInsets.only(right: 24.w),
-                              child: _buildSocialItem(
-                                icon: account.icon,
-                                label: account.label,
-                              ),
+                          ..._socialFollows.map((f) {
+                            final platform =
+                                (f['socialMedia'] as String? ?? '')
+                                    .toUpperCase();
+                            final followers = f['followers'] as int? ?? 0;
+                            String icon;
+                            switch (platform) {
+                              case 'INSTAGRAM':
+                                icon = 'assets/images/instagram.png';
+                                break;
+                              case 'FACEBOOK':
+                                icon = 'assets/images/facebook.png';
+                                break;
+                              default:
+                                icon = 'assets/images/facebook.png';
+                            }
+                            return _buildSocialItem(
+                              icon: Image.asset(icon, width: 24.w, height: 24.w),
+                              label: '${_formatFollowers(followers)} ${tr.followers}',
                             );
                           }),
                           _buildAddAccountItem(),
@@ -386,23 +496,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               // Save Button
               Padding(
                 padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-                child: GestureDetector(
-                  onTap: _isSaving ? null : _onSave,
-                  child: Container(
-                    width: double.infinity,
-                    height: 58.h,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.ctaGradient,
-                      borderRadius: BorderRadius.circular(48.r),
-                    ),
-                    alignment: Alignment.center,
-                    child: CustomText(
-                      _isSaving ? AppStrings.saving : AppStrings.saveChanges,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.foundationBlack20,
-                    ),
-                  ),
+                child: GradientCtaButton(
+                  label: _isSaving ? tr.saving : tr.saveChanges,
+                  onPressed: _isSaving ? null : _onSave,
+                  width: double.infinity,
+                  borderRadius: BorderRadius.circular(48.r),
                 ),
               ),
             ],
@@ -432,8 +530,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
           decoration: BoxDecoration(
             color: AppColors.glassWhite12,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: AppColors.glassWhite48, width: 0.5),
+            borderRadius: BorderRadius.circular(20.r),
           ),
           child: TextField(
             controller: controller,
@@ -456,19 +553,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildSocialItem({required IconData icon, required String label}) {
+  Widget _buildSocialItem({required Widget icon, required String label}) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 48.w,
-          height: 48.w,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppColors.glassWhite12,
-            border: Border.all(color: AppColors.glassWhite48, width: 0.5),
-          ),
-          child: Icon(icon, color: AppColors.foundationBlack20, size: 24.sp),
-        ),
+        Center(child: icon),
         SizedBox(height: 6.h),
         CustomText(
           label,
@@ -484,24 +573,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return GestureDetector(
       onTap: () => context.push('/profile-add-account'),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: 48.w,
-            height: 48.w,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppColors.glassWhite12,
-              border: Border.all(color: AppColors.glassWhite48, width: 0.5),
-            ),
-            child: Icon(
-              Icons.add,
-              color: AppColors.foundationBlack20,
-              size: 24.sp,
-            ),
-          ),
+          Icon(Icons.add, color: AppColors.foundationBlack20, size: 24.sp),
           SizedBox(height: 6.h),
           CustomText(
-            AppStrings.addAccount,
+            ref.tr.addAccount,
             fontSize: 12.sp,
             fontWeight: FontWeight.w400,
             color: AppColors.foundationBlack20,
@@ -512,9 +589,3 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 }
 
-class _SocialAccount {
-  final IconData icon;
-  final String label;
-
-  const _SocialAccount({required this.icon, required this.label});
-}

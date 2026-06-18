@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../constants/app_constants.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/common_background.dart';
 import '../application/onboarding_data_provider.dart';
 
@@ -30,13 +30,11 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
   final TextEditingController _instaLinkController = TextEditingController();
   final TextEditingController _instaFollowersController =
       TextEditingController();
-  final TextEditingController _instaFollowingController =
-      TextEditingController();
   final TextEditingController _facebookLinkController = TextEditingController();
   final TextEditingController _facebookFollowersController =
       TextEditingController();
-  final TextEditingController _facebookFollowingController =
-      TextEditingController();
+  String? _instaLinkError;
+  String? _facebookLinkError;
 
   @override
   void initState() {
@@ -47,11 +45,19 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
   void dispose() {
     _instaLinkController.dispose();
     _instaFollowersController.dispose();
-    _instaFollowingController.dispose();
     _facebookLinkController.dispose();
     _facebookFollowersController.dispose();
-    _facebookFollowingController.dispose();
     super.dispose();
+  }
+
+  bool _isValidSocialUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    if (uri == null || !uri.hasAbsolutePath) {
+      return false;
+    }
+
+    final scheme = uri.scheme.toLowerCase();
+    return (scheme == 'http' || scheme == 'https') && uri.host.isNotEmpty;
   }
 
   @override
@@ -83,7 +89,14 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
                 bottom: 24.h,
                 child: Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: _buildContinueButton(context),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _buildContinueButton(context),
+                      SizedBox(height: 8.h),
+                      _buildSkipButton(context),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -113,17 +126,18 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
         ),
         if (widget.showStepIndicator)
           Text(
-            'Step: 1 of 3',
+            'Step: 3 of 4',
             style: TextStyle(
               fontFamily: 'Outfit',
               fontSize: 16.sp,
@@ -177,25 +191,21 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
         ),
         SizedBox(height: 10.h),
         _buildSocialLinkField('Instagram Link', _instaLinkController),
+        if (_instaLinkError != null) ...[
+          SizedBox(height: 6.h),
+          Text(
+            _instaLinkError!,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w400,
+              color: Colors.redAccent,
+            ),
+          ),
+        ],
         SizedBox(height: 10.h),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFollowField(
-                'Followers (Optional)',
-                _instaFollowersController,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: _buildFollowField(
-                'Following (Optional)',
-                _instaFollowingController,
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: 16.h),
+        _buildFollowField('Followers (Optional)', _instaFollowersController),
+        SizedBox(height: 24.h),
         Text(
           'Facebook',
           style: TextStyle(
@@ -207,24 +217,20 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
         ),
         SizedBox(height: 10.h),
         _buildSocialLinkField('Facebook Link', _facebookLinkController),
+        if (_facebookLinkError != null) ...[
+          SizedBox(height: 6.h),
+          Text(
+            _facebookLinkError!,
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w400,
+              color: Colors.redAccent,
+            ),
+          ),
+        ],
         SizedBox(height: 10.h),
-        Row(
-          children: [
-            Expanded(
-              child: _buildFollowField(
-                'Followers (Optional)',
-                _facebookFollowersController,
-              ),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: _buildFollowField(
-                'Following (Optional)',
-                _facebookFollowingController,
-              ),
-            ),
-          ],
-        ),
+        _buildFollowField('Followers (Optional)', _facebookFollowersController),
       ],
     );
   }
@@ -234,7 +240,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
       height: 56.h,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(48.r),
+        borderRadius: BorderRadius.circular(24.r),
       ),
       alignment: Alignment.centerLeft,
       padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -281,7 +287,7 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
           height: 48.h,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(24.r),
+            borderRadius: BorderRadius.circular(20.r),
           ),
           alignment: Alignment.centerLeft,
           padding: EdgeInsets.symmetric(horizontal: 16.w),
@@ -315,76 +321,89 @@ class _SocialLinksScreenState extends ConsumerState<SocialLinksScreen> {
   }
 
   Widget _buildContinueButton(BuildContext context) {
-    return SizedBox(
+    return GradientCtaButton(
+      label: 'Continue',
       width: double.infinity,
-      height: 58.h,
-      child: TextButton(
-        onPressed: () {
-          final socialMediaFollows = <Map<String, dynamic>>[];
+      height: 58,
+      onPressed: () {
+        final instaLink = _instaLinkController.text.trim();
+        final facebookLink = _facebookLinkController.text.trim();
 
-          final instaLink = _instaLinkController.text.trim();
-          if (instaLink.isNotEmpty) {
-            socialMediaFollows.add({
-              'socialMedia': 'INSTAGRAM',
-              'link': instaLink,
-              'followers': int.tryParse(_instaFollowersController.text.trim()),
-              'following': int.tryParse(_instaFollowingController.text.trim()),
-            });
-          }
+        final instaValid = instaLink.isEmpty || _isValidSocialUrl(instaLink);
+        final facebookValid =
+            facebookLink.isEmpty || _isValidSocialUrl(facebookLink);
 
-          final facebookLink = _facebookLinkController.text.trim();
-          if (facebookLink.isNotEmpty) {
-            socialMediaFollows.add({
-              'socialMedia': 'FACEBOOK',
-              'link': facebookLink,
-              'followers': int.tryParse(
-                _facebookFollowersController.text.trim(),
-              ),
-              'following': int.tryParse(
-                _facebookFollowingController.text.trim(),
-              ),
-            });
-          }
+        setState(() {
+          _instaLinkError = instaLink.isNotEmpty && !instaValid
+              ? 'Enter a valid Instagram URL'
+              : null;
+          _facebookLinkError = facebookLink.isNotEmpty && !facebookValid
+              ? 'Enter a valid Facebook URL'
+              : null;
+        });
 
-          if (socialMediaFollows.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text(
-                  'Please add at least one social media link to continue.',
-                ),
-                backgroundColor: Colors.red,
-              ),
-            );
-            return;
-          }
+        if (!instaValid || !facebookValid) {
+          return;
+        }
 
-          ref.read(onboardingDataProvider.notifier).state = ref
-              .read(onboardingDataProvider)
-              .copyWith(socialMediaFollows: socialMediaFollows);
-          GoRouter.of(context).go(widget.continueNextRoute);
-        },
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(48.r),
-          ),
-          backgroundColor: Colors.transparent,
-        ),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: AppColors.ctaGradient,
-            borderRadius: BorderRadius.circular(48.r),
-          ),
-          child: Center(
-            child: Text(
-              'Continue',
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFF5F5F5),
+        final socialMediaFollows = <Map<String, dynamic>>[];
+        if (instaLink.isNotEmpty) {
+          socialMediaFollows.add({
+            'socialMedia': 'INSTAGRAM',
+            'link': instaLink,
+            'followers':
+                int.tryParse(_instaFollowersController.text.trim()) ?? 0,
+          });
+        }
+        if (facebookLink.isNotEmpty) {
+          socialMediaFollows.add({
+            'socialMedia': 'FACEBOOK',
+            'link': facebookLink,
+            'followers':
+                int.tryParse(_facebookFollowersController.text.trim()) ?? 0,
+          });
+        }
+
+        if (socialMediaFollows.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Please add at least one social media link to continue.',
               ),
+              backgroundColor: Colors.red,
             ),
+          );
+          return;
+        }
+
+        ref.read(onboardingDataProvider.notifier).state = ref
+            .read(onboardingDataProvider)
+            .copyWith(socialMediaFollows: socialMediaFollows);
+        GoRouter.of(context).go(widget.continueNextRoute);
+      },
+    );
+  }
+
+  /// Skips the (optional) social media step — clears any links and
+  /// proceeds with the rest of onboarding.
+  Widget _buildSkipButton(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {
+        ref.read(onboardingDataProvider.notifier).state = ref
+            .read(onboardingDataProvider)
+            .copyWith(socialMediaFollows: <Map<String, dynamic>>[]);
+        GoRouter.of(context).go(widget.continueNextRoute);
+      },
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: 10.h),
+        child: Text(
+          'Skip for now',
+          style: TextStyle(
+            fontFamily: 'Outfit',
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.white.withValues(alpha: 0.7),
           ),
         ),
       ),

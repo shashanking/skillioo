@@ -4,7 +4,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class ProfileListService extends BaseServiceProvider {
-  ProfileListService() : super(baseUrl: ApiConfig.baseUrl);
+  ProfileListService({super.client}) : super(baseUrl: ApiConfig.baseUrl);
 
   /// GET /v1/profile?perPage=10&page=1&category=Music&...
   /// Fetches paginated list of profiles with optional filters

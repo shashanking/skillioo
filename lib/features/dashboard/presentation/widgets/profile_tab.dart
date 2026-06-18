@@ -3,13 +3,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../chat/application/chat_providers.dart';
+import '../../../../core/utils/call_utils.dart';
 import '../../application/dashboard_providers.dart';
+import '../../application/states/profile_list_state.dart';
+import '../../../follow/application/follow_providers.dart';
 import 'profile_cards.dart';
 import 'profile_dropdown.dart';
 
 class ProfileTab extends ConsumerStatefulWidget {
-  const ProfileTab({super.key});
+  const ProfileTab({super.key, this.cityFilter, this.searchQuery = ''});
+
+  final String? cityFilter;
+  final String searchQuery;
 
   @override
   ProfileTabState createState() => ProfileTabState();
@@ -20,15 +25,44 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
 
   String? _category;
   String? _proficiency;
+  bool _didAutoRetry = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(profileListNotifierProvider.notifier)
-          .loadProfiles(perPage: _perPage, refresh: true);
+      // Only load profiles if not already loaded (Landing preloads shared data)
+      final state = ref.read(profileListNotifierProvider);
+      if (state.profiles.isEmpty && !state.isLoading) {
+        ref
+            .read(profileListNotifierProvider.notifier)
+            .loadProfiles(
+              perPage: _perPage,
+              refresh: true,
+              city: widget.cityFilter,
+            );
+      }
+      // Follow data is preloaded by Landing — no duplicate calls needed
     });
+  }
+
+  @override
+  void didUpdateWidget(covariant ProfileTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.cityFilter != widget.cityFilter) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        ref
+            .read(profileListNotifierProvider.notifier)
+            .loadProfiles(
+              perPage: _perPage,
+              refresh: true,
+              category: _category,
+              proficiency: _proficiency,
+              city: widget.cityFilter,
+            );
+      });
+    }
   }
 
   void updateProfileType(ProfileType? type) {
@@ -48,10 +82,11 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
           refresh: true,
           category: _category,
           proficiency: _proficiency,
+          city: widget.cityFilter,
         );
   }
 
-  void loadProfilesWithCategory(String? category) {
+  void loadProfilesWithCategory(String? category, {String? city}) {
     _category = category;
     ref
         .read(profileListNotifierProvider.notifier)
@@ -60,7 +95,14 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
           refresh: true,
           category: _category,
           proficiency: _proficiency,
+          city: city ?? widget.cityFilter,
         );
+  }
+
+  String _formatCount(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return count.toString();
   }
 
   Future<void> _loadMore() async {
@@ -74,6 +116,7 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
           refresh: false,
           category: _category,
           proficiency: _proficiency,
+          city: widget.cityFilter,
         );
   }
 
@@ -89,25 +132,23 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
   }
 
   Future<void> _handleCallTap(String recipientId) async {
-    final success = await ref
-        .read(chatNotifierProvider.notifier)
-        .initiateCall(recipientId);
-
-    if (!mounted) {
-      return;
-    }
-
+    final success = await initiateCallWithSubscriptionCheck(
+      context: context,
+      ref: ref,
+      recipientId: recipientId,
+    );
+    if (!mounted || !success) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          success ? 'Calling $recipientId...' : 'Failed to initiate call',
-        ),
-        backgroundColor: success ? Colors.green : Colors.red,
+        content: Text('Calling $recipientId...'),
+        backgroundColor: Colors.green,
       ),
     );
   }
 
-  void _handleChatTap(String recipientId) {
+  void _handleChatTap(String recipientId) async {
+    final allowed = await checkChatSubscription(context: context, ref: ref);
+    if (!allowed || !mounted) return;
     context.go(
       '/landing?tab=3&recipientId=${Uri.encodeComponent(recipientId)}',
     );
@@ -115,15 +156,30 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-retry once on first failed load (transient cold-start failures).
+    ref.listen<ProfileListState>(profileListNotifierProvider, (prev, next) {
+      final wasLoading = prev?.isLoading ?? false;
+      if (wasLoading &&
+          !next.isLoading &&
+          next.hasError &&
+          next.profiles.isEmpty &&
+          !_didAutoRetry) {
+        _didAutoRetry = true;
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          _retry();
+        });
+      }
+    });
+
     final state = ref.watch(profileListNotifierProvider);
+    final followerDeltas = ref.watch(followNotifierProvider.select((s) => s.followerCountOverrides));
 
     if (state.isLoading && state.profiles.isEmpty) {
       return Center(
         child: Padding(
           padding: EdgeInsets.all(32.h),
-          child: CircularProgressIndicator(
-            color: Colors.white.withValues(alpha: 0.7),
-          ),
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
     }
@@ -191,19 +247,69 @@ class ProfileTabState extends ConsumerState<ProfileTab> {
       );
     }
 
-    final cards = state.profiles.map((profile) {
+    // Exclude hirer profiles — only show talent profiles that have a category
+    // or proficiency set. Hirers have neither.
+    final talentProfiles = state.profiles
+        .where((p) => p.category.isNotEmpty || p.proficiency.isNotEmpty)
+        .toList();
+
+    // Client-side search filter — match across every meaningful profile
+    // field we hold locally so the user can search by name, nickname,
+    // category, location, contact, or profile-type.
+    final query = widget.searchQuery.toLowerCase().trim();
+    final filteredProfiles = query.isEmpty
+        ? talentProfiles
+        : talentProfiles.where((profile) {
+            bool matches(String s) =>
+                s.isNotEmpty && s.toLowerCase().contains(query);
+            return matches(profile.displayName) ||
+                matches(profile.firstName) ||
+                matches(profile.lastName) ||
+                matches(profile.groupName) ||
+                matches(profile.nickName) ||
+                matches(profile.category) ||
+                matches(profile.subCategory) ||
+                matches(profile.bio) ||
+                matches(profile.proficiency) ||
+                matches(profile.profileType) ||
+                matches(profile.city) ||
+                matches(profile.country) ||
+                profile.email.any(matches) ||
+                profile.phoneNumber.any(matches);
+          }).toList();
+
+    if (filteredProfiles.isEmpty && query.isNotEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.h),
+          child: Text(
+            'No profiles match "$query"',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              color: Colors.white.withValues(alpha: 0.6),
+            ),
+          ),
+        ),
+      );
+    }
+
+    final cards = filteredProfiles.map((profile) {
+      final effectiveFollowers = profile.followerCount + (followerDeltas[profile.id] ?? 0);
       return ProfileCardData(
         profileId: profile.id,
         name: profile.displayName,
-        role: '${profile.city}, ${profile.country}',
+        role: profile.category.isNotEmpty ? profile.category.toUpperCase() : 'Category',
         imagePath: profile.profilePhotoUrl ?? 'assets/images/profile-img-1.jpg',
-        followers: '0',
+        followers: _formatCount(effectiveFollowers.clamp(0, 999999)),
         posts: profile.videos.length.toString(),
         isProfessional: profile.proficiency == 'PROFESSIONAL',
-        following: '0',
-        views: '0',
+        following: _formatCount(profile.followingCount),
+        views: _formatCount(profile.totalViews),
         socialFollowers: '0',
-        isOnline: false,
+        socialMediaFollows: profile.follows,
+        eventsDone: profile.eventsDone,
+        isOnline: profile.onlineStatus.toUpperCase() == 'ONLINE',
       );
     }).toList();
 

@@ -44,7 +44,11 @@ class ShortUserResponse {
   final String? profilePictureUrl;
   final String? referenceId;
 
-  const ShortUserResponse({this.nickName, this.profilePictureUrl, this.referenceId});
+  const ShortUserResponse({
+    this.nickName,
+    this.profilePictureUrl,
+    this.referenceId,
+  });
 
   factory ShortUserResponse.fromJson(Map<String, dynamic> json) =>
       _$ShortUserResponseFromJson(json);
@@ -60,6 +64,7 @@ class CreateMediaRequest {
   final List<String>? mentions;
   final String userReferenceId;
   final String mediaType;
+  final String? city;
 
   const CreateMediaRequest({
     this.description,
@@ -67,6 +72,7 @@ class CreateMediaRequest {
     this.mentions,
     required this.userReferenceId,
     required this.mediaType,
+    this.city,
   });
 
   factory CreateMediaRequest.fromJson(Map<String, dynamic> json) =>
@@ -91,6 +97,29 @@ class UpdateMediaRequest {
   factory UpdateMediaRequest.fromJson(Map<String, dynamic> json) =>
       _$UpdateMediaRequestFromJson(json);
   Map<String, dynamic> toJson() => _$UpdateMediaRequestToJson(this);
+}
+
+@JsonSerializable()
+class MediaShortUser {
+  final String? nickName;
+  final String? name;
+  final String? profilePictureUrl;
+  final String? userReferenceId;
+  final String? category;
+  final String? subCategory;
+
+  const MediaShortUser({
+    this.nickName,
+    this.name,
+    this.profilePictureUrl,
+    this.userReferenceId,
+    this.category,
+    this.subCategory,
+  });
+
+  factory MediaShortUser.fromJson(Map<String, dynamic> json) =>
+      _$MediaShortUserFromJson(json);
+  Map<String, dynamic> toJson() => _$MediaShortUserToJson(this);
 }
 
 @JsonSerializable()
@@ -122,6 +151,9 @@ class MediaResponse {
   final List<String>? mentions;
   final String? mediaType;
   final String? userReferenceId;
+  final String? mediaUrl;
+  final DateTime? createdAt;
+  final MediaShortUser? shortUser;
 
   const MediaResponse({
     this.id,
@@ -131,6 +163,9 @@ class MediaResponse {
     this.mentions,
     this.mediaType,
     this.userReferenceId,
+    this.mediaUrl,
+    this.createdAt,
+    this.shortUser,
   });
 
   factory MediaResponse.fromJson(Map<String, dynamic> json) =>
@@ -183,6 +218,23 @@ class UpdateCommentRequest {
   Map<String, dynamic> toJson() => _$UpdateCommentRequestToJson(this);
 }
 
+@JsonSerializable()
+class CommentShortUser {
+  final String? nickName;
+  final String? profilePictureUrl;
+  final String? userReferenceId;
+
+  const CommentShortUser({
+    this.nickName,
+    this.profilePictureUrl,
+    this.userReferenceId,
+  });
+
+  factory CommentShortUser.fromJson(Map<String, dynamic> json) =>
+      _$CommentShortUserFromJson(json);
+  Map<String, dynamic> toJson() => _$CommentShortUserToJson(this);
+}
+
 @JsonSerializable(fieldRename: FieldRename.none)
 class CommentResponse {
   @JsonKey(name: '_id')
@@ -191,6 +243,7 @@ class CommentResponse {
   final String? type;
   final CommentContent? content;
   final MediaReach? reach;
+  final CommentShortUser? shortUser;
 
   const CommentResponse({
     this.id,
@@ -198,6 +251,7 @@ class CommentResponse {
     this.type,
     this.content,
     this.reach,
+    this.shortUser,
   });
 
   factory CommentResponse.fromJson(Map<String, dynamic> json) =>

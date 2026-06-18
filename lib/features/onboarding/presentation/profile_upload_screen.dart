@@ -9,6 +9,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../application/registration_providers.dart';
 import '../application/states/registration_state.dart';
 import '../application/talent_type_provider.dart';
@@ -81,10 +82,11 @@ class _ProfileUploadScreenState extends ConsumerState<ProfileUploadScreen> {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
@@ -130,20 +132,27 @@ class _ProfileUploadScreenState extends ConsumerState<ProfileUploadScreen> {
   }
 
   Widget _buildProfileImage() {
-    return Center(
-      child: Container(
-        width: double.infinity,
-        height: 220.h,
-        alignment: Alignment.center,
-        child: SizedBox(
+    if (_selectedFile != null) {
+      return Center(
+        child: Container(
           width: 170.w,
           height: 170.w,
-          child: ClipOval(
-            child: _selectedFile != null
-                ? Image.file(_selectedFile!, fit: BoxFit.cover)
-                : Image.asset(AppAssets.profileUploadPng, fit: BoxFit.cover),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            image: DecorationImage(
+              image: FileImage(_selectedFile!),
+              fit: BoxFit.cover,
+            ),
           ),
         ),
+      );
+    }
+
+    return Center(
+      child: Image.asset(
+        AppAssets.profileUploadPng,
+        width: double.infinity,
+        fit: BoxFit.contain,
       ),
     );
   }
@@ -188,121 +197,24 @@ class _ProfileUploadScreenState extends ConsumerState<ProfileUploadScreen> {
       final type = ref.read(talentTypeProvider);
       final nextRoute = type == TalentType.professional
           ? '/professional-events'
-          : '/skilled-documents';
+          : '/skilled-social-links';
       GoRouter.of(context).go(nextRoute);
     }
   }
 
   Widget _buildBottomRow(BuildContext context) {
-    final regState = ref.watch(registrationNotifierProvider);
+    ref.watch(registrationNotifierProvider);
     final isUploading = _isUploading;
-    final hasSelected =
-        _selectedFile != null || regState.profileDocumentId.isNotEmpty;
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        SizedBox(
-          height: 54.h,
-          child: TextButton(
-            onPressed: isUploading ? null : () => _onUploadTap(context),
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: AppColors.ctaGradient,
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              child: Container(
-                width: 0.45.sw,
-                padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-                child: isUploading
-                    ? Center(
-                        child: SizedBox(
-                          width: 22.w,
-                          height: 22.w,
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        ),
-                      )
-                    : Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Image.asset(
-                            AppAssets.uploadIconPng,
-                            width: 18.w,
-                            height: 18.w,
-                          ),
-                          SizedBox(width: 8.w),
-                          Text(
-                            'Upload',
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFF5F5F5),
-                            ),
-                          ),
-                        ],
-                      ),
-              ),
-            ),
-          ),
-        ),
-        GestureDetector(
-          onTap: () {
-            if (isUploading) return;
-            if (!hasSelected) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Please upload your profile photo to continue.',
-                  ),
-                  backgroundColor: Colors.red,
-                ),
-              );
-              return;
-            }
-            final type = ref.read(talentTypeProvider);
-            final nextRoute = type == TalentType.professional
-                ? '/professional-events'
-                : '/skilled-documents';
-            GoRouter.of(context).go(nextRoute);
-          },
-          child: Container(
-            width: 0.45.sw,
-            padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 8.h),
-            alignment: Alignment.center,
-            child: ShaderMask(
-              shaderCallback: (bounds) {
-                return const LinearGradient(
-                  begin: Alignment(-0.7071, 0.7071), // ≈ 225deg
-                  end: Alignment(0.7071, -0.7071),
-                  colors: [Color(0xFFC00F8B), Color(0xFF05DAF1)],
-                ).createShader(
-                  Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                );
-              },
-              child: Text(
-                'Continue',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
+    return GradientCtaButton(
+      label: isUploading ? 'Uploading' : 'Upload',
+      width: double.infinity,
+      height: 54,
+      leading: isUploading
+          ? null
+          : Image.asset(AppAssets.uploadIconPng, width: 18.w, height: 18.w),
+      enabled: !isUploading,
+      onPressed: isUploading ? null : () => _onUploadTap(context),
     );
   }
 }

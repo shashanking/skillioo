@@ -6,9 +6,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:open_filex/open_filex.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../../core/services/session_prefs.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
+import '../../profile/domain/profile_update_service.dart';
 import '../application/registration_providers.dart';
 
 enum _CertificatesState { notes, list }
@@ -70,7 +74,7 @@ class _ProfessionalUploadCertificatesScreenState
       _isUploading = true;
     });
 
-    await ref
+    final docId = await ref
         .read(registrationNotifierProvider.notifier)
         .uploadEvent(stableFile);
 
@@ -78,8 +82,7 @@ class _ProfessionalUploadCertificatesScreenState
     setState(() => _isUploading = false);
 
     final updated = ref.read(registrationNotifierProvider);
-    if (updated.errorMessage.isNotEmpty &&
-        updated.eventsDoneDocumentIds.isEmpty) {
+    if (docId == null || docId.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -90,7 +93,77 @@ class _ProfessionalUploadCertificatesScreenState
           backgroundColor: Colors.red,
         ),
       );
+      return;
     }
+
+    // When used from profile, link to profile immediately and show success
+    if (!widget.showStepIndicator) {
+      try {
+        final token = await SessionPrefs.instance.getAccessToken();
+        debugPrint(
+          'CertUpload: linking docId=$docId '
+          'allIds=${updated.eventsDoneDocumentIds} '
+          'hasToken=${token.isNotEmpty}',
+        );
+        if (token.isNotEmpty) {
+          final service = ProfileUpdateService();
+          final linkResp = await service.updateProfile(
+            accessToken: token,
+            body: {
+              'portfolio': {
+                'eventsDoneDocumentIds': updated.eventsDoneDocumentIds,
+              },
+            },
+          );
+          debugPrint('CertUpload: link response=$linkResp');
+        }
+      } catch (e) {
+        debugPrint('Link certificate to profile error: $e');
+      }
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Certificate uploaded successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
+  void _showPreview(String filePath, String fileName) {
+    final isImage =
+        fileName.toLowerCase().endsWith('.jpg') ||
+        fileName.toLowerCase().endsWith('.jpeg') ||
+        fileName.toLowerCase().endsWith('.png');
+
+    if (!isImage) {
+      // Open PDF in native viewer
+      OpenFilex.open(filePath);
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: EdgeInsets.zero,
+        child: Stack(
+          children: [
+            Center(
+              child: InteractiveViewer(child: Image.file(File(filePath))),
+            ),
+            Positioned(
+              top: 40.h,
+              right: 20.w,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -111,6 +184,17 @@ class _ProfessionalUploadCertificatesScreenState
                     SizedBox(height: 24.h),
                     _buildHeader(),
                     SizedBox(height: 24.h),
+                    Text(
+                      'Note:',
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFFF5F5F5),
+                      ),
+                    ),
+                    SizedBox(height: 8.h),
+
                     if (_state == _CertificatesState.notes)
                       _buildNotesCard()
                     else
@@ -162,17 +246,18 @@ class _ProfessionalUploadCertificatesScreenState
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
         ),
         if (widget.showStepIndicator)
           Text(
-            'Step: 1 of 3',
+            'Step: 2 of 4',
             style: TextStyle(
               fontFamily: 'Outfit',
               fontSize: 16.sp,
@@ -214,7 +299,7 @@ class _ProfessionalUploadCertificatesScreenState
   Widget _buildNotesCard() {
     return Container(
       width: double.infinity,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 16.h),
+      padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 20.h),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(24.r),
@@ -222,16 +307,6 @@ class _ProfessionalUploadCertificatesScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Note:',
-            style: TextStyle(
-              fontFamily: 'Outfit',
-              fontSize: 16.sp,
-              fontWeight: FontWeight.w600,
-              color: const Color(0xFFF5F5F5),
-            ),
-          ),
-          SizedBox(height: 8.h),
           _buildBullet('Max file size 10 - 50 MB.'),
           SizedBox(height: 4.h),
           _buildBullet('Supported format pdf, jpeg.'),
@@ -273,44 +348,13 @@ class _ProfessionalUploadCertificatesScreenState
   }
 
   Widget _buildBottomButtons(BuildContext context) {
-    return SizedBox(
+    return GradientCtaButton(
+      label: 'Upload Now',
       width: double.infinity,
-      height: 54.h,
-      child: TextButton(
-        onPressed: _isUploading ? null : () => _pickAndUploadSingle(context),
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(48.r),
-          ),
-          backgroundColor: Colors.transparent,
-        ),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: AppColors.ctaGradient,
-            borderRadius: BorderRadius.circular(48.r),
-          ),
-          child: Center(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Image.asset(AppAssets.uploadIconPng, width: 18.w, height: 18.w),
-                SizedBox(width: 8.w),
-                Text(
-                  'Upload Now',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
+      height: 54,
+      leading: Image.asset(AppAssets.uploadIconPng, width: 18.w, height: 18.w),
+      enabled: !_isUploading,
+      onPressed: _isUploading ? null : () => _pickAndUploadSingle(context),
     );
   }
 
@@ -319,7 +363,7 @@ class _ProfessionalUploadCertificatesScreenState
 
     return Column(
       children: [
-        for (final item in items)
+        for (int i = 0; i < items.length; i++)
           Container(
             width: double.infinity,
             margin: EdgeInsets.only(bottom: 16.h),
@@ -331,18 +375,11 @@ class _ProfessionalUploadCertificatesScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(16.r),
-                  child: Container(
-                    height: 120.h,
-                    width: double.infinity,
-                    color: Colors.black.withValues(alpha: 0.15),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.insert_drive_file_outlined,
-                      color: Colors.white.withValues(alpha: 0.9),
-                      size: 40.sp,
-                    ),
+                GestureDetector(
+                  onTap: () => _showPreview(_pickedFilePaths[i], items[i]),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16.r),
+                    child: _buildFilePreview(_pickedFilePaths[i], items[i]),
                   ),
                 ),
                 SizedBox(height: 10.h),
@@ -356,13 +393,33 @@ class _ProfessionalUploadCertificatesScreenState
                     SizedBox(width: 8.w),
                     Expanded(
                       child: Text(
-                        item,
+                        items[i],
                         style: TextStyle(
                           fontFamily: 'Outfit',
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w500,
                           color: const Color(0xFFF5F5F5),
                         ),
+                      ),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        if (_isUploading) return;
+                        setState(() {
+                          _pickedFileNames.removeAt(i);
+                          _pickedFilePaths.removeAt(i);
+                          if (_pickedFileNames.isEmpty) {
+                            _state = _CertificatesState.notes;
+                          }
+                        });
+                        ref
+                            .read(registrationNotifierProvider.notifier)
+                            .removeEventDocument(i);
+                      },
+                      child: Icon(
+                        Icons.delete_outline,
+                        color: Colors.redAccent,
+                        size: 20.sp,
                       ),
                     ),
                   ],
@@ -374,26 +431,71 @@ class _ProfessionalUploadCertificatesScreenState
     );
   }
 
-  Widget _buildUploadNowCta(BuildContext context) {
-    final regState = ref.watch(registrationNotifierProvider);
-    final uploadDone = regState.eventsDoneDocumentIds.isNotEmpty;
+  Widget _buildFilePreview(String filePath, String fileName) {
+    final isImage =
+        fileName.toLowerCase().endsWith('.jpg') ||
+        fileName.toLowerCase().endsWith('.jpeg') ||
+        fileName.toLowerCase().endsWith('.png');
 
+    if (isImage) {
+      return Container(
+        height: 120.h,
+        width: double.infinity,
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: FileImage(File(filePath)),
+            fit: BoxFit.cover,
+          ),
+        ),
+      );
+    }
+
+    // PDF preview
+    return Container(
+      height: 120.h,
+      width: double.infinity,
+      color: Colors.black.withValues(alpha: 0.15),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.picture_as_pdf_rounded,
+            color: Colors.redAccent,
+            size: 40.sp,
+          ),
+          SizedBox(height: 8.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 4.h),
+            decoration: BoxDecoration(
+              color: Colors.redAccent.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(8.r),
+            ),
+            child: Text(
+              'PDF',
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w600,
+                color: Colors.redAccent,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUploadNowCta(BuildContext context) {
     return Row(
       children: [
         Expanded(
           child: SizedBox(
             height: 54.h,
-            child: TextButton(
+            child: GradientCtaButton(
               onPressed: _isUploading
                   ? null
                   : () => _pickAndUploadSingle(context),
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                backgroundColor: Colors.white.withValues(alpha: 0.12),
-              ),
+
               child: Center(
                 child: Text(
                   'Select more',
@@ -410,59 +512,55 @@ class _ProfessionalUploadCertificatesScreenState
         ),
         SizedBox(width: 12.w),
         Expanded(
-          child: SizedBox(
-            height: 54.h,
-            child: TextButton(
-              onPressed: _isUploading
-                  ? null
-                  : () {
-                      if (!uploadDone) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Please upload at least one certificate to continue.',
-                            ),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                        return;
+          child: GradientCtaButton(
+            height: 54,
+            borderRadius: BorderRadius.circular(48.r),
+            onPressed: _isUploading
+                ? null
+                : () {
+                    // From profile: just pop back (upload+link already done per-file)
+                    if (!widget.showStepIndicator) {
+                      if (GoRouter.of(context).canPop()) {
+                        GoRouter.of(context).pop();
+                      } else {
+                        GoRouter.of(context).go('/landing');
                       }
-                      GoRouter.of(context).go(widget.uploadSuccessRoute);
-                    },
-              style: TextButton.styleFrom(
-                padding: EdgeInsets.zero,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                backgroundColor: Colors.transparent,
-              ),
-              child: Ink(
-                decoration: BoxDecoration(
-                  gradient: AppColors.ctaGradient,
-                  borderRadius: BorderRadius.circular(48.r),
-                ),
-                child: Center(
-                  child: _isUploading
-                      ? SizedBox(
-                          width: 22.w,
-                          height: 22.w,
-                          child: const CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 2.5,
-                          ),
-                        )
-                      : Text(
-                          'Continue',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 16.sp,
-                            fontWeight: FontWeight.w600,
-                            color: const Color(0xFFF5F5F5),
-                          ),
+                      return;
+                    }
+
+                    GoRouter.of(context).go(widget.uploadSuccessRoute);
+                  },
+            child: _isUploading
+                ? SizedBox(
+                    width: 22.w,
+                    height: 22.w,
+                    child: const CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2.5,
+                    ),
+                  )
+                : Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        widget.showStepIndicator
+                            ? Icons.upload
+                            : Icons.check,
+                        color: const Color(0xFFF5F5F5),
+                        size: 18.sp,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        widget.showStepIndicator ? 'Upload' : 'Done',
+                        style: TextStyle(
+                          fontFamily: 'Outfit',
+                          fontSize: 16.sp,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFFF5F5F5),
                         ),
-                ),
-              ),
-            ),
+                      ),
+                    ],
+                  ),
           ),
         ),
       ],

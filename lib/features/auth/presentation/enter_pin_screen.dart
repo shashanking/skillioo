@@ -3,9 +3,10 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skillioo/core/widgets/gradient_cta_button.dart';
 
-import '../../../constants/app_constants.dart';
 import '../../../core/services/session_prefs.dart';
+import '../../../core/services/session_state_provider.dart';
 import '../../../core/widgets/common_background.dart';
 import '../../onboarding/domain/document_service.dart';
 import '../../onboarding/application/onboarding_data_provider.dart';
@@ -80,21 +81,23 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
 
     try {
       final onboarding = ref.read(onboardingDataProvider);
+      // Backend expects the credential exactly as it was set on the profile,
+      // i.e. with the +91 prefix for phone-number based logins.
       final rawPhone = onboarding.phoneNumber;
-      final phone = rawPhone.startsWith('+91')
-          ? rawPhone.substring(3)
-          : rawPhone;
+      final credential = rawPhone.startsWith('+')
+          ? rawPhone
+          : '+91${rawPhone.replaceFirst(RegExp(r'^\+?91'), '')}';
 
       final service = ref.read(profileAuthServiceProvider);
-      final response = await service.login(credential: phone, pin: pin);
+      final response = await service.login(credential: credential, pin: pin);
 
       final success = response['success'] as bool? ?? false;
       if (!success) {
-        final message = response['message'] as String? ?? 'Login failed';
+        // Only show "Invalid credentials" when the login fails for wrong phone or pin.
         setState(() {
           _isLoading = false;
           _showError = true;
-          _errorText = message;
+          _errorText = 'Invalid credentials';
         });
         return;
       }
@@ -111,11 +114,22 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
           profile: profile,
         );
 
+        // Keep the credential phone around for downstream flows
+        // (subscription init, settings PIN update — those use phone as
+        // the lookup key on the backend).
+        await SessionPrefs.instance.setLastPhoneNumber(credential);
+
         await _bootstrapProfileState();
+        // Refresh reactive session state so providers reflect logged-in user
+        await ref.read(sessionStateProvider.notifier).refresh();
       }
 
       if (!mounted) return;
-      GoRouter.of(context).go('/landing');
+      // Only fully-onboarded creators land on the dashboard. Anyone else
+      // (PIN set but profile not finished) goes to the options/menu page
+      // so they can complete onboarding.
+      final isCreator = profile['isCreator'] as bool? ?? false;
+      GoRouter.of(context).go(isCreator ? '/landing' : '/options');
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -239,7 +253,37 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
         }
       }
 
-      final rawPic = data['profilePictureId'];
+      // Save portfolio fields (category, proficiency, profileType, etc.)
+      final nestedPortfolioForMerge =
+          nestedProfile?['portfolio'] as Map<String, dynamic>? ??
+          data['portfolio'] as Map<String, dynamic>? ??
+          {};
+      final category =
+          (data['category'] as String?) ??
+          (nestedProfile?['category'] as String?) ??
+          (nestedPortfolioForMerge['category'] as String?);
+      if (category != null && category.isNotEmpty) {
+        merged['category'] = category;
+      }
+      final proficiency =
+          (data['proficiency'] as String?) ??
+          (nestedProfile?['proficiency'] as String?) ??
+          (nestedPortfolioForMerge['proficiency'] as String?);
+      if (proficiency != null && proficiency.isNotEmpty) {
+        merged['proficiency'] = proficiency;
+      }
+      final profileType =
+          (data['profileType'] as String?) ??
+          (nestedProfile?['profileType'] as String?);
+      if (profileType != null && profileType.isNotEmpty) {
+        merged['profileType'] = profileType;
+      }
+      if (nestedPortfolioForMerge.isNotEmpty) {
+        merged['portfolio'] = nestedPortfolioForMerge;
+      }
+
+      final rawPic =
+          data['profilePictureId'] ?? nestedProfile?['profilePictureId'];
       if (rawPic is Map<String, dynamic>) {
         final picId = rawPic['id'] as String?;
         if (picId != null && picId.isNotEmpty) {
@@ -336,21 +380,13 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
                           borderRadius: BorderRadius.circular(124.r),
                         ),
                         child: Center(
-                          child: Icon(
-                            Icons.arrow_back,
+                          child: Image.asset(
+                            'assets/images/arrow-left.png',
                             color: const Color(0xFFF5F5F5),
-                            size: 20.sp,
+                            width: 20.sp,
+                            height: 20.sp,
                           ),
                         ),
-                      ),
-                    ),
-                    Text(
-                      'Login',
-                      style: TextStyle(
-                        fontFamily: 'Outfit',
-                        fontSize: 16.sp,
-                        fontWeight: FontWeight.w400,
-                        color: const Color(0xFFF5F5F5),
                       ),
                     ),
                   ],
@@ -366,15 +402,21 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Text(
-                  'Use the 4 digit PIN you set earlier.',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w400,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
+                Builder(builder: (context) {
+                  final phone =
+                      ref.watch(onboardingDataProvider).phoneNumber;
+                  return Text(
+                    phone.isNotEmpty
+                        ? 'Logging in as $phone'
+                        : 'Use the 4 digit PIN you set earlier.',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w400,
+                      color: const Color(0xFFF5F5F5),
+                    ),
+                  );
+                }),
                 SizedBox(height: 24.h),
                 Row(
                   children: List.generate(4, (index) {
@@ -432,49 +474,30 @@ class _EnterPinScreenState extends ConsumerState<EnterPinScreen> {
                     ),
                   ),
                 ],
-                const Spacer(),
-                SizedBox(
-                  width: double.infinity,
-                  height: 78.h,
-                  child: TextButton(
-                    onPressed: (_isLoading || pinLength < 4) ? null : _onLogin,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 24.w,
-                        vertical: 20.h,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(48.r),
-                      ),
-                      backgroundColor: Colors.transparent,
-                    ),
-                    child: Ink(
-                      decoration: BoxDecoration(
-                        gradient: AppColors.ctaGradient,
-                        borderRadius: BorderRadius.circular(48.r),
-                      ),
-                      child: Center(
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 22.w,
-                                height: 22.w,
-                                child: const CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                'Login',
-                                style: TextStyle(
-                                  fontFamily: 'Outfit',
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: const Color(0xFFF5F5F5),
-                                ),
-                              ),
-                      ),
+                SizedBox(height: 16.h),
+                GestureDetector(
+                  onTap: _isLoading
+                      ? null
+                      : () => GoRouter.of(context).push('/forgot-pin'),
+                  child: Text(
+                    'Forgot PIN?',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w500,
+                      color: const Color(0xFFF5F5F5),
+                      decoration: TextDecoration.underline,
+                      decorationColor: const Color(0xFFF5F5F5),
                     ),
                   ),
+                ),
+                const Spacer(),
+                GradientCtaButton(
+                  label: _isLoading ? 'Loading' : 'Login',
+                  width: double.infinity,
+                  height: 58,
+                  enabled: !_isLoading && pinLength >= 4,
+                  onPressed: _isLoading || pinLength < 4 ? null : _onLogin,
                 ),
                 SizedBox(height: 24.h),
               ],

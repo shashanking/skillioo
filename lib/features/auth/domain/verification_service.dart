@@ -2,17 +2,21 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class VerificationService extends BaseServiceProvider {
-  VerificationService() : super(baseUrl: ApiConfig.baseUrl);
+  VerificationService({super.client}) : super(baseUrl: ApiConfig.baseUrl);
 
   /// POST /verificationRequest
-  /// Creates a new verification request (sends OTP).
+  ///
+  /// New unified flow: backend decides what to do based on the phone number:
+  ///  - new user → response carries `data.verification.id` and an OTP is sent.
+  ///  - returning user without PIN → `data.isPinSet:false` + `verificationId`
+  ///    (OTP sent so they can log in via OTP).
+  ///  - returning user with PIN → `data.isPinSet:true` (no `verificationId`,
+  ///    no OTP sent — client should show the PIN-entry screen instead).
   Future<Map<String, dynamic>> createVerificationRequest({
     required String phoneNumber,
-    required String purpose,
   }) async {
     return post(ApiConfig.verificationRequest, {
       'phoneNumber': phoneNumber,
-      'purpose': purpose,
     });
   }
 

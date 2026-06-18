@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skillioo/features/onboarding/application/group_onboarding_provider.dart';
 
-import '../../../constants/app_constants.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/common_background.dart';
-import '../application/group_onboarding_provider.dart';
-import '../application/onboarding_data_provider.dart';
+import '../../onboarding/application/onboarding_data_provider.dart';
+
 
 class GroupNameScreen extends ConsumerStatefulWidget {
   const GroupNameScreen({super.key});
@@ -96,10 +97,11 @@ class _GroupNameScreenState extends ConsumerState<GroupNameScreen> {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
@@ -187,43 +189,18 @@ class _GroupNameScreenState extends ConsumerState<GroupNameScreen> {
       bottom: 24.h,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
-        child: SizedBox(
+        child: GradientCtaButton(
+          label: 'Continue',
           width: double.infinity,
-          height: 58.h,
-          child: TextButton(
-            onPressed: () {
-              final name = _groupNameController.text.trim();
-              ref.read(groupNameProvider.notifier).state = name;
-              ref.read(onboardingDataProvider.notifier).state = ref
-                  .read(onboardingDataProvider)
-                  .copyWith(groupName: name, profileType: 'GROUP');
-              GoRouter.of(context).go('/individual-email');
-            },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: AppColors.ctaGradient,
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          height: 58,
+          onPressed: () {
+            final name = _groupNameController.text.trim();
+            ref.read(groupNameProvider.notifier).state = name;
+            ref.read(onboardingDataProvider.notifier).state = ref
+                .read(onboardingDataProvider)
+                .copyWith(groupName: name, profileType: 'GROUP');
+            GoRouter.of(context).go('/individual-email');
+          },
         ),
       ),
     );

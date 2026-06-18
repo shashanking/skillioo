@@ -24,25 +24,51 @@ class OnlineNotifier extends StateNotifier<OnlineState> {
 
   void _handleStatusChange(String userId, bool isOnline) {
     if (kDebugMode) {
-      debugPrint('OnlineNotifier: User $userId is ${isOnline ? 'online' : 'offline'}');
+      debugPrint(
+        'OnlineNotifier: User $userId is ${isOnline ? 'online' : 'offline'}',
+      );
     }
 
-    final updatedStatuses = Map<String, bool>.from(state.userStatuses);
-    updatedStatuses[userId] = isOnline;
+    // Defer state update to avoid modifying provider during widget build
+    Future.microtask(() {
+      if (!mounted) return;
 
-    final updatedLastSeen = Map<String, DateTime>.from(state.lastSeenMap);
-    if (!isOnline) {
-      updatedLastSeen[userId] = DateTime.now();
+      final updatedStatuses = Map<String, bool>.from(state.userStatuses);
+      updatedStatuses[userId] = isOnline;
+
+      final updatedLastSeen = Map<String, DateTime>.from(state.lastSeenMap);
+      if (!isOnline) {
+        updatedLastSeen[userId] = DateTime.now();
+      }
+
+      state = state.copyWith(
+        userStatuses: updatedStatuses,
+        lastSeenMap: updatedLastSeen,
+      );
+    });
+  }
+
+  /// Seeds statuses from API data for users the socket hasn't reported yet.
+  /// Socket events always win — this only fills in the blanks.
+  void seedStatuses(Map<String, bool> statuses) {
+    if (statuses.isEmpty) return;
+    final updated = Map<String, bool>.from(state.userStatuses);
+    bool changed = false;
+    for (final entry in statuses.entries) {
+      if (!updated.containsKey(entry.key)) {
+        updated[entry.key] = entry.value;
+        changed = true;
+      }
     }
-
-    state = state.copyWith(
-      userStatuses: updatedStatuses,
-      lastSeenMap: updatedLastSeen,
-    );
+    if (changed) {
+      state = state.copyWith(userStatuses: updated);
+    }
   }
 
   void setConnected(bool connected) {
-    state = state.copyWith(isConnected: connected);
+    if (state.isConnected != connected) {
+      state = state.copyWith(isConnected: connected);
+    }
   }
 
   bool isUserOnline(String userId) {

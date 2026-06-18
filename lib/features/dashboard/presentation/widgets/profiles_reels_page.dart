@@ -2,13 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
+import 'package:skillioo/constants/app_constants.dart';
+import 'package:skillioo/core/widgets/common_background.dart';
+import 'package:skillioo/core/widgets/custom_text.dart';
 
-import '../../../../constants/app_constants.dart';
-import '../../../../core/widgets/common_background.dart';
-import '../../../../core/widgets/custom_text.dart';
-import '../../../chat/application/chat_providers.dart';
+import '../../../../core/utils/call_utils.dart';
 import '../../application/dashboard_providers.dart';
 import '../../application/states/profile_list_state.dart';
+import '../../../follow/application/follow_providers.dart';
 import 'profile_cards.dart';
 
 class ProfilesReelsPage extends ConsumerStatefulWidget {
@@ -20,6 +21,7 @@ class ProfilesReelsPage extends ConsumerStatefulWidget {
 
 class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
   int _selectedFilter = 0; // 0 = All, 1 = Professional, 2 = Skilled
+  bool _didAutoRetry = false;
 
   static const int _perPage = 20;
 
@@ -29,26 +31,23 @@ class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
     return null;
   }
 
+  String _formatCount(int count) {
+    if (count >= 1000000) return '${(count / 1000000).toStringAsFixed(1)}M';
+    if (count >= 1000) return '${(count / 1000).toStringAsFixed(1)}K';
+    return count.toString();
+  }
+
   Future<void> _handleCallTap(String recipientId) async {
-    final success = await ref
-        .read(chatNotifierProvider.notifier)
-        .initiateCall(recipientId);
-
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          success ? 'Calling $recipientId...' : 'Failed to initiate call',
-        ),
-        backgroundColor: success ? Colors.green : Colors.red,
-      ),
+    await initiateCallWithSubscriptionCheck(
+      context: context,
+      ref: ref,
+      recipientId: recipientId,
     );
   }
 
-  void _handleChatTap(String recipientId) {
+  void _handleChatTap(String recipientId) async {
+    final allowed = await checkChatSubscription(context: context, ref: ref);
+    if (!allowed || !mounted) return;
     context.go(
       '/landing?tab=3&recipientId=${Uri.encodeComponent(recipientId)}',
     );
@@ -58,13 +57,17 @@ class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(profileListNotifierProvider.notifier)
-          .loadProfiles(
-            perPage: _perPage,
-            refresh: true,
-            proficiency: _proficiency,
-          );
+      // Profiles are preloaded by Landing — only fetch if missing
+      final state = ref.read(profileListNotifierProvider);
+      if (state.profiles.isEmpty && !state.isLoading) {
+        ref
+            .read(profileListNotifierProvider.notifier)
+            .loadProfiles(
+              perPage: _perPage,
+              refresh: true,
+              proficiency: _proficiency,
+            );
+      }
     });
   }
 
@@ -94,21 +97,49 @@ class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Auto-retry once when the first profile load transitions to error with
+    // empty data — covers transient cold-start failures.
+    ref.listen<ProfileListState>(profileListNotifierProvider, (prev, next) {
+      final wasLoading = prev?.isLoading ?? false;
+      if (wasLoading &&
+          !next.isLoading &&
+          next.hasError &&
+          next.profiles.isEmpty &&
+          !_didAutoRetry) {
+        _didAutoRetry = true;
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          _retry();
+        });
+      }
+    });
+
     final state = ref.watch(profileListNotifierProvider);
-    final cards = state.profiles.map((ProfileItem profile) {
+    final followerDeltas = ref.watch(followNotifierProvider.select((s) => s.followerCountOverrides));
+    // Exclude hirer profiles — only show talent profiles that have a category
+    // or proficiency set. Hirers have neither.
+    final talentProfiles = state.profiles
+        .where((p) => p.category.isNotEmpty || p.proficiency.isNotEmpty)
+        .toList();
+    final cards = talentProfiles.map((ProfileItem profile) {
       final photo = profile.profilePhotoUrl;
+      final effectiveFollowers = profile.followerCount + (followerDeltas[profile.id] ?? 0);
       return ProfileCardData(
         profileId: profile.id,
         name: profile.displayName,
-        role: '${profile.city}, ${profile.country}',
+        role: profile.category.isNotEmpty
+            ? profile.category.toUpperCase()
+            : 'Category',
         imagePath: photo ?? AppAssets.profileImg1,
-        followers: '0',
+        followers: _formatCount(effectiveFollowers.clamp(0, 999999)),
         posts: profile.videos.length.toString(),
         isProfessional: profile.proficiency == 'PROFESSIONAL',
-        following: '0',
-        views: '0',
+        following: _formatCount(profile.followingCount),
+        views: _formatCount(profile.totalViews),
         socialFollowers: '0',
-        isOnline: false,
+        socialMediaFollows: profile.follows,
+        eventsDone: profile.eventsDone,
+        isOnline: profile.onlineStatus.toUpperCase() == 'ONLINE',
       );
     }).toList();
 
@@ -140,7 +171,7 @@ class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
             // PageView of profile cards
             Expanded(
               child: (state.isLoading && cards.isEmpty)
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(color: Colors.white),
                     )
                   : (state.hasError && cards.isEmpty)
@@ -191,55 +222,64 @@ class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
                         color: AppColors.foundationBlack80,
                       ),
                     )
-                  : PageView.builder(
-                      scrollDirection: Axis.vertical,
-                      itemCount:
-                          cards.length +
-                          (state.hasMore ||
-                                  (state.isLoading && cards.isNotEmpty)
-                              ? 1
-                              : 0),
-                      onPageChanged: (index) {
-                        _loadMoreIfNeeded(index);
+                  : NotificationListener<ScrollNotification>(
+                      onNotification: (notification) {
+                        if (notification is ScrollEndNotification) {
+                          final metrics = notification.metrics;
+                          if (metrics.pixels >= metrics.maxScrollExtent - 300) {
+                            _loadMoreIfNeeded(cards.length - 1);
+                          }
+                        }
+                        return false;
                       },
-                      itemBuilder: (context, index) {
-                        if (index >= cards.length) {
-                          return Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(16.w),
-                              child: SizedBox(
-                                width: 22.w,
-                                height: 22.w,
-                                child: const CircularProgressIndicator(
-                                  color: Colors.white,
-                                  strokeWidth: 2.5,
+                      child: ListView.builder(
+                        padding: EdgeInsets.only(bottom: 140.h),
+                        itemCount:
+                            cards.length +
+                            (state.hasMore ||
+                                    (state.isLoading && cards.isNotEmpty)
+                                ? 1
+                                : 0),
+                        itemBuilder: (context, index) {
+                          if (index >= cards.length) {
+                            return Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.w),
+                                child: SizedBox(
+                                  width: 22.w,
+                                  height: 22.w,
+                                  child: const CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2.5,
+                                  ),
                                 ),
                               ),
+                            );
+                          }
+
+                          final card = cards[index];
+                          return Padding(
+                            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 8.h),
+                            child: ProfileCard(
+                              profileId: card.profileId,
+                              name: card.name,
+                              role: card.role,
+                              imagePath: card.imagePath,
+                              followers: card.followers,
+                              following: card.following,
+                              views: card.views,
+                              posts: card.posts,
+                              socialFollowers: card.socialFollowers,
+                              socialMediaFollows: card.socialMediaFollows,
+                              eventsDone: card.eventsDone,
+                              isOnline: card.isOnline,
+                              isProfessional: card.isProfessional,
+                              onCall: () => _handleCallTap(card.profileId),
+                              onChat: () => _handleChatTap(card.profileId),
                             ),
                           );
-                        }
-
-                        final card = cards[index];
-                        return Padding(
-                          padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 106.h),
-                          child: ProfileCard(
-                            profileId: card.profileId,
-                            name: card.name,
-                            role: card.role,
-                            imagePath: card.imagePath,
-                            followers: card.followers,
-                            following: card.following,
-                            views: card.views,
-                            posts: card.posts,
-                            socialFollowers: card.socialFollowers,
-                            rating: card.rating,
-                            isOnline: card.isOnline,
-                            isProfessional: card.isProfessional,
-                            onCall: () => _handleCallTap(card.profileId),
-                            onChat: () => _handleChatTap(card.profileId),
-                          ),
-                        );
-                      },
+                        },
+                      ),
                     ),
             ),
           ],
@@ -268,6 +308,8 @@ class _ProfilesReelsPageState extends ConsumerState<ProfilesReelsPage> {
           gradient: isSelected
               ? const LinearGradient(
                   colors: [AppColors.accentCyan, AppColors.accentPink],
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
                 )
               : null,
           color: isSelected ? null : AppColors.glassWhite12,

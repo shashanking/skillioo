@@ -1,24 +1,31 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../../constants/app_constants.dart';
+import '../../../../core/localization/locale_extension.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
 import '../../../../core/widgets/icon_button.dart';
+import '../../../dashboard/application/states/profile_list_state.dart';
+import '../../application/current_profile_provider.dart';
+import '../../application/hiring_rate_providers.dart';
+import '../../application/states/hiring_rate_state.dart';
 
 enum _SaveState { idle, saving, success, error }
 
-class EditHiringChargesScreen extends StatefulWidget {
+class EditHiringChargesScreen extends ConsumerStatefulWidget {
   const EditHiringChargesScreen({super.key});
 
   @override
-  State<EditHiringChargesScreen> createState() =>
+  ConsumerState<EditHiringChargesScreen> createState() =>
       _EditHiringChargesScreenState();
 }
 
-class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
+class _EditHiringChargesScreenState
+    extends ConsumerState<EditHiringChargesScreen> {
   late final TextEditingController _hourlyController;
   late final TextEditingController _dailyController;
   late final TextEditingController _weeklyController;
@@ -31,14 +38,17 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
 
   _SaveState _saveState = _SaveState.idle;
   int? _focusedIndex;
+  String _hiringRateId = '';
+  bool _isLoading = true;
+  ProfileItem? _currentProfile;
 
   @override
   void initState() {
     super.initState();
-    _hourlyController = TextEditingController(text: '200');
-    _dailyController = TextEditingController(text: '400');
-    _weeklyController = TextEditingController(text: '1000');
-    _monthlyController = TextEditingController(text: '15000');
+    _hourlyController = TextEditingController();
+    _dailyController = TextEditingController();
+    _weeklyController = TextEditingController();
+    _monthlyController = TextEditingController();
 
     _hourlyFocus = FocusNode();
     _dailyFocus = FocusNode();
@@ -49,12 +59,62 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
     _dailyFocus.addListener(() => _onFocusChange(1));
     _weeklyFocus.addListener(() => _onFocusChange(2));
     _monthlyFocus.addListener(() => _onFocusChange(3));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadHiringRates();
+    });
+  }
+
+  Future<void> _loadHiringRates() async {
+    final profile = await ref.read(currentProfileProvider.future);
+    if (profile == null || profile.portfolioId.isEmpty) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      return;
+    }
+
+    _currentProfile = profile;
+
+    try {
+      final hiringRatesAsync = ref.read(
+        hiringRateProvider(profile.portfolioId),
+      );
+
+      hiringRatesAsync.when(
+        data: (data) {
+          if (!mounted) return;
+
+          _hiringRateId = data['id']?.toString() ?? '';
+          _hourlyController.text = (data['hourlyPricing'] ?? 0).toString();
+          _dailyController.text = (data['dailyPricing'] ?? 0).toString();
+          _weeklyController.text = (data['weeklyPricing'] ?? 0).toString();
+          _monthlyController.text = (data['monthlyPricing'] ?? 0).toString();
+
+          setState(() => _isLoading = false);
+        },
+        loading: () {
+          // Keep loading
+        },
+        error: (e, _) {
+          if (!mounted) return;
+          setState(() => _isLoading = false);
+        },
+      );
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
   }
 
   void _onFocusChange(int index) {
     setState(() {
-      if ([_hourlyFocus, _dailyFocus, _weeklyFocus, _monthlyFocus][index]
-          .hasFocus) {
+      if ([
+        _hourlyFocus,
+        _dailyFocus,
+        _weeklyFocus,
+        _monthlyFocus,
+      ][index].hasFocus) {
         _focusedIndex = index;
       } else if (_focusedIndex == index) {
         _focusedIndex = null;
@@ -76,39 +136,77 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
   }
 
   Future<void> _onSave() async {
-    if (_saveState == _SaveState.saving) return;
+    if (_saveState == _SaveState.saving || _hiringRateId.isEmpty) return;
 
     // Dismiss keyboard
     FocusScope.of(context).unfocus();
 
     setState(() => _saveState = _SaveState.saving);
 
-    // Simulate network call
-    await Future.delayed(const Duration(seconds: 2));
+    try {
+      final hourly = double.tryParse(_hourlyController.text) ?? 0.0;
+      final daily = double.tryParse(_dailyController.text) ?? 0.0;
+      final weekly = double.tryParse(_weeklyController.text) ?? 0.0;
+      final monthly = double.tryParse(_monthlyController.text) ?? 0.0;
 
-    if (!mounted) return;
+      await ref
+          .read(hiringRateNotifierProvider.notifier)
+          .updateHiringRate(
+            id: _hiringRateId,
+            hourlyPricing: hourly,
+            dailyPricing: daily,
+            weeklyPricing: weekly,
+            monthlyPricing: monthly,
+          );
 
-    // Simulate success (toggle to error to test error state)
-    setState(() => _saveState = _SaveState.success);
+      if (!mounted) return;
 
-    // Reset to idle after a delay
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        setState(() => _saveState = _SaveState.idle);
+      final state = ref.read(hiringRateNotifierProvider);
+      if (state.status == HiringRateStatus.success) {
+        setState(() => _saveState = _SaveState.success);
+
+        // Invalidate the hiring rate provider to refresh data
+        final portfolioId = _currentProfile?.portfolioId ?? '';
+        if (portfolioId.isNotEmpty) {
+          ref.invalidate(hiringRateProvider(portfolioId));
+        }
+
+        // Reset to idle and pop after delay
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            Navigator.of(context).pop();
+          }
+        });
+      } else {
+        setState(() => _saveState = _SaveState.error);
+        Future.delayed(const Duration(seconds: 2), () {
+          if (mounted) {
+            setState(() => _saveState = _SaveState.idle);
+          }
+        });
       }
-    });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _saveState = _SaveState.error);
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) {
+          setState(() => _saveState = _SaveState.idle);
+        }
+      });
+    }
   }
 
-  String get _buttonLabel {
+  String _buttonLabel() {
+    final tr = ref.tr;
     switch (_saveState) {
       case _SaveState.idle:
-        return AppStrings.saveChanges;
+        return tr.saveChanges;
       case _SaveState.saving:
-        return AppStrings.saving;
+        return tr.saving;
       case _SaveState.success:
-        return AppStrings.changesSaved;
+        return tr.changesSaved;
       case _SaveState.error:
-        return AppStrings.somethingWentWrong;
+        return tr.somethingWentWrong;
     }
   }
 
@@ -126,6 +224,18 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = ref.tr;
+
+    if (_isLoading) {
+      return Scaffold(
+        body: CommonBackground(
+          child: const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       resizeToAvoidBottomInset: true,
       body: CommonBackground(
@@ -139,12 +249,12 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
                 child: Row(
                   children: [
                     IconCircleButton(
-                      icon: Icons.arrow_back,
+                      assetPath: 'assets/images/arrow-left.png',
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(width: 24.w),
                     CustomText(
-                      AppStrings.editHiringCharges,
+                      tr.editHiringCharges,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -164,28 +274,28 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _buildPricingField(
-                        label: AppStrings.hourlyPricing,
+                        label: tr.hourlyPricing,
                         controller: _hourlyController,
                         focusNode: _hourlyFocus,
                         index: 0,
                       ),
                       SizedBox(height: 20.h),
                       _buildPricingField(
-                        label: AppStrings.dailyPricing,
+                        label: tr.dailyPricing,
                         controller: _dailyController,
                         focusNode: _dailyFocus,
                         index: 1,
                       ),
                       SizedBox(height: 20.h),
                       _buildPricingField(
-                        label: AppStrings.weeklyPricing,
+                        label: tr.weeklyPricing,
                         controller: _weeklyController,
                         focusNode: _weeklyFocus,
                         index: 2,
                       ),
                       SizedBox(height: 20.h),
                       _buildPricingField(
-                        label: AppStrings.monthlyPricing,
+                        label: tr.monthlyPricing,
                         controller: _monthlyController,
                         focusNode: _monthlyFocus,
                         index: 3,
@@ -197,28 +307,69 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
               // Save Button
               Padding(
                 padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-                child: GestureDetector(
-                  onTap: _saveState == _SaveState.saving ? null : _onSave,
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: double.infinity,
-                    height: 58.h,
-                    decoration: BoxDecoration(
-                      gradient: _buttonColor == null
-                          ? (_saveState == _SaveState.saving
-                              ? AppColors.ctaGradientDeactivated
-                              : AppColors.ctaGradient)
-                          : null,
-                      color: _buttonColor,
-                      borderRadius: BorderRadius.circular(48.r),
-                    ),
-                    alignment: Alignment.center,
-                    child: CustomText(
-                      _buttonLabel,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.foundationBlack20,
-                    ),
+                child: SizedBox(
+                  width: double.infinity,
+                  height: 58.h,
+                  child: Stack(
+                    children: [
+                      // Border gradient
+                      Positioned.fill(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 300),
+                          decoration: BoxDecoration(
+                            gradient: _buttonColor != null
+                                ? null
+                                : (_saveState == _SaveState.saving
+                                      ? AppColors.ctaGradientDeactivated
+                                      : AppColors.ctaBorderGradient),
+                            color: _buttonColor,
+                            borderRadius: BorderRadius.circular(48.r),
+                          ),
+                        ),
+                      ),
+                      // Black inset
+                      Positioned.fill(
+                        child: Padding(
+                          padding: EdgeInsets.all(1.2.w),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(
+                              (48.r - 1.2.w).clamp(0.0, double.infinity),
+                            ),
+                            child: Container(color: Colors.black),
+                          ),
+                        ),
+                      ),
+                      // Content
+                      Positioned.fill(
+                        child: GestureDetector(
+                          onTap: _saveState == _SaveState.saving
+                              ? null
+                              : _onSave,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: EdgeInsets.all(1.w),
+                            decoration: BoxDecoration(
+                              gradient: _buttonColor == null
+                                  ? (_saveState == _SaveState.saving
+                                        ? AppColors.ctaGradientDeactivated
+                                        : AppColors.ctaGradient)
+                                  : null,
+                              color: _buttonColor,
+                              borderRadius: BorderRadius.circular(
+                                (48.r - 2.6.w).clamp(0.0, double.infinity),
+                              ),
+                            ),
+                            alignment: Alignment.center,
+                            child: CustomText(
+                              _buttonLabel(),
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w600,
+                              color: AppColors.foundationBlack20,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -235,15 +386,15 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
     required FocusNode focusNode,
     required int index,
   }) {
-    final isFocused = _focusedIndex == index;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         CustomText(
           label,
+          fontFamily: 'Outfit',
           fontSize: 14.sp,
-          fontWeight: FontWeight.w400,
-          color: AppColors.foundationBlack80,
+          fontWeight: FontWeight.w500,
+          color: Color(0xFFF5F5F5),
         ),
         SizedBox(height: 8.h),
         AnimatedContainer(
@@ -251,13 +402,7 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
           padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 4.h),
           decoration: BoxDecoration(
             color: AppColors.glassWhite12,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: isFocused
-                  ? AppColors.accentCyan
-                  : Colors.transparent,
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(24.r),
           ),
           child: TextField(
             controller: controller,
@@ -269,7 +414,6 @@ class _EditHiringChargesScreenState extends State<EditHiringChargesScreen> {
               fontWeight: FontWeight.w400,
               color: AppColors.foundationBlack20,
             ),
-            cursorColor: AppColors.accentCyan,
             decoration: const InputDecoration(
               border: InputBorder.none,
               isCollapsed: true,

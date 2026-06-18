@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../constants/app_constants.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/common_background.dart';
 import '../../onboarding/application/onboarding_data_provider.dart';
 import '../application/auth_providers.dart';
@@ -20,7 +20,7 @@ class PhoneNumberScreen extends ConsumerStatefulWidget {
 class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
   final TextEditingController _controller = TextEditingController();
   bool _showError = false;
-  String _errorText = "Invalid number. Fix it and we're good.";
+  String _errorText = 'Enter a valid Indian mobile number.';
   final FocusNode _focusNode = FocusNode();
   bool _isComplete = false;
 
@@ -31,14 +31,19 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
     super.dispose();
   }
 
-  Future<void> _sendOtpForPurpose(String purpose) async {
+  bool _isValidIndianNumber(String value) {
+    final digits = value.trim();
+    return RegExp(r'^[6-9]\d{9}$').hasMatch(digits);
+  }
+
+  Future<void> _onVerify() async {
     final value = _controller.text.trim();
-    final isValid = RegExp(r'^\d{10}$').hasMatch(value);
+    final isValid = _isValidIndianNumber(value);
     setState(() {
       _showError = !isValid;
     });
     if (!isValid) {
-      setState(() => _errorText = "Invalid number. Fix it and we're good.");
+      setState(() => _errorText = 'Enter a valid Indian mobile number.');
       return;
     }
 
@@ -49,7 +54,7 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
 
     await ref
         .read(authNotifierProvider.notifier)
-        .sendOtp(phoneNumber: phoneNumber, purpose: purpose);
+        .verifyPhone(phoneNumber: phoneNumber);
   }
 
   @override
@@ -62,6 +67,9 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
             .read(onboardingDataProvider)
             .copyWith(phoneVerificationId: next.verificationId);
         GoRouter.of(context).go('/otp');
+      } else if (next.status == AuthStatus.pinRequired) {
+        // Returning user with PIN — skip OTP, go straight to PIN login.
+        GoRouter.of(context).go('/enter-pin');
       } else if (next.status == AuthStatus.error &&
           next.errorMessage.isNotEmpty) {
         setState(() {
@@ -176,6 +184,12 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
                                     _isComplete = complete;
                                     if (!complete) {
                                       _showError = false;
+                                    } else if (!_isValidIndianNumber(digits)) {
+                                      _showError = true;
+                                      _errorText =
+                                          'Enter a valid Indian mobile number.';
+                                    } else {
+                                      _showError = false;
                                     }
                                   });
                                 },
@@ -212,74 +226,11 @@ class _PhoneNumberScreenState extends ConsumerState<PhoneNumberScreen> {
                   Center(
                     child: SizedBox(
                       width: double.infinity,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: SizedBox(
-                              height: 54.h,
-                              child: TextButton(
-                                onPressed: isLoading
-                                    ? null
-                                    : () => _sendOtpForPurpose('LOGIN'),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(48.r),
-                                  ),
-                                  backgroundColor: Colors.white.withValues(
-                                    alpha: 0.12,
-                                  ),
-                                ),
-                                child: Center(
-                                  child: Text(
-                                    'Login',
-                                    style: TextStyle(
-                                      fontFamily: 'Outfit',
-                                      fontSize: 16.sp,
-                                      fontWeight: FontWeight.w600,
-                                      color: const Color(0xFFF5F5F5),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: 12.w),
-                          Expanded(
-                            child: SizedBox(
-                              height: 54.h,
-                              child: TextButton(
-                                onPressed: isLoading
-                                    ? null
-                                    : () => _sendOtpForPurpose('SIGNUP'),
-                                style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(48.r),
-                                  ),
-                                  backgroundColor: Colors.transparent,
-                                ),
-                                child: Ink(
-                                  decoration: BoxDecoration(
-                                    gradient: AppColors.ctaGradient,
-                                    borderRadius: BorderRadius.circular(48.r),
-                                  ),
-                                  child: Center(
-                                    child: Text(
-                                      'Signup',
-                                      style: TextStyle(
-                                        fontFamily: 'Outfit',
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFFF5F5F5),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      child: GradientCtaButton(
+                        label: isLoading ? 'Verifying...' : 'Verify',
+                        height: 54,
+                        enabled: !isLoading,
+                        onPressed: isLoading ? null : _onVerify,
                       ),
                     ),
                   ),

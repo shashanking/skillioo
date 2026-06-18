@@ -18,6 +18,10 @@ class AuthPrefs {
     await _secureStorage.write(key: _pinKey, value: pin);
   }
 
+  Future<String> getPin() async {
+    return await _secureStorage.read(key: _pinKey) ?? '';
+  }
+
   Future<bool> hasPin() async {
     final value = await _secureStorage.read(key: _pinKey);
     return value != null && value.isNotEmpty;
@@ -33,6 +37,36 @@ class AuthPrefs {
   Future<bool> isBiometricEnabled() async {
     final value = await _secureStorage.read(key: _biometricEnabledKey);
     return value == '1';
+  }
+
+  /// Whether the device supports biometrics and has at least one enrolled
+  /// (face or fingerprint on Android, Face ID / Touch ID on iOS).
+  Future<bool> isBiometricAvailable() async {
+    try {
+      if (!await _localAuth.isDeviceSupported()) return false;
+      if (!await _localAuth.canCheckBiometrics) return false;
+      final types = await _localAuth.getAvailableBiometrics();
+      return types.isNotEmpty;
+    } on PlatformException catch (e) {
+      debugPrint('isBiometricAvailable: $e');
+      return false;
+    }
+  }
+
+  /// Human-readable name of the enrolled biometric, for UI labels.
+  Future<String> biometricLabel() async {
+    try {
+      final types = await _localAuth.getAvailableBiometrics();
+      final hasFace = types.contains(BiometricType.face);
+      final hasFingerprint = types.contains(BiometricType.fingerprint);
+      if (hasFace && hasFingerprint) return 'Face or Fingerprint';
+      if (hasFace) return 'Face';
+      if (hasFingerprint) return 'Fingerprint';
+      return 'Biometric';
+    } on PlatformException catch (e) {
+      debugPrint('biometricLabel: $e');
+      return 'Biometric';
+    }
   }
 
   Future<bool> authenticateWithBiometrics() async {

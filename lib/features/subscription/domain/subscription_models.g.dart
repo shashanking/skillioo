@@ -6,6 +6,28 @@ part of 'subscription_models.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+PlanAggregatorResponse _$PlanAggregatorResponseFromJson(
+  Map<String, dynamic> json,
+) => PlanAggregatorResponse(
+  callLimits: (json['callLimits'] as num?)?.toInt(),
+  chatLimits: (json['chatLimits'] as num?)?.toInt(),
+  activePlans: (json['activePlans'] as num?)?.toInt(),
+  profileVisibility: json['profileVisibility'] as String?,
+  userSubscriptionIds: (json['userSubscriptionIds'] as List<dynamic>?)
+      ?.map((e) => e as String)
+      .toList(),
+);
+
+Map<String, dynamic> _$PlanAggregatorResponseToJson(
+  PlanAggregatorResponse instance,
+) => <String, dynamic>{
+  'callLimits': instance.callLimits,
+  'chatLimits': instance.chatLimits,
+  'activePlans': instance.activePlans,
+  'profileVisibility': instance.profileVisibility,
+  'userSubscriptionIds': instance.userSubscriptionIds,
+};
+
 PlanMasterResponse _$PlanMasterResponseFromJson(Map<String, dynamic> json) =>
     PlanMasterResponse(
       id: json['id'] as String?,

@@ -31,7 +31,14 @@ mixin _$PostState {
   List<CommentResponse> get comments => throw _privateConstructorUsedError;
   String get commentsTargetId => throw _privateConstructorUsedError;
   int get commentsPage => throw _privateConstructorUsedError;
-  bool get commentsHasMore => throw _privateConstructorUsedError; // Reactions
+  bool get commentsHasMore =>
+      throw _privateConstructorUsedError; // Replies keyed by parent comment ID
+  Map<String, List<CommentResponse>> get commentReplies =>
+      throw _privateConstructorUsedError;
+  Map<String, PostStatus> get commentRepliesStatus =>
+      throw _privateConstructorUsedError; // Set of comment IDs that the current user has liked
+  Set<String> get likedCommentIds =>
+      throw _privateConstructorUsedError; // Reactions
   PostStatus get reactionsStatus => throw _privateConstructorUsedError;
   List<ReactionResponse> get reactions =>
       throw _privateConstructorUsedError; // Set of targetIds that the current user has liked
@@ -65,6 +72,9 @@ abstract class $PostStateCopyWith<$Res> {
     String commentsTargetId,
     int commentsPage,
     bool commentsHasMore,
+    Map<String, List<CommentResponse>> commentReplies,
+    Map<String, PostStatus> commentRepliesStatus,
+    Set<String> likedCommentIds,
     PostStatus reactionsStatus,
     List<ReactionResponse> reactions,
     Set<String> likedPostIds,
@@ -101,6 +111,9 @@ class _$PostStateCopyWithImpl<$Res, $Val extends PostState>
     Object? commentsTargetId = null,
     Object? commentsPage = null,
     Object? commentsHasMore = null,
+    Object? commentReplies = null,
+    Object? commentRepliesStatus = null,
+    Object? likedCommentIds = null,
     Object? reactionsStatus = null,
     Object? reactions = null,
     Object? likedPostIds = null,
@@ -167,6 +180,18 @@ class _$PostStateCopyWithImpl<$Res, $Val extends PostState>
                 ? _value.commentsHasMore
                 : commentsHasMore // ignore: cast_nullable_to_non_nullable
                       as bool,
+            commentReplies: null == commentReplies
+                ? _value.commentReplies
+                : commentReplies // ignore: cast_nullable_to_non_nullable
+                      as Map<String, List<CommentResponse>>,
+            commentRepliesStatus: null == commentRepliesStatus
+                ? _value.commentRepliesStatus
+                : commentRepliesStatus // ignore: cast_nullable_to_non_nullable
+                      as Map<String, PostStatus>,
+            likedCommentIds: null == likedCommentIds
+                ? _value.likedCommentIds
+                : likedCommentIds // ignore: cast_nullable_to_non_nullable
+                      as Set<String>,
             reactionsStatus: null == reactionsStatus
                 ? _value.reactionsStatus
                 : reactionsStatus // ignore: cast_nullable_to_non_nullable
@@ -210,6 +235,9 @@ abstract class _$$PostStateImplCopyWith<$Res>
     String commentsTargetId,
     int commentsPage,
     bool commentsHasMore,
+    Map<String, List<CommentResponse>> commentReplies,
+    Map<String, PostStatus> commentRepliesStatus,
+    Set<String> likedCommentIds,
     PostStatus reactionsStatus,
     List<ReactionResponse> reactions,
     Set<String> likedPostIds,
@@ -245,6 +273,9 @@ class __$$PostStateImplCopyWithImpl<$Res>
     Object? commentsTargetId = null,
     Object? commentsPage = null,
     Object? commentsHasMore = null,
+    Object? commentReplies = null,
+    Object? commentRepliesStatus = null,
+    Object? likedCommentIds = null,
     Object? reactionsStatus = null,
     Object? reactions = null,
     Object? likedPostIds = null,
@@ -311,6 +342,18 @@ class __$$PostStateImplCopyWithImpl<$Res>
             ? _value.commentsHasMore
             : commentsHasMore // ignore: cast_nullable_to_non_nullable
                   as bool,
+        commentReplies: null == commentReplies
+            ? _value._commentReplies
+            : commentReplies // ignore: cast_nullable_to_non_nullable
+                  as Map<String, List<CommentResponse>>,
+        commentRepliesStatus: null == commentRepliesStatus
+            ? _value._commentRepliesStatus
+            : commentRepliesStatus // ignore: cast_nullable_to_non_nullable
+                  as Map<String, PostStatus>,
+        likedCommentIds: null == likedCommentIds
+            ? _value._likedCommentIds
+            : likedCommentIds // ignore: cast_nullable_to_non_nullable
+                  as Set<String>,
         reactionsStatus: null == reactionsStatus
             ? _value.reactionsStatus
             : reactionsStatus // ignore: cast_nullable_to_non_nullable
@@ -347,12 +390,18 @@ class _$PostStateImpl implements _PostState {
     this.commentsTargetId = '',
     this.commentsPage = 1,
     this.commentsHasMore = false,
+    final Map<String, List<CommentResponse>> commentReplies = const {},
+    final Map<String, PostStatus> commentRepliesStatus = const {},
+    final Set<String> likedCommentIds = const {},
     this.reactionsStatus = PostStatus.initial,
     final List<ReactionResponse> reactions = const [],
     final Set<String> likedPostIds = const {},
   }) : _feedPosts = feedPosts,
        _userPosts = userPosts,
        _comments = comments,
+       _commentReplies = commentReplies,
+       _commentRepliesStatus = commentRepliesStatus,
+       _likedCommentIds = likedCommentIds,
        _reactions = reactions,
        _likedPostIds = likedPostIds;
 
@@ -420,6 +469,38 @@ class _$PostStateImpl implements _PostState {
   @override
   @JsonKey()
   final bool commentsHasMore;
+  // Replies keyed by parent comment ID
+  final Map<String, List<CommentResponse>> _commentReplies;
+  // Replies keyed by parent comment ID
+  @override
+  @JsonKey()
+  Map<String, List<CommentResponse>> get commentReplies {
+    if (_commentReplies is EqualUnmodifiableMapView) return _commentReplies;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_commentReplies);
+  }
+
+  final Map<String, PostStatus> _commentRepliesStatus;
+  @override
+  @JsonKey()
+  Map<String, PostStatus> get commentRepliesStatus {
+    if (_commentRepliesStatus is EqualUnmodifiableMapView)
+      return _commentRepliesStatus;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableMapView(_commentRepliesStatus);
+  }
+
+  // Set of comment IDs that the current user has liked
+  final Set<String> _likedCommentIds;
+  // Set of comment IDs that the current user has liked
+  @override
+  @JsonKey()
+  Set<String> get likedCommentIds {
+    if (_likedCommentIds is EqualUnmodifiableSetView) return _likedCommentIds;
+    // ignore: implicit_dynamic_type
+    return EqualUnmodifiableSetView(_likedCommentIds);
+  }
+
   // Reactions
   @override
   @JsonKey()
@@ -446,7 +527,7 @@ class _$PostStateImpl implements _PostState {
 
   @override
   String toString() {
-    return 'PostState(feedStatus: $feedStatus, feedPosts: $feedPosts, feedPage: $feedPage, feedHasMore: $feedHasMore, userPostsStatus: $userPostsStatus, userPosts: $userPosts, userPostsPage: $userPostsPage, userPostsHasMore: $userPostsHasMore, createStatus: $createStatus, errorMessage: $errorMessage, commentsStatus: $commentsStatus, comments: $comments, commentsTargetId: $commentsTargetId, commentsPage: $commentsPage, commentsHasMore: $commentsHasMore, reactionsStatus: $reactionsStatus, reactions: $reactions, likedPostIds: $likedPostIds)';
+    return 'PostState(feedStatus: $feedStatus, feedPosts: $feedPosts, feedPage: $feedPage, feedHasMore: $feedHasMore, userPostsStatus: $userPostsStatus, userPosts: $userPosts, userPostsPage: $userPostsPage, userPostsHasMore: $userPostsHasMore, createStatus: $createStatus, errorMessage: $errorMessage, commentsStatus: $commentsStatus, comments: $comments, commentsTargetId: $commentsTargetId, commentsPage: $commentsPage, commentsHasMore: $commentsHasMore, commentReplies: $commentReplies, commentRepliesStatus: $commentRepliesStatus, likedCommentIds: $likedCommentIds, reactionsStatus: $reactionsStatus, reactions: $reactions, likedPostIds: $likedPostIds)';
   }
 
   @override
@@ -487,6 +568,18 @@ class _$PostStateImpl implements _PostState {
                 other.commentsPage == commentsPage) &&
             (identical(other.commentsHasMore, commentsHasMore) ||
                 other.commentsHasMore == commentsHasMore) &&
+            const DeepCollectionEquality().equals(
+              other._commentReplies,
+              _commentReplies,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._commentRepliesStatus,
+              _commentRepliesStatus,
+            ) &&
+            const DeepCollectionEquality().equals(
+              other._likedCommentIds,
+              _likedCommentIds,
+            ) &&
             (identical(other.reactionsStatus, reactionsStatus) ||
                 other.reactionsStatus == reactionsStatus) &&
             const DeepCollectionEquality().equals(
@@ -500,7 +593,7 @@ class _$PostStateImpl implements _PostState {
   }
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => Object.hashAll([
     runtimeType,
     feedStatus,
     const DeepCollectionEquality().hash(_feedPosts),
@@ -517,10 +610,13 @@ class _$PostStateImpl implements _PostState {
     commentsTargetId,
     commentsPage,
     commentsHasMore,
+    const DeepCollectionEquality().hash(_commentReplies),
+    const DeepCollectionEquality().hash(_commentRepliesStatus),
+    const DeepCollectionEquality().hash(_likedCommentIds),
     reactionsStatus,
     const DeepCollectionEquality().hash(_reactions),
     const DeepCollectionEquality().hash(_likedPostIds),
-  );
+  ]);
 
   /// Create a copy of PostState
   /// with the given fields replaced by the non-null parameter values.
@@ -548,6 +644,9 @@ abstract class _PostState implements PostState {
     final String commentsTargetId,
     final int commentsPage,
     final bool commentsHasMore,
+    final Map<String, List<CommentResponse>> commentReplies,
+    final Map<String, PostStatus> commentRepliesStatus,
+    final Set<String> likedCommentIds,
     final PostStatus reactionsStatus,
     final List<ReactionResponse> reactions,
     final Set<String> likedPostIds,
@@ -582,7 +681,13 @@ abstract class _PostState implements PostState {
   @override
   int get commentsPage;
   @override
-  bool get commentsHasMore; // Reactions
+  bool get commentsHasMore; // Replies keyed by parent comment ID
+  @override
+  Map<String, List<CommentResponse>> get commentReplies;
+  @override
+  Map<String, PostStatus> get commentRepliesStatus; // Set of comment IDs that the current user has liked
+  @override
+  Set<String> get likedCommentIds; // Reactions
   @override
   PostStatus get reactionsStatus;
   @override

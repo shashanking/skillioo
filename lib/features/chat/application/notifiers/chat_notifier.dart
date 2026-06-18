@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/services/session_prefs.dart';
+import '../../../../core/services/socket_service.dart';
 import '../../domain/chat_models.dart';
 import '../../domain/chat_service.dart';
 import '../states/chat_state.dart';
@@ -9,7 +10,150 @@ import '../states/chat_state.dart';
 class ChatNotifier extends StateNotifier<ChatState> {
   final ChatService _chatService;
 
-  ChatNotifier(this._chatService) : super(const ChatState());
+  ChatNotifier(this._chatService) : super(const ChatState()) {
+    _setupSocketCallbacks();
+  }
+
+  void _setupSocketCallbacks() {
+    final socket = SocketService();
+
+    socket.onNewMessage = (data) {
+      if (kDebugMode) debugPrint('ChatNotifier: socket newMessage: $data');
+      _handleSocketMessage(data);
+    };
+
+    socket.onConversationUpdated = (data) {
+      if (kDebugMode) debugPrint('ChatNotifier: socket conversationUpdated');
+      // Silently refresh the conversation list
+      fetchConversations(refresh: true);
+    };
+  }
+
+  void _handleSocketMessage(Map<String, dynamic> data) {
+    try {
+      final msg = MessageResponse.fromJson(data);
+      final incomingConvId = (data['conversationId'] as String? ?? '').trim();
+
+      // If the message belongs to the currently open conversation, prepend it
+      // (avoid duplicate if we sent it ourselves — sendMessage already adds it)
+      final alreadyExists = state.messages.any((m) => m.id == msg.id);
+      if (!alreadyExists &&
+          incomingConvId.isNotEmpty &&
+          incomingConvId == state.activeConversationId) {
+        state = state.copyWith(messages: [msg, ...state.messages]);
+      }
+
+      // The sender is clearly online — they just sent a message.
+      final senderId = (msg.senderId ?? '').trim();
+      if (senderId.isNotEmpty) {
+        SocketService().notifyStatusChange(senderId, true);
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('ChatNotifier: socket message parse error: $e');
+    }
+
+    // Silently refresh conversations so the last-message preview updates
+    silentRefresh();
+  }
+
+  /// Refreshes conversations (and active messages if open) without touching
+  /// any status fields, so the UI doesn't flash or show a loading indicator.
+  Future<void> silentRefresh() async {
+    final hasAuth = await _ensureAuth();
+    if (!hasAuth) return;
+
+    // ── Conversations ──
+    try {
+      final response = await _chatService.getConversations(page: 1, limit: 20);
+      final success = response['success'] as bool? ?? false;
+      if (success) {
+        final rawList =
+            response['data'] is List ? response['data'] as List : const [];
+        final conversations = <ConversationResponse>[];
+        for (final item in rawList) {
+          if (item is Map) {
+            try {
+              conversations.add(
+                ConversationResponse.fromJson(Map<String, dynamic>.from(item)),
+              );
+            } catch (_) {}
+          }
+        }
+        // Only update if something actually changed to avoid unnecessary rebuilds
+        if (_conversationsChanged(conversations)) {
+          state = state.copyWith(
+            conversations: conversations,
+            conversationsPage: 2,
+            conversationsHasMore: conversations.length >= 20,
+          );
+          for (final conv in conversations) {
+            if (conv.latestMessage?.senderId == conv.participantId) {
+              _markSenderOnline(conv.participantId);
+            }
+          }
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('silentRefresh conversations error: $e');
+    }
+
+    // ── Active messages ──
+    final convId = state.activeConversationId.trim();
+    final recipientId = state.activeRecipientId.trim();
+    if (convId.isEmpty || recipientId.isEmpty) return;
+
+    try {
+      final response =
+          await _chatService.getMessages(conversationId: convId, limit: 30);
+      final success = response['success'] as bool? ?? false;
+      if (success) {
+        final rawList =
+            response['data'] is List ? response['data'] as List : const [];
+        final messages = <MessageResponse>[];
+        for (final item in rawList) {
+          if (item is Map) {
+            try {
+              messages.add(
+                MessageResponse.fromJson(Map<String, dynamic>.from(item)),
+              );
+            } catch (_) {}
+          }
+        }
+        if (_messagesChanged(messages)) {
+          state = state.copyWith(messages: messages);
+          if (messages.isNotEmpty) _markSenderOnline(messages.first.senderId);
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) debugPrint('silentRefresh messages error: $e');
+    }
+  }
+
+  bool _conversationsChanged(List<ConversationResponse> fresh) {
+    if (fresh.length != state.conversations.length) return true;
+    for (int i = 0; i < fresh.length; i++) {
+      if (fresh[i].conversationId != state.conversations[i].conversationId ||
+          fresh[i].latestMessage?.id != state.conversations[i].latestMessage?.id) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _messagesChanged(List<MessageResponse> fresh) {
+    if (fresh.length != state.messages.length) return true;
+    if (fresh.isNotEmpty && state.messages.isNotEmpty) {
+      return fresh.first.id != state.messages.first.id;
+    }
+    return false;
+  }
+
+  void _markSenderOnline(String? senderId) {
+    final id = (senderId ?? '').trim();
+    if (id.isNotEmpty) {
+      SocketService().notifyStatusChange(id, true);
+    }
+  }
 
   Future<bool> _ensureAuth() async {
     final token = await SessionPrefs.instance.getAccessToken();
@@ -161,6 +305,11 @@ class ChatNotifier extends StateNotifier<ChatState> {
         conversationsPage: page + 1,
         conversationsHasMore: conversations.length >= 10,
       );
+      for (final conv in conversations) {
+        if (conv.latestMessage?.senderId == conv.participantId) {
+          _markSenderOnline(conv.participantId);
+        }
+      }
     } catch (e) {
       if (kDebugMode) debugPrint('fetchConversations error: $e');
       state = state.copyWith(
@@ -237,6 +386,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         messagesHasMore: messages.length >= 30,
         errorMessage: '',
       );
+      if (messages.isNotEmpty) _markSenderOnline(messages.first.senderId);
     } catch (e) {
       if (kDebugMode) debugPrint('_fetchMessagesInternal error: $e');
       state = state.copyWith(
@@ -576,7 +726,7 @@ class ChatNotifier extends StateNotifier<ChatState> {
         profileId: profileId,
       );
 
-      final success = response['success'] as bool? ?? false;
+      final success = response['message'] == 'Success';
       final status = response['status'] as int?;
       if (!success && status != 200) {
         state = state.copyWith(
@@ -586,11 +736,15 @@ class ChatNotifier extends StateNotifier<ChatState> {
         return;
       }
 
-      final rawList = response['data'] is List
-          ? (response['data'] as List)
-                .whereType<Map<String, dynamic>>()
-                .toList()
-          : const <Map<String, dynamic>>[];
+      final dataField = response['data'];
+      final itemsList = dataField is Map
+          ? (dataField['items'] as List? ?? [])
+          : dataField is List
+          ? dataField
+          : [];
+      final rawList = itemsList
+          .whereType<Map<String, dynamic>>()
+          .toList();
 
       state = state.copyWith(
         notificationsStatus: ChatStatus.success,

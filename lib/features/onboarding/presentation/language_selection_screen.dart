@@ -1,51 +1,57 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/gradient_cta_button.dart';
+import '../../../constants/app_constants.dart';
+import '../../../core/localization/app_locale.dart';
+import '../../../core/localization/locale_extension.dart';
+import '../../../core/localization/locale_notifier.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../../core/widgets/custom_text.dart';
 
-class LanguageSelectionScreen extends StatefulWidget {
+class LanguageSelectionScreen extends ConsumerWidget {
   const LanguageSelectionScreen({super.key});
 
   @override
-  State<LanguageSelectionScreen> createState() =>
-      _LanguageSelectionScreenState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final currentLocale = ref.watch(localeNotifierProvider);
+    final tr = ref.tr;
 
-class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
-  final List<String> _languages = const [
-    'English',
-    'Hindi',
-    'Marathi',
-    'Kannada',
-    'Telugu',
-    'Malayalam',
-  ];
-
-  int _selectedIndex = 0;
-
-  @override
-  Widget build(BuildContext context) {
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
           child: Stack(
             children: [
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16.w),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(height: 16.h),
-                    _buildBackButton(context),
-                    SizedBox(height: 24.h),
-                    _buildHeader(),
-                    SizedBox(height: 32.h),
-                    _buildLanguageList(),
-                  ],
-                ),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 24.h),
+                    decoration: BoxDecoration(color: AppColors.glassWhite06),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildBackButton(context),
+                        SizedBox(height: 24.h),
+                        _buildHeader(tr),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 16.w,
+                        vertical: 24.h,
+                      ),
+                      child: _buildLanguageList(ref, currentLocale),
+                    ),
+                  ),
+                ],
               ),
-              _buildContinueButton(context),
+              _buildContinueButton(context, tr),
             ],
           ),
         ),
@@ -55,63 +61,64 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
 
   Widget _buildBackButton(BuildContext context) {
     return GestureDetector(
-      onTap: () => GoRouter.of(context).pop(),
+      onTap: () {
+        if (context.canPop()) {
+          context.pop();
+        } else {
+          context.go('/options');
+        }
+      },
       child: Container(
         width: 48.w,
         height: 48.w,
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.12),
+          color: AppColors.glassWhite12,
           borderRadius: BorderRadius.circular(124.r),
         ),
         child: Center(
-          child: Icon(
-            Icons.arrow_back,
-            color: const Color(0xFFF5F5F5),
-            size: 20.sp,
+          child: Image.asset(
+            'assets/images/arrow-left.png',
+            color: AppColors.foundationBlack20,
+            width: 20.sp,
+            height: 20.sp,
           ),
         ),
       ),
     );
   }
 
-  Widget _buildHeader() {
+  Widget _buildHeader(tr) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Select Your Language',
-          style: TextStyle(
-            fontFamily: 'Neue',
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w700,
-            color: const Color(0xFFF5F5F5),
-          ),
+        CustomText(
+          tr.selectYourLanguage,
+          fontFamily: 'Neue',
+          fontSize: 20.sp,
+          fontWeight: FontWeight.w700,
+          color: AppColors.foundationBlack20,
         ),
         SizedBox(height: 4.h),
-        Text(
-          'Tell us how you\'d like the app to talk to you.',
-          style: TextStyle(
-            fontFamily: 'Outfit',
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w400,
-            color: const Color(0xFFF5F5F5),
-          ),
+        CustomText(
+          tr.languageSubtitle,
+          fontSize: 16.sp,
+          fontWeight: FontWeight.w400,
+          color: AppColors.foundationBlack20,
         ),
       ],
     );
   }
 
-  Widget _buildLanguageList() {
+  Widget _buildLanguageList(WidgetRef ref, AppLocale currentLocale) {
     return Column(
-      children: List.generate(_languages.length, (index) {
-        final isSelected = index == _selectedIndex;
+      children: List.generate(AppLocale.values.length, (index) {
+        final locale = AppLocale.values[index];
+        final isSelected = locale == currentLocale;
         return Padding(
           padding: EdgeInsets.only(bottom: 12.h),
           child: GestureDetector(
             onTap: () {
-              setState(() {
-                _selectedIndex = index;
-              });
+              ref.read(localeNotifierProvider.notifier).setLocale(locale);
             },
             child: Container(
               width: double.infinity,
@@ -119,19 +126,28 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
               padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
               decoration: BoxDecoration(
                 color: isSelected
-                    ? Colors.white.withValues(alpha: 0.48)
-                    : Colors.white.withValues(alpha: 0.12),
+                    ? AppColors.glassWhite48
+                    : AppColors.glassWhite12,
                 borderRadius: BorderRadius.circular(48.r),
               ),
               alignment: Alignment.centerLeft,
-              child: Text(
-                _languages[index],
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFF5F5F5),
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CustomText(
+                      locale.displayName,
+                      fontSize: 16.sp,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.foundationBlack20,
+                    ),
+                  ),
+                  CustomText(
+                    locale.nativeName,
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.foundationBlack20,
+                  ),
+                ],
               ),
             ),
           ),
@@ -140,52 +156,19 @@ class _LanguageSelectionScreenState extends State<LanguageSelectionScreen> {
     );
   }
 
-  Widget _buildContinueButton(BuildContext context) {
+  Widget _buildContinueButton(BuildContext context, tr) {
     return Positioned(
       left: 0,
       right: 0,
       bottom: 24.h,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
-        child: SizedBox(
+        child: GradientCtaButton(
+          label: tr.continueText,
           width: double.infinity,
-          height: 58.h,
-          child: TextButton(
-            onPressed: () {
-              GoRouter.of(context).go('/options');
-            },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color.fromRGBO(192, 15, 139, 0.4),
-                    Color.fromRGBO(5, 218, 241, 0.4),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          height: 58,
+          labelColor: AppColors.foundationBlack20,
+          onPressed: () => context.push('/options'),
         ),
       ),
     );

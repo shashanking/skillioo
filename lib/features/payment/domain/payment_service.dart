@@ -2,12 +2,11 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class PaymentService extends BaseServiceProvider {
-  PaymentService() : super(baseUrl: ApiConfig.paymentBaseUrl);
+  PaymentService({super.client}) : super(baseUrl: ApiConfig.paymentBaseUrl);
 
   // ── Payment ──
 
-  Future<Map<String, dynamic>> createPayment(
-      Map<String, dynamic> data) async {
+  Future<Map<String, dynamic>> createPayment(Map<String, dynamic> data) async {
     return post(ApiConfig.payment, data);
   }
 
@@ -31,8 +30,24 @@ class PaymentService extends BaseServiceProvider {
   // ── Payment User ──
 
   Future<Map<String, dynamic>> createPaymentUser(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     return post(ApiConfig.paymentUser, data);
+  }
+
+  Future<Map<String, dynamic>> getShortUser({
+    String? referenceId,
+    String? nickName,
+  }) async {
+    if (referenceId == null && nickName == null) {
+      throw Exception('Either referenceId or nickName is required');
+    }
+
+    final params = <String, String>{};
+    if (referenceId != null) params['referenceId'] = referenceId;
+    if (nickName != null) params['nickName'] = nickName;
+
+    return getWithParams(ApiConfig.shortUser, params);
   }
 
   Future<Map<String, dynamic>> fetchPaymentUser(String referenceId) async {
@@ -40,7 +55,8 @@ class PaymentService extends BaseServiceProvider {
   }
 
   Future<Map<String, dynamic>> updatePaymentUser(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     return put(ApiConfig.paymentUser, data);
   }
 

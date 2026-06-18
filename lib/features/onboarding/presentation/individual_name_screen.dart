@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../constants/app_constants.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/common_background.dart';
 import '../application/onboarding_data_provider.dart';
 
@@ -115,10 +115,11 @@ class _IndividualNameScreenState extends ConsumerState<IndividualNameScreen> {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
@@ -216,7 +217,10 @@ class _IndividualNameScreenState extends ConsumerState<IndividualNameScreen> {
         child: SizedBox(
           width: double.infinity,
           height: 58.h,
-          child: TextButton(
+          child: GradientCtaButton(
+            label: 'Continue',
+            width: double.infinity,
+            height: 58,
             onPressed: () {
               ref.read(onboardingDataProvider.notifier).state = ref
                   .read(onboardingDataProvider)
@@ -227,30 +231,6 @@ class _IndividualNameScreenState extends ConsumerState<IndividualNameScreen> {
                   );
               GoRouter.of(context).go('/individual-email');
             },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: AppColors.ctaGradient,
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
-              ),
-            ),
           ),
         ),
       ),

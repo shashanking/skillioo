@@ -63,6 +63,7 @@ CreateMediaRequest _$CreateMediaRequestFromJson(Map<String, dynamic> json) =>
           .toList(),
       userReferenceId: json['userReferenceId'] as String,
       mediaType: json['mediaType'] as String,
+      city: json['city'] as String?,
     );
 
 Map<String, dynamic> _$CreateMediaRequestToJson(CreateMediaRequest instance) =>
@@ -72,6 +73,7 @@ Map<String, dynamic> _$CreateMediaRequestToJson(CreateMediaRequest instance) =>
       'mentions': instance.mentions,
       'userReferenceId': instance.userReferenceId,
       'mediaType': instance.mediaType,
+      'city': instance.city,
     };
 
 UpdateMediaRequest _$UpdateMediaRequestFromJson(Map<String, dynamic> json) =>
@@ -90,6 +92,26 @@ Map<String, dynamic> _$UpdateMediaRequestToJson(UpdateMediaRequest instance) =>
       'description': instance.description,
       'mentions': instance.mentions,
       'mediaType': instance.mediaType,
+    };
+
+MediaShortUser _$MediaShortUserFromJson(Map<String, dynamic> json) =>
+    MediaShortUser(
+      nickName: json['nickName'] as String?,
+      name: json['name'] as String?,
+      profilePictureUrl: json['profilePictureUrl'] as String?,
+      userReferenceId: json['userReferenceId'] as String?,
+      category: json['category'] as String?,
+      subCategory: json['subCategory'] as String?,
+    );
+
+Map<String, dynamic> _$MediaShortUserToJson(MediaShortUser instance) =>
+    <String, dynamic>{
+      'nickName': instance.nickName,
+      'name': instance.name,
+      'profilePictureUrl': instance.profilePictureUrl,
+      'userReferenceId': instance.userReferenceId,
+      'category': instance.category,
+      'subCategory': instance.subCategory,
     };
 
 MediaReach _$MediaReachFromJson(Map<String, dynamic> json) => MediaReach(
@@ -122,6 +144,13 @@ MediaResponse _$MediaResponseFromJson(Map<String, dynamic> json) =>
           .toList(),
       mediaType: json['mediaType'] as String?,
       userReferenceId: json['userReferenceId'] as String?,
+      mediaUrl: json['mediaUrl'] as String?,
+      createdAt: json['createdAt'] == null
+          ? null
+          : DateTime.parse(json['createdAt'] as String),
+      shortUser: json['shortUser'] == null
+          ? null
+          : MediaShortUser.fromJson(json['shortUser'] as Map<String, dynamic>),
     );
 
 Map<String, dynamic> _$MediaResponseToJson(MediaResponse instance) =>
@@ -133,6 +162,9 @@ Map<String, dynamic> _$MediaResponseToJson(MediaResponse instance) =>
       'mentions': instance.mentions,
       'mediaType': instance.mediaType,
       'userReferenceId': instance.userReferenceId,
+      'mediaUrl': instance.mediaUrl,
+      'createdAt': instance.createdAt?.toIso8601String(),
+      'shortUser': instance.shortUser,
     };
 
 CommentContent _$CommentContentFromJson(Map<String, dynamic> json) =>
@@ -175,6 +207,20 @@ Map<String, dynamic> _$UpdateCommentRequestToJson(
   UpdateCommentRequest instance,
 ) => <String, dynamic>{'id': instance.id, 'content': instance.content};
 
+CommentShortUser _$CommentShortUserFromJson(Map<String, dynamic> json) =>
+    CommentShortUser(
+      nickName: json['nickName'] as String?,
+      profilePictureUrl: json['profilePictureUrl'] as String?,
+      userReferenceId: json['userReferenceId'] as String?,
+    );
+
+Map<String, dynamic> _$CommentShortUserToJson(CommentShortUser instance) =>
+    <String, dynamic>{
+      'nickName': instance.nickName,
+      'profilePictureUrl': instance.profilePictureUrl,
+      'userReferenceId': instance.userReferenceId,
+    };
+
 CommentResponse _$CommentResponseFromJson(Map<String, dynamic> json) =>
     CommentResponse(
       id: json['_id'] as String?,
@@ -186,6 +232,11 @@ CommentResponse _$CommentResponseFromJson(Map<String, dynamic> json) =>
       reach: json['reach'] == null
           ? null
           : MediaReach.fromJson(json['reach'] as Map<String, dynamic>),
+      shortUser: json['shortUser'] == null
+          ? null
+          : CommentShortUser.fromJson(
+              json['shortUser'] as Map<String, dynamic>,
+            ),
     );
 
 Map<String, dynamic> _$CommentResponseToJson(CommentResponse instance) =>
@@ -195,6 +246,7 @@ Map<String, dynamic> _$CommentResponseToJson(CommentResponse instance) =>
       'type': instance.type,
       'content': instance.content,
       'reach': instance.reach,
+      'shortUser': instance.shortUser,
     };
 
 CreateReactionRequest _$CreateReactionRequestFromJson(

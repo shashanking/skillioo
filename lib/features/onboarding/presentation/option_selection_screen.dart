@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../../core/localization/locale_extension.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../../core/widgets/custom_text.dart';
 
-class OptionSelectionScreen extends StatelessWidget {
+class OptionSelectionScreen extends ConsumerWidget {
   const OptionSelectionScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.tr;
+
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -23,18 +28,16 @@ class OptionSelectionScreen extends StatelessWidget {
                   child: Image.asset(AppAssets.logoPng, fit: BoxFit.contain),
                 ),
 
-                Text(
-                  'Select Any One Option From Below',
-                  style: TextStyle(
-                    fontFamily: 'Neue',
-                    fontSize: 20.sp,
-                    fontWeight: FontWeight.w700,
-                    color: Colors.white,
-                  ),
+                CustomText(
+                  tr.welcomeToSkillioo,
+                  fontFamily: 'Neue',
+                  fontSize: 20.sp,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.white,
                 ),
                 SizedBox(height: 32.h),
                 _OptionCard(
-                  title: 'Select App Language',
+                  title: tr.selectAppLanguage,
                   assetPath: AppAssets.selectLanguagePng,
                   onTap: () {
                     GoRouter.of(context).go('/language');
@@ -42,7 +45,7 @@ class OptionSelectionScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 16.h),
                 _OptionCard(
-                  title: 'Create Profile',
+                  title: tr.createProfile,
                   assetPath: AppAssets.createProfilePng,
                   onTap: () {
                     GoRouter.of(context).go('/profile-type');
@@ -50,7 +53,7 @@ class OptionSelectionScreen extends StatelessWidget {
                 ),
                 SizedBox(height: 16.h),
                 _OptionCard(
-                  title: 'Proceed To Dashboard',
+                  title: tr.proceedToDashboard,
                   assetPath: AppAssets.proceedDashboardPng,
                   onTap: () {
                     GoRouter.of(context).go('/landing');
@@ -79,36 +82,58 @@ class _OptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final radius = BorderRadius.circular(24.r);
+
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      child: SizedBox(
         width: double.infinity,
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 18.h),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(24.r),
-          gradient: AppColors.ctaGradient,
-        ),
-        child: Row(
+        child: Stack(
           children: [
-            Padding(
-              padding: EdgeInsets.all(8.w),
-              child: Image.asset(
-                assetPath,
-                fit: BoxFit.contain,
-                width: 28.w,
-                height: 28.w,
+            // Border gradient
+            Positioned.fill(
+              child: Container(decoration: BoxDecoration(borderRadius: radius)),
+            ),
+            // Black inset
+            Positioned.fill(
+              child: Padding(
+                padding: EdgeInsets.all(1.2.w),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(48),
+                  child: Container(color: Colors.white.withAlpha(22)),
+                ),
               ),
             ),
-            SizedBox(width: 16.w),
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
-                ),
+            // Content
+            Container(
+              height: 68.h,
+              margin: EdgeInsets.all(2.6.w),
+              padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 18.h),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(48),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Image.asset(
+                    assetPath,
+                    fit: BoxFit.contain,
+                    width: 48.w,
+                    height: 48.w,
+                  ),
+
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontFamily: 'Outfit',
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

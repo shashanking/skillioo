@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../application/dashboard_providers.dart';
+import '../../application/states/profile_list_state.dart';
 import '../../../profile/presentation/user_profile.dart';
 
 class GalleryItem {
@@ -22,6 +23,8 @@ class GalleryGrid extends ConsumerStatefulWidget {
 }
 
 class GalleryGridState extends ConsumerState<GalleryGrid> {
+  bool _didAutoRetry = false;
+
   @override
   void initState() {
     super.initState();
@@ -38,16 +41,83 @@ class GalleryGridState extends ConsumerState<GalleryGrid> {
         .loadProfiles(perPage: 20, refresh: true, category: category);
   }
 
+  Future<void> _retry() async {
+    await ref
+        .read(profileListNotifierProvider.notifier)
+        .loadProfiles(perPage: 20, refresh: true);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Auto-retry once on first failed load (transient cold-start failures).
+    ref.listen<ProfileListState>(profileListNotifierProvider, (prev, next) {
+      final wasLoading = prev?.isLoading ?? false;
+      if (wasLoading &&
+          !next.isLoading &&
+          next.hasError &&
+          next.profiles.isEmpty &&
+          !_didAutoRetry) {
+        _didAutoRetry = true;
+        Future.delayed(const Duration(milliseconds: 800), () {
+          if (!mounted) return;
+          _retry();
+        });
+      }
+    });
+
     final state = ref.watch(profileListNotifierProvider);
 
     if (state.isLoading && state.profiles.isEmpty) {
       return Center(
         child: Padding(
           padding: EdgeInsets.all(32.h),
-          child: CircularProgressIndicator(
-            color: Colors.white.withValues(alpha: 0.7),
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    if (state.hasError && state.profiles.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: EdgeInsets.all(32.h),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                state.errorMessage.isNotEmpty
+                    ? state.errorMessage
+                    : "We couldn't load the gallery right now.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontFamily: 'Outfit',
+                  fontSize: 16.sp,
+                  color: Colors.white.withValues(alpha: 0.7),
+                ),
+              ),
+              SizedBox(height: 16.h),
+              SizedBox(
+                height: 44.h,
+                child: TextButton(
+                  onPressed: state.isLoading ? null : _retry,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.symmetric(horizontal: 18.w),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(48.r),
+                    ),
+                    backgroundColor: Colors.white.withValues(alpha: 0.12),
+                  ),
+                  child: Text(
+                    'Retry',
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       );

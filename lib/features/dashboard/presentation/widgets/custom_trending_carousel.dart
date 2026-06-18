@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../data/trending_talent_model.dart';
 import 'custom_trending_carousel_components.dart';
@@ -9,7 +8,18 @@ import 'custom_trending_carousel_components.dart';
 class CustomTrendingCarousel extends StatefulWidget {
   final List<TrendingTalent> talents;
 
-  const CustomTrendingCarousel({super.key, required this.talents});
+  /// Called when the user taps the image area of the center card.
+  final void Function(TrendingTalent talent)? onImageTap;
+
+  /// Called when the user taps the name chip of the center card.
+  final void Function(TrendingTalent talent)? onNameTap;
+
+  const CustomTrendingCarousel({
+    super.key,
+    required this.talents,
+    this.onImageTap,
+    this.onNameTap,
+  });
 
   @override
   State<CustomTrendingCarousel> createState() => _CustomTrendingCarouselState();
@@ -44,6 +54,8 @@ class _CarouselCardTransform extends StatelessWidget {
 
 class _CustomTrendingCarouselState extends State<CustomTrendingCarousel> {
   static const int _virtualMultiplier = 1000;
+  static const double _carouselHeight = 190;
+  static const double _horizontalCardOffset = 130;
 
   late final PageController _pageController;
   Timer? _autoScrollTimer;
@@ -63,7 +75,7 @@ class _CustomTrendingCarouselState extends State<CustomTrendingCarousel> {
     _currentVirtualPage = _initialPage;
     _pageController = PageController(
       initialPage: _initialPage,
-      viewportFraction: 0.78,
+      viewportFraction: 0.80,
     );
 
     _remaining = widget.talents
@@ -132,10 +144,34 @@ class _CustomTrendingCarouselState extends State<CustomTrendingCarousel> {
     return '${minutes.toString()}:${seconds.toString().padLeft(2, '0')}';
   }
 
+  void _onCarouselTapUp(TapUpDetails details) {
+    if (widget.talents.isEmpty) return;
+
+    // Only fire for taps roughly over the center card (±95 px from center).
+    final carouselWidth = context.size?.width;
+    if (carouselWidth != null) {
+      final centerX = carouselWidth / 2;
+      if ((details.localPosition.dx - centerX).abs() > 95) return;
+    }
+
+    final talent = widget.talents[_realIndex(_currentVirtualPage)];
+    if (talent.profileId.isEmpty) return;
+
+    // Name chip sits in the bottom ~35 px of the 190-px-tall carousel area.
+    if (details.localPosition.dy > _carouselHeight - 35) {
+      widget.onNameTap?.call(talent);
+    } else {
+      widget.onImageTap?.call(talent);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 160.h,
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onTapUp: _onCarouselTapUp,
+      child: SizedBox(
+      height: _carouselHeight,
       child: NotificationListener<ScrollNotification>(
         onNotification: (notification) {
           if (notification is ScrollStartNotification) {
@@ -200,6 +236,7 @@ class _CustomTrendingCarouselState extends State<CustomTrendingCarousel> {
           ],
         ),
       ),
+      ),
     );
   }
 
@@ -217,8 +254,8 @@ class _CustomTrendingCarouselState extends State<CustomTrendingCarousel> {
     final scale = lerpDouble(1.0, 0.85, abs);
     final opacity = lerpDouble(1.0, 0.80, abs);
 
-    final dx = (-pageOffset) * 120.w;
-    final dy = lerpDouble(30.h, 30.h, abs);
+    final dx = (-pageOffset) * _horizontalCardOffset;
+    final dy = 30.0;
 
     final timerText = _format(_remaining[realIdx]);
 

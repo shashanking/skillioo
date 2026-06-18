@@ -8,14 +8,20 @@ import '../../application/hiring_rate_providers.dart';
 
 class BioTab extends ConsumerWidget {
   final ProfileItem profile;
+  final bool isOwnProfile;
+  final String? bioOverride;
 
-  const BioTab({super.key, required this.profile});
+  const BioTab({
+    super.key,
+    required this.profile,
+    this.isOwnProfile = true,
+    this.bioOverride,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final bioText = profile.nickName.isNotEmpty
-        ? profile.nickName
-        : "No bio provided";
+    final resolvedBio = bioOverride ?? profile.bio;
+    final bioText = resolvedBio.isNotEmpty ? resolvedBio : "No bio provided";
 
     final hiringRatesAsync = profile.portfolioId.isNotEmpty
         ? ref.watch(hiringRateProvider(profile.portfolioId))
@@ -37,11 +43,16 @@ class BioTab extends ConsumerWidget {
           ),
           SizedBox(height: 32.h),
 
-          CustomText(
-            "Hiring Rates",
-            fontSize: 20.sp,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              CustomText(
+                "Hiring Rates",
+                fontSize: 20.sp,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ],
           ),
           SizedBox(height: 24.h),
 
@@ -72,7 +83,9 @@ class BioTab extends ConsumerWidget {
                 String fmt(String raw) {
                   final v = raw.trim();
                   if (v.isEmpty) return '-';
-                  return '₹ $v';
+                  final num = int.tryParse(v.replaceAll(',', ''));
+                  if (num == null) return '₹ $v/-';
+                  return '₹ ${_formatIndian(num)}/-';
                 }
 
                 return Column(
@@ -88,6 +101,19 @@ class BioTab extends ConsumerWidget {
         ],
       ),
     );
+  }
+
+  static String _formatIndian(int number) {
+    final s = number.toString();
+    if (s.length <= 3) return s;
+    final last3 = s.substring(s.length - 3);
+    var rest = s.substring(0, s.length - 3);
+    final buf = StringBuffer();
+    while (rest.length > 2) {
+      buf.write('${rest.substring(0, rest.length - 2)},');
+      rest = rest.substring(rest.length - 2);
+    }
+    return '${buf.toString()}$rest,$last3';
   }
 
   Widget _buildRateRow(String label, String price, {bool isLast = false}) {
@@ -113,8 +139,7 @@ class BioTab extends ConsumerWidget {
             ],
           ),
           SizedBox(height: 16.h),
-          if (!isLast)
-            Divider(color: Colors.white.withValues(alpha: 0.2), thickness: 0.5),
+          Divider(color: Colors.white.withValues(alpha: 0.2), thickness: 0.5),
         ],
       ),
     );

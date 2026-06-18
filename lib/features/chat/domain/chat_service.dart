@@ -2,7 +2,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class ChatService extends BaseServiceProvider {
-  ChatService() : super(baseUrl: ApiConfig.customerBaseUrl);
+  ChatService({super.client}) : super(baseUrl: ApiConfig.customerBaseUrl);
 
   // ── Messages ──
 

@@ -7,23 +7,58 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import '../../../../core/widgets/custom_text.dart';
 import '../../data/trending_talent_model.dart';
 
+/// Renders the inner image for a trending-talent card.
+///
+/// Swap-only widget: same `BoxFit.cover` fill as the original
+/// `Image.asset` call, so size/border/styling on the parent containers
+/// stay untouched. When [TrendingTalent.profilePhotoUrl] is non-empty
+/// we draw the user's profile photo; otherwise we fall back to the
+/// static asset.
+class _TalentInnerImage extends StatelessWidget {
+  final TrendingTalent talent;
+
+  const _TalentInnerImage({required this.talent});
+
+  @override
+  Widget build(BuildContext context) {
+    final url = talent.profilePhotoUrl;
+    if (url == null || url.isEmpty) {
+      return Image.asset(talent.imagePath, fit: BoxFit.cover);
+    }
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      // Don't flash an empty box while the photo loads — keep the
+      // placeholder asset visible until the network image is ready.
+      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+        if (wasSynchronouslyLoaded || frame != null) return child;
+        return Image.asset(talent.imagePath, fit: BoxFit.cover);
+      },
+      errorBuilder: (context, error, stackTrace) =>
+          Image.asset(talent.imagePath, fit: BoxFit.cover),
+    );
+  }
+}
+
 class TrendingTalentSimpleCard extends StatelessWidget {
   final TrendingTalent talent;
+
+  static const double _cardSize = 124;
 
   const TrendingTalentSimpleCard({super.key, required this.talent});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 124.w,
-      height: 124.w,
+      width: _cardSize,
+      height: _cardSize,
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(24.r)),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(24.r),
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Image.asset(talent.imagePath, fit: BoxFit.cover),
+            _TalentInnerImage(talent: talent),
             Container(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -38,7 +73,7 @@ class TrendingTalentSimpleCard extends StatelessWidget {
               ),
             ),
             Padding(
-              padding: EdgeInsets.all(12.w),
+              padding: EdgeInsets.all(8.w),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -46,9 +81,12 @@ class TrendingTalentSimpleCard extends StatelessWidget {
                   SizedBox(height: 4.h),
                   TrendingTalentStatChip(text: talent.likes),
                   const Spacer(),
-                  TrendingTalentNameChip(
-                    name: talent.name,
-                    imagePath: talent.imagePath,
+                  Center(
+                    child: TrendingTalentNameChip(
+                      name: talent.name,
+                      imagePath: talent.imagePath,
+                      profilePhotoUrl: talent.profilePhotoUrl,
+                    ),
                   ),
                 ],
               ),
@@ -130,6 +168,11 @@ class TrendingTalentCenterStackCard extends StatelessWidget {
   final TrendingTalent talent;
   final String timerText;
 
+  static const double _outerSize = 180;
+  static const double _outerPanelSize = 178;
+  static const double _innerPanelSize = 154;
+  static const double _imageSize = 124;
+
   const TrendingTalentCenterStackCard({
     super.key,
     required this.talent,
@@ -139,17 +182,17 @@ class TrendingTalentCenterStackCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 180.w,
-      height: 180.w,
+      width: _outerSize,
+      height: _outerSize,
       child: Stack(
         alignment: Alignment.center,
         clipBehavior: Clip.none,
         children: [
           Center(
             child: _ClearGlassPanel(
-              width: 170.w,
-              height: 170.w,
-              radius: 32.r,
+              width: _outerPanelSize,
+              height: _outerPanelSize,
+              radius: 48.r,
               tintAlpha: 0.06,
               blurSigma: 2.0,
               refractDx: 1.2,
@@ -158,28 +201,43 @@ class TrendingTalentCenterStackCard extends StatelessWidget {
           ),
           Center(
             child: _ClearGlassPanel(
-              width: 148.w,
-              height: 148.w,
-              radius: 28.r,
+              width: _innerPanelSize,
+              height: _innerPanelSize,
+              radius: 40.r,
               tintAlpha: 0.045,
               blurSigma: 1.6,
               refractDx: 0.9,
               refractDy: 0.6,
             ),
           ),
+
+          Center(
+            child: CustomPaint(
+              size: const Size(_outerPanelSize, _outerSize),
+              painter: TrendingTalentGradientBorderPainter(
+                gradient: const LinearGradient(
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
+                  colors: [Color(0xFFC00F8B), Color(0xFF05DAF1)],
+                ),
+                borderRadius: 48.r,
+                strokeWidth: 1.w,
+              ),
+            ),
+          ),
           Center(
             child: Container(
-              width: 124.w,
-              height: 124.w,
+              width: _imageSize,
+              height: _imageSize,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(24.r),
+                borderRadius: BorderRadius.circular(40.r),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24.r),
                 child: Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.asset(talent.imagePath, fit: BoxFit.cover),
+                    _TalentInnerImage(talent: talent),
                     Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
@@ -194,7 +252,7 @@ class TrendingTalentCenterStackCard extends StatelessWidget {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(12.w),
+                      padding: EdgeInsets.all(8.w),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -202,9 +260,12 @@ class TrendingTalentCenterStackCard extends StatelessWidget {
                           SizedBox(height: 4.h),
                           TrendingTalentStatChip(text: talent.likes),
                           const Spacer(),
-                          TrendingTalentNameChip(
-                            name: talent.name,
-                            imagePath: talent.imagePath,
+                          Center(
+                            child: TrendingTalentNameChip(
+                              name: talent.name,
+                              imagePath: talent.imagePath,
+                              profilePhotoUrl: talent.profilePhotoUrl,
+                            ),
                           ),
                         ],
                       ),
@@ -214,22 +275,8 @@ class TrendingTalentCenterStackCard extends StatelessWidget {
               ),
             ),
           ),
-          Center(
-            child: CustomPaint(
-              size: Size(170.w, 170.w),
-              painter: TrendingTalentGradientBorderPainter(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Color(0xFFC00F8B), Color(0xFF05DAF1)],
-                ),
-                borderRadius: 32.r,
-                strokeWidth: 1.w,
-              ),
-            ),
-          ),
           Positioned(
-            bottom: 10,
+            bottom: 6,
             child: TrendingTalentTimerChip(timer: timerText),
           ),
         ],
@@ -298,15 +345,22 @@ class TrendingTalentStatChip extends StatelessWidget {
 class TrendingTalentNameChip extends StatelessWidget {
   final String name;
   final String imagePath;
+  final String? profilePhotoUrl;
 
   const TrendingTalentNameChip({
     super.key,
     required this.name,
     required this.imagePath,
+    this.profilePhotoUrl,
   });
 
   @override
   Widget build(BuildContext context) {
+    final photoUrl = profilePhotoUrl?.trim() ?? '';
+    final ImageProvider avatar = photoUrl.isNotEmpty
+        ? NetworkImage(photoUrl)
+        : AssetImage(imagePath) as ImageProvider;
+
     return ClipRRect(
       borderRadius: BorderRadius.circular(14.r),
       child: BackdropFilter(
@@ -320,7 +374,7 @@ class TrendingTalentNameChip extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(radius: 6.r, backgroundImage: AssetImage(imagePath)),
+              CircleAvatar(radius: 6.r, backgroundImage: avatar),
               SizedBox(width: 4.w),
               CustomText(
                 name,

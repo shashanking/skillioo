@@ -4,9 +4,12 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../constants/app_constants.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/common_background.dart';
+import '../../../core/services/session_prefs.dart';
 import '../application/talent_category_provider.dart';
+import '../application/category_provider.dart';
+import '../domain/category_models.dart';
 
 class TalentCategoryScreen extends ConsumerStatefulWidget {
   const TalentCategoryScreen({super.key});
@@ -21,29 +24,48 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
   final FocusNode _focusNode = FocusNode();
 
   bool _showContinue = false;
-  bool _showSuggestions = false;
-
-  final List<String> _allSuggestions = const [
-    'Singer',
-    'Dancer',
-    'Creator',
-    'Skater',
-  ];
+  bool _isSubmitting = false;
+  List<Category> _categories = [];
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _focusNode.requestFocus();
-    });
+    _loadCategories();
+    // Keyboard stays hidden until user taps the input field
     _controller.addListener(_onChanged);
+  }
+
+  Future<void> _loadCategories() async {
+    try {
+      final service = ref.read(categoryServiceProvider);
+      final token = await SessionPrefs.instance.getAccessToken();
+      if (token.isNotEmpty) {
+        service.setAuthToken(token);
+      }
+
+      final response = await service.getCategories();
+      final status = response['status'] as int? ?? 0;
+      if (status == 200) {
+        final data = response['data'] as List<dynamic>? ?? [];
+        setState(() {
+          _categories = data
+              .map((json) => Category.fromJson(json as Map<String, dynamic>))
+              .toList();
+        });
+      } else {
+        setState(() {
+        });
+      }
+    } catch (e) {
+      setState(() {
+      });
+    }
   }
 
   void _onChanged() {
     final value = _controller.text.trim();
     setState(() {
       _showContinue = value.isNotEmpty;
-      _showSuggestions = value.isNotEmpty;
     });
   }
 
@@ -58,11 +80,12 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
   Widget build(BuildContext context) {
     final text = _controller.text.trim();
     final suggestions = text.isEmpty
-        ? const <String>[]
-        : _allSuggestions
-              .where((s) => s.toLowerCase().startsWith(text.toLowerCase()))
+        ? _categories.map((c) => c.name).toList()
+        : _categories
+              .where((c) => c.name.toLowerCase().startsWith(text.toLowerCase()))
+              .map((c) => c.name)
               .toList();
-    final shouldShowSuggestions = _showSuggestions && suggestions.isNotEmpty;
+    final shouldShowSuggestions = suggestions.isNotEmpty;
 
     return Scaffold(
       resizeToAvoidBottomInset: true,
@@ -82,7 +105,7 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
                     SizedBox(height: 32.h),
                     _buildInput(),
                     if (shouldShowSuggestions) ...[
-                      SizedBox(height: 8.h),
+                      SizedBox(height: 24.h),
                       _buildSuggestions(suggestions),
                     ],
                   ],
@@ -116,10 +139,11 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
@@ -169,7 +193,7 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
       height: 56.h,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(48.r),
+        borderRadius: BorderRadius.circular(24.r),
       ),
       alignment: Alignment.centerLeft,
       padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -203,17 +227,20 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
   Widget _buildSuggestions(List<String> suggestions) {
     return Container(
       width: double.infinity,
+      constraints: BoxConstraints(maxHeight: 200.h),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(24.r),
       ),
       padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: suggestions.map((s) {
+      child: ListView.builder(
+        shrinkWrap: true,
+        itemCount: suggestions.length,
+        itemBuilder: (context, index) {
+          final s = suggestions[index];
           return GestureDetector(
             onTap: () {
+              _categories.firstWhere((c) => c.name == s);
               _controller.text = s;
               _controller.selection = TextSelection.fromPosition(
                 TextPosition(offset: s.length),
@@ -221,11 +248,11 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
               FocusScope.of(context).unfocus();
               setState(() {
                 _showContinue = true;
-                _showSuggestions = false;
               });
             },
-            child: Padding(
-              padding: EdgeInsets.symmetric(vertical: 6.h),
+            child: Container(
+              height: 64,
+              alignment: Alignment.centerLeft,
               child: Text(
                 s,
                 style: TextStyle(
@@ -237,7 +264,7 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
               ),
             ),
           );
-        }).toList(),
+        },
       ),
     );
   }
@@ -252,39 +279,98 @@ class _TalentCategoryScreenState extends ConsumerState<TalentCategoryScreen> {
         child: SizedBox(
           width: double.infinity,
           height: 58.h,
-          child: TextButton(
-            onPressed: () {
-              final value = _controller.text.trim();
-              ref.read(talentCategoryProvider.notifier).state = value;
-              GoRouter.of(context).go('/talent-subcategory');
-            },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: AppColors.ctaGradient,
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
-              ),
-            ),
+          child: GradientCtaButton(
+            label: _isSubmitting ? 'Please wait...' : 'Continue',
+            width: double.infinity,
+            height: 58,
+            enabled: !_isSubmitting,
+            onPressed: _isSubmitting ? null : () => _onContinue(context),
           ),
         ),
       ),
     );
+  }
+
+  /// Trims, collapses whitespace and Title-Cases a category name so it's
+  /// stored consistently (e.g. "  hip  HOP " → "Hip Hop").
+  String _formatName(String raw) {
+    final cleaned = raw.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (cleaned.isEmpty) return cleaned;
+    return cleaned
+        .split(' ')
+        .map((w) => w.isEmpty
+            ? w
+            : '${w[0].toUpperCase()}${w.substring(1).toLowerCase()}')
+        .join(' ');
+  }
+
+  Future<void> _onContinue(BuildContext context) async {
+    if (_isSubmitting) return;
+    final formatted = _formatName(_controller.text);
+    if (formatted.isEmpty) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    final router = GoRouter.of(context);
+
+    final existing = _categories
+        .where((c) => c.name.toLowerCase() == formatted.toLowerCase())
+        .firstOrNull;
+
+    String categoryName;
+    String categoryId;
+
+    if (existing != null) {
+      categoryName = existing.name;
+      categoryId = existing.id;
+    } else {
+      // New category — create it on the backend so it joins the list
+      // (and shows up as a chip on the dashboard).
+      setState(() => _isSubmitting = true);
+      try {
+        final service = ref.read(categoryServiceProvider);
+        final token = await SessionPrefs.instance.getAccessToken();
+        if (token.isNotEmpty) service.setAuthToken(token);
+
+        final response = await service.createCategory(formatted);
+        final status = response['status'] as int?;
+        final success = response['success'] as bool? ??
+            (status == 200 || status == 201);
+        final data = response['data'];
+        final newId =
+            data is Map ? (data['id'] as String? ?? '') : '';
+
+        if (!success || newId.isEmpty) {
+          messenger.showSnackBar(
+            const SnackBar(
+              content:
+                  Text("Couldn't create the category. Please try again."),
+              backgroundColor: Colors.red,
+            ),
+          );
+          if (mounted) setState(() => _isSubmitting = false);
+          return;
+        }
+
+        categoryId = newId;
+        categoryName = (data['name'] as String?) ?? formatted;
+        // Refresh the dashboard category chips so the new tab appears.
+        ref.invalidate(categoryNamesProvider);
+      } catch (_) {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text("Couldn't create the category. Please try again."),
+            backgroundColor: Colors.red,
+          ),
+        );
+        if (mounted) setState(() => _isSubmitting = false);
+        return;
+      }
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+
+    if (!mounted) return;
+    ref.read(talentCategoryProvider.notifier).state = categoryName;
+    ref.read(selectedCategoryIdProvider.notifier).state = categoryId;
+    router.go('/talent-subcategory');
   }
 }

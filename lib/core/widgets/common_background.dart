@@ -10,8 +10,15 @@ class CommonBackground extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
+      decoration: const BoxDecoration(
+        // image: DecorationImage(
+        //   image: AssetImage('assets/images/Animation.svg'),
+        //   fit: BoxFit.cover,
+        // ),
+        gradient: AppColors.primaryGradient,
+      ),
       child: child,
     );
+    
   }
 }

@@ -17,6 +17,9 @@ class SubscriptionState with _$SubscriptionState {
     @Default(SubscriptionStatus.initial) SubscriptionStatus subscriptionStatus,
     @Default(null) UserSubscriptionResponse? activeSubscription,
 
+    // Plan Aggregator
+    @Default(null) PlanAggregatorResponse? aggregator,
+
     // Initiate
     @Default(SubscriptionStatus.initial) SubscriptionStatus initiateStatus,
     @Default('') String paymentLink,

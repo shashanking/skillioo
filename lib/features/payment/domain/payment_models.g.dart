@@ -9,7 +9,7 @@ part of 'payment_models.dart';
 CreatePaymentRequest _$CreatePaymentRequestFromJson(
   Map<String, dynamic> json,
 ) => CreatePaymentRequest(
-  amount: (json['amount'] as num).toInt(),
+  amount: json['amount'] as String,
   provider: json['provider'] as String,
   service: json['service'] as String,
   userReferenceId: json['userReferenceId'] as String,
@@ -44,8 +44,8 @@ PaymentResponse _$PaymentResponseFromJson(Map<String, dynamic> json) =>
     PaymentResponse(
       id: json['id'] as String?,
       amount: json['amount'] as String?,
-      provider: (json['provider'] as num?)?.toInt(),
-      service: (json['service'] as num?)?.toInt(),
+      provider: json['provider'] as String?,
+      service: json['service'] as String?,
       metaData: json['metaData'] == null
           ? null
           : PaymentMetaData.fromJson(json['metaData'] as Map<String, dynamic>),

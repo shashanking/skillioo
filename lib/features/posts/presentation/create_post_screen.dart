@@ -10,6 +10,7 @@ import 'package:video_player/video_player.dart';
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
 import '../../../core/widgets/custom_text.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/icon_button.dart';
 import '../application/post_providers.dart';
 import '../application/states/post_state.dart';
@@ -145,7 +146,9 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           backgroundColor: Colors.green,
         ),
       );
-      if (context.canPop()) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else if (context.canPop()) {
         context.pop();
       } else {
         context.go(widget.backFallbackRoute);
@@ -212,7 +215,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       child: Row(
         children: [
           IconCircleButton(
-            icon: Icons.arrow_back,
+            assetPath: 'assets/images/arrow-left.png',
             onTap: () {
               if (isLoading) return;
               if (context.canPop()) {
@@ -246,24 +249,25 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       decoration: BoxDecoration(
         color: AppColors.glassWhite12,
         borderRadius: BorderRadius.circular(24.r),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 1,
-        ),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.add_photo_alternate_outlined,
-            color: AppColors.foundationBlack20,
-            size: 64.sp,
+          ShaderMask(
+            shaderCallback: (bounds) =>
+                AppColors.ctaBorderGradient.createShader(bounds),
+            child: Icon(
+              Icons.add_photo_alternate_outlined,
+              color: Colors.white,
+              size: 64.sp,
+            ),
           ),
           SizedBox(height: 16.h),
           CustomText(
             'Select media to post',
             fontSize: 16.sp,
             fontWeight: FontWeight.w500,
+            fontFamily: 'Outfit',
             color: AppColors.foundationBlack20,
           ),
           SizedBox(height: 24.h),
@@ -304,19 +308,29 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           Container(
             width: 56.w,
             height: 56.w,
+            padding: EdgeInsets.all(1.5.w),
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              gradient: const LinearGradient(
-                colors: [Color(0xFF05DAF1), Color(0xFFC00F8B)],
+              gradient: AppColors.ctaBorderGradient,
+            ),
+            child: Container(
+              decoration: const BoxDecoration(
+                shape: BoxShape.circle,
+                color: Color(0xFF0D0D0D),
+              ),
+              child: ShaderMask(
+                shaderCallback: (bounds) =>
+                    AppColors.ctaBorderGradient.createShader(bounds),
+                child: Icon(icon, color: Colors.white, size: 24.sp),
               ),
             ),
-            child: Icon(icon, color: Colors.white, size: 24.sp),
           ),
           SizedBox(height: 8.h),
           CustomText(
             label,
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
+            fontFamily: 'Outfit',
             color: AppColors.foundationBlack20,
           ),
         ],
@@ -411,6 +425,7 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           'Post Type',
           fontSize: 16.sp,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Neue',
           color: AppColors.foundationBlack20,
         ),
         SizedBox(height: 12.h),
@@ -434,34 +449,32 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 10.h),
+        padding: EdgeInsets.all(1.5.w),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20.r),
-          gradient: isSelected
-              ? const LinearGradient(
-                  colors: [Color(0xFF05DAF1), Color(0xFFC00F8B)],
-                )
-              : null,
-          color: isSelected ? null : AppColors.glassWhite12,
-          border: isSelected
-              ? null
-              : Border.all(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  width: 1,
-                ),
+          borderRadius: BorderRadius.circular(22.r),
+          gradient: AppColors.ctaBorderGradient,
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: Colors.white, size: 18.sp),
-            SizedBox(width: 8.w),
-            CustomText(
-              label,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w600,
-              color: Colors.white,
-            ),
-          ],
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 9.h),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20.r),
+            gradient: isSelected ? AppColors.ctaGradient : null,
+            color: isSelected ? null : const Color(0xFF0D0D0D),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, color: Colors.white, size: 18.sp),
+              SizedBox(width: 8.w),
+              CustomText(
+                label,
+                fontSize: 14.sp,
+                fontWeight: FontWeight.w600,
+                fontFamily: 'Outfit',
+                color: Colors.white,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -475,17 +488,14 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
           'Description',
           fontSize: 16.sp,
           fontWeight: FontWeight.w600,
+          fontFamily: 'Neue',
           color: AppColors.foundationBlack20,
         ),
         SizedBox(height: 12.h),
         Container(
           decoration: BoxDecoration(
             color: AppColors.glassWhite12,
-            borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: 0.2),
-              width: 1,
-            ),
+            borderRadius: BorderRadius.circular(24.r),
           ),
           child: TextField(
             controller: _descriptionController,
@@ -529,41 +539,13 @@ class _CreatePostScreenState extends ConsumerState<CreatePostScreen> {
       buttonText = 'Creating post...';
     }
 
-    return GestureDetector(
-      onTap: canSubmit ? _submitPost : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        width: double.infinity,
-        height: 56.h,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16.r),
-          gradient: canSubmit
-              ? const LinearGradient(
-                  colors: [Color(0xFF05DAF1), Color(0xFFC00F8B)],
-                )
-              : null,
-          color: canSubmit ? null : AppColors.glassWhite12,
-        ),
-        child: Center(
-          child: isLoading
-              ? SizedBox(
-                  width: 24.w,
-                  height: 24.w,
-                  child: const CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : CustomText(
-                  buttonText,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
-                  color: canSubmit
-                      ? Colors.white
-                      : Colors.white.withValues(alpha: 0.4),
-                ),
-        ),
-      ),
+    return GradientCtaButton(
+      label: buttonText,
+      width: double.infinity,
+      height: 56,
+      borderRadius: BorderRadius.circular(48.r),
+      enabled: canSubmit,
+      onPressed: canSubmit ? _submitPost : null,
     );
   }
 }

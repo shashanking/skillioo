@@ -4,10 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../constants/app_constants.dart';
 import '../../../core/services/auth_prefs.dart';
+import '../../../core/services/session_prefs.dart';
 import '../../../core/widgets/common_background.dart';
 import '../../onboarding/application/onboarding_data_provider.dart';
+import '../application/auth_providers.dart';
 
 class PinSetupScreen extends ConsumerStatefulWidget {
   const PinSetupScreen({super.key});
@@ -34,6 +37,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   String? _firstPin;
   bool _showPinError = false;
+  bool _isSavingPin = false;
+  bool _biometricAuthenticated = false;
 
   @override
   void initState() {
@@ -67,9 +72,106 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   String _currentPin() => _pinControllers.map((c) => c.text).join();
 
-  Future<void> _onPinContinue() async {
+  void _clearPinInputs() {
+    for (final c in _pinControllers) {
+      c.clear();
+    }
+    _pinFocusNodes.first.requestFocus();
+  }
+
+  /// Persist PIN on the backend then flip to the biometric tab.
+  ///
+  /// If the backend update fails we stay on the PIN screen and surface the
+  /// error — silently advancing would let the user think their PIN is set
+  /// when it actually isn't, which then blows up at the next login.
+  Future<void> _persistPinAndAdvance(String pin) async {
+    setState(() => _isSavingPin = true);
+
+    final rawPhone = ref.read(onboardingDataProvider).phoneNumber;
+    final accessToken = await SessionPrefs.instance.getAccessToken();
+
+    if (rawPhone.isEmpty || accessToken.isEmpty) {
+      if (!mounted) return;
+      _showPinFailure(
+        'Session lost — please restart sign-up to set your PIN.',
+      );
+      return;
+    }
+
+    try {
+      final service = ref.read(profileAuthServiceProvider);
+      final response = await service.updatePin(
+        credential: rawPhone,
+        pin: pin,
+        accessToken: accessToken,
+      );
+      final status = response['status'] as int? ?? 0;
+      final success = response['success'] as bool? ?? (status == 200);
+      if (!success) {
+        if (!mounted) return;
+        final message =
+            response['message'] as String? ?? 'Failed to save PIN.';
+        _showPinFailure(message);
+        return;
+      }
+    } catch (e) {
+      if (!mounted) return;
+      _showPinFailure('Could not save PIN. Please try again.');
+      return;
+    }
+
+    // Server has the PIN — only now mirror it locally and advance.
+    await _authPrefs.setPin(pin);
+    ref.read(onboardingDataProvider.notifier).state =
+        ref.read(onboardingDataProvider).copyWith(pin: pin);
+
+    if (!mounted) return;
+    setState(() {
+      _isSavingPin = false;
+      _currentTab = _AuthTab.biometric;
+      _pinStep = _PinStep.set;
+      _firstPin = null;
+      _showPinError = false;
+    });
+    for (final c in _pinControllers) {
+      c.clear();
+    }
+  }
+
+  void _showPinFailure(String message) {
+    setState(() {
+      _isSavingPin = false;
+      _pinStep = _PinStep.set;
+      _firstPin = null;
+      _showPinError = true;
+    });
+    for (final c in _pinControllers) {
+      c.clear();
+    }
+    _pinFocusNodes.first.requestFocus();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  Future<void> _onPinPrimaryPressed() async {
     final pin = _currentPin();
-    if (pin.length != 4) return;
+
+    // "Skip" path — no digits entered. Jump to biometric tab without saving.
+    if (_pinStep == _PinStep.set && pin.isEmpty) {
+      setState(() {
+        _currentTab = _AuthTab.biometric;
+        _showPinError = false;
+      });
+      return;
+    }
+
+    if (pin.length != 4) {
+      setState(() {
+        _showPinError = true;
+      });
+      return;
+    }
 
     if (_pinStep == _PinStep.set) {
       _firstPin = pin;
@@ -77,61 +179,28 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         _pinStep = _PinStep.confirm;
         _showPinError = false;
       });
-      for (final c in _pinControllers) {
-        c.clear();
-      }
-      _pinFocusNodes.first.requestFocus();
-    } else {
-      final matches = pin == _firstPin;
-      setState(() {
-        _showPinError = !matches;
-      });
-      if (matches) {
-        // Persist PIN securely in local storage.
-        await _authPrefs.setPin(pin);
-        ref.read(onboardingDataProvider.notifier).state = ref
-            .read(onboardingDataProvider)
-            .copyWith(pin: pin);
-        setState(() {
-          _currentTab = _AuthTab.biometric;
-          _pinStep = _PinStep.set;
-        });
-        for (final c in _pinControllers) {
-          c.clear();
-        }
-      }
-    }
-  }
-
-  Future<void> _onPinPrimaryButtonPressed() async {
-    final isConfirm = _pinStep == _PinStep.confirm;
-    final pinLength = _currentPin().length;
-
-    // SET step behaviour
-    if (!isConfirm) {
-      if (pinLength < 4) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Please enter a 4-digit PIN to continue.'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      await _onPinContinue();
+      _clearPinInputs();
       return;
     }
 
-    // CONFIRM step behaviour: always "Continue" and uses existing confirm logic.
-    await _onPinContinue();
+    // Confirm step.
+    final matches = pin == _firstPin;
+    setState(() => _showPinError = !matches);
+    if (matches) {
+      await _persistPinAndAdvance(pin);
+    }
   }
 
   Future<void> _onBiometricTap() async {
     final didAuth = await _authPrefs.authenticateWithBiometrics();
-    if (didAuth && mounted) {
-      GoRouter.of(context).go('/auth-success');
+    if (!mounted) return;
+    if (didAuth) {
+      setState(() => _biometricAuthenticated = true);
     }
+  }
+
+  void _onBiometricPrimaryPressed() {
+    GoRouter.of(context).go('/auth-success');
   }
 
   Widget _buildTabChip(String label, _AuthTab tab) {
@@ -144,7 +213,7 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
           });
         },
         child: Container(
-          height: 40.h,
+          height: 48.h,
           decoration: BoxDecoration(
             color: isActive ? Colors.white : Colors.transparent,
             borderRadius: BorderRadius.circular(24.r),
@@ -171,11 +240,11 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         return Padding(
           padding: EdgeInsets.only(right: index == 3 ? 0 : 16.w),
           child: Container(
-            width: 0.17.sw,
-            height: 0.17.sw,
+            width: 0.19.sw,
+            height: 0.19.sw,
             decoration: BoxDecoration(
               color: Colors.white.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(24.r),
+              borderRadius: BorderRadius.circular(20.r),
               border: _showPinError
                   ? Border.all(color: const Color(0xFFFF3B3B), width: 1.5)
                   : null,
@@ -212,43 +281,25 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
 
   Widget _buildGradientButton({
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
-    return SizedBox(
+    return GradientCtaButton(
+      label: label,
       width: double.infinity,
-      height: 78.h,
-      child: TextButton(
-        onPressed: onPressed,
-        style: TextButton.styleFrom(
-          padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 16.h),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(48.r),
-          ),
-          backgroundColor: Colors.transparent,
-        ),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: AppColors.ctaGradient,
-            borderRadius: BorderRadius.circular(48.r),
-          ),
-          child: Center(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontFamily: 'Outfit',
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFFF5F5F5),
-              ),
-            ),
-          ),
-        ),
-      ),
+      height: 58,
+      enabled: onPressed != null,
+      onPressed: onPressed,
     );
   }
 
   Widget _buildPinContent() {
     final isConfirm = _pinStep == _PinStep.confirm;
+    // Button label flips to "Continue" as soon as any digit is entered,
+    // or when we're in the confirm step (which always expects Continue).
+    final pinLength = _currentPin().length;
+    final label = (isConfirm || pinLength > 0)
+        ? (_isSavingPin ? 'Saving...' : 'Continue')
+        : 'Skip';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -278,14 +329,15 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         ],
         const Spacer(),
         _buildGradientButton(
-          label: 'Continue',
-          onPressed: _onPinPrimaryButtonPressed,
+          label: label,
+          onPressed: _isSavingPin ? null : _onPinPrimaryPressed,
         ),
       ],
     );
   }
 
   Widget _buildBiometricContent() {
+    final label = _biometricAuthenticated ? 'Continue' : 'Skip';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -301,7 +353,9 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         ),
         SizedBox(height: 8.h),
         Text(
-          'Touch fingerprint sensor or use Face ID',
+          _biometricAuthenticated
+              ? 'Biometric enabled. Tap continue to proceed.'
+              : 'Touch fingerprint sensor or use Face ID',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Outfit',
@@ -314,28 +368,19 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         GestureDetector(
           onTap: _onBiometricTap,
           child: Container(
-            padding: EdgeInsets.all(10),
-            decoration: BoxDecoration(
+            padding: const EdgeInsets.all(10),
+            decoration: const BoxDecoration(
               shape: BoxShape.circle,
-              // need gradient color background:
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  // linear-gradient(
-                  // 180deg,
-                  const Color.fromARGB(255, 55, 84, 250),
-                  const Color.fromARGB(34, 47, 76, 223),
-                  const Color.fromARGB(73, 24, 46, 144),
-                  const Color.fromARGB(124, 8, 29, 91),
-                  const Color.fromARGB(205, 0, 19, 62),
-                  const Color.fromARGB(255, 0, 16, 50),
-
-                  //rgba(47, 75, 223, 0.25) 13.46%,
-                  // rgba(24, 47, 144, 0.25) 30.77%,
-                  // rgba(8, 29, 91, 0.25) 51.92%,
-                  //rgba(0, 19, 62, 0.25) 65.87%,
-                  // rgba(0, 16, 50, 0.25) 100%);
+                  Color.fromARGB(255, 55, 84, 250),
+                  Color.fromARGB(34, 47, 76, 223),
+                  Color.fromARGB(73, 24, 46, 144),
+                  Color.fromARGB(124, 8, 29, 91),
+                  Color.fromARGB(205, 0, 19, 62),
+                  Color.fromARGB(255, 0, 16, 50),
                 ],
               ),
             ),
@@ -348,10 +393,8 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
         ),
         const Spacer(),
         _buildGradientButton(
-          label: 'Continue',
-          onPressed: () {
-            GoRouter.of(context).go('/auth-success');
-          },
+          label: label,
+          onPressed: _onBiometricPrimaryPressed,
         ),
       ],
     );
@@ -385,19 +428,25 @@ class _PinSetupScreenState extends ConsumerState<PinSetupScreen> {
                   ),
                 ),
                 SizedBox(height: 4.h),
-                Text(
-                  'Choose your preferred authentication method',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w400,
-                    color: Colors.white70,
-                  ),
-                ),
+                Builder(builder: (context) {
+                  final phone =
+                      ref.watch(onboardingDataProvider).phoneNumber;
+                  return Text(
+                    phone.isNotEmpty
+                        ? 'Set up PIN for $phone'
+                        : 'Choose your preferred authentication method',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontFamily: 'Outfit',
+                      fontSize: 14.sp,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white70,
+                    ),
+                  );
+                }),
                 SizedBox(height: 24.h),
                 Container(
-                  padding: EdgeInsets.all(4.w),
+                  height: 48.h,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(24.r),

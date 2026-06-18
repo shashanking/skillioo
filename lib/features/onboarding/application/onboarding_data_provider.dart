@@ -10,6 +10,10 @@ class OnboardingData {
   final String nickName;
   final String profileType;
   final String pin;
+  // ProfileId of the already-existing account (set by the notifier
+  // from SessionPrefs when the user starts onboarding from the
+  // dashboard). Required by the backend's profileDetails schema.
+  final String profileId;
 
   // ── Contacts ──
   final String phoneNumber;
@@ -58,6 +62,7 @@ class OnboardingData {
     this.nickName = '',
     this.profileType = 'INDIVIDUAL',
     this.pin = '',
+    this.profileId = '',
     this.phoneNumber = '',
     this.phoneVerificationId = '',
     this.email = '',
@@ -93,6 +98,7 @@ class OnboardingData {
     String? nickName,
     String? profileType,
     String? pin,
+    String? profileId,
     String? phoneNumber,
     String? phoneVerificationId,
     String? email,
@@ -127,6 +133,7 @@ class OnboardingData {
       nickName: nickName ?? this.nickName,
       profileType: profileType ?? this.profileType,
       pin: pin ?? this.pin,
+      profileId: profileId ?? this.profileId,
       phoneNumber: phoneNumber ?? this.phoneNumber,
       phoneVerificationId: phoneVerificationId ?? this.phoneVerificationId,
       email: email ?? this.email,
@@ -174,13 +181,22 @@ class OnboardingData {
         ? phoneNumber.substring(3)
         : phoneNumber;
 
-    final contacts = <Map<String, dynamic>>[
-      {
+    // Backend's contacts field is mandatory as an array, but the
+    // items themselves only need to be there for fresh OTP signups
+    // where the verificationId is freshly minted. For returning
+    // users coming through PIN login (no new OTP, so no fresh
+    // verificationId in storage), sending an empty array passes
+    // schema validation and the server identifies the user via the
+    // Bearer JWT. Sending an item with a blank verificationId
+    // would fail Zod's "verificationId is required" check.
+    final contacts = <Map<String, dynamic>>[];
+    if (rawPhone.isNotEmpty && phoneVerificationId.isNotEmpty) {
+      contacts.add({
         'type': 'PHONE',
         'value': rawPhone,
         'verificationId': phoneVerificationId,
-      },
-    ];
+      });
+    }
     if (email.isNotEmpty && emailVerificationId.isNotEmpty) {
       contacts.add({
         'type': 'EMAIL',
@@ -189,24 +205,40 @@ class OnboardingData {
       });
     }
 
+    // Backend (latest deployment) expects:
+    //  - profileId + address nested INSIDE profileDetails
+    //  - address as an array of objects, each with a required
+    //    `type` discriminator ("PERMANENT" or "VENUE")
+    // The Postman docs are stale here — these requirements come
+    // from live Zod errors against /v1/profile.
     return {
-      'firstName': firstName,
-      'lastName': lastName,
-      'groupName': groupName,
-      'nickName': _resolveNickName(),
-      'profileType': profileType,
-      'pin': pin.isNotEmpty ? pin : '0000',
+      'profileDetails': {
+        'profileId': profileId,
+        'firstName': firstName,
+        'lastName': lastName,
+        'groupName': groupName,
+        'nickName': _resolveNickName(),
+        'profileType': profileType,
+        'address': [
+          {
+            'type': 'PERMANENT',
+            'streetAddress': streetAddress,
+            'city': city,
+            'state': state,
+            'pinCode': pinCode,
+            'country': country,
+            'location': {'latitude': latitude, 'longitude': longitude},
+          },
+        ],
+      },
+      // NOTE: PIN is intentionally NOT sent here. In the merged-auth flow
+      // the user already set their PIN via PUT /v1/profile/pin during
+      // signup. Including pin here is dead weight today (server ignores
+      // it) and a footgun if the backend ever wires it up — it would
+      // overwrite the real PIN with our default of '0000'.
       'role': 'USER',
       'profileDocumentId': profileDocumentId,
       'contacts': contacts,
-      'address': {
-        'streetAddress': streetAddress,
-        'city': city,
-        'state': state,
-        'pinCode': pinCode,
-        'country': country,
-        'location': {'latitude': latitude, 'longitude': longitude},
-      },
       'portfolio': {
         'category': category,
         'subCategory': subCategory,
@@ -222,7 +254,8 @@ class OnboardingData {
         'follows': socialMediaFollows,
         'videoDocumentIds': videoDocumentIds,
         'imageDocumentIds': imageDocumentIds,
-        'eventsDoneDocumentIds': eventsDoneDocumentIds,
+        if (eventsDoneDocumentIds.isNotEmpty)
+          'eventsDoneDocumentIds': eventsDoneDocumentIds,
       },
     };
   }

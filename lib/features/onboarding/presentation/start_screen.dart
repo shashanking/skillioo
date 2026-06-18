@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
-import '../../../constants/app_constants.dart';
+import '../../../../constants/app_constants.dart';
+import '../../../../core/localization/locale_extension.dart';
+import '../../../../core/localization/translations.dart';
+import '../../../../core/widgets/gradient_cta_button.dart';
 import '../../dashboard/data/trending_talent_model.dart';
 import '../../dashboard/presentation/widgets/custom_trending_carousel.dart';
 
@@ -38,6 +41,7 @@ class StartScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.tr;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(gradient: AppColors.primaryGradient),
@@ -77,7 +81,7 @@ class StartScreen extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
-                        AppStrings.welcome,
+                        tr.welcome,
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 24,
@@ -86,16 +90,16 @@ class StartScreen extends ConsumerWidget {
                       ),
                       SizedBox(height: 8.h),
                       Text(
-                        AppStrings.welcomeDescription,
+                        tr.welcomeDescription,
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white70,
-                          fontSize: 16.sp,
+                          fontSize: 14.sp,
                           height: 1.5,
                         ),
                       ),
                       SizedBox(height: 24.h),
-                      _buildLetsGoButton(context),
+                      _buildLetsGoButton(context, tr),
                     ],
                   ),
                 ),
@@ -107,40 +111,15 @@ class StartScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildLetsGoButton(BuildContext context) {
-    return SizedBox(
-      width: double.infinity,
-      height: 56.h,
-      child: ElevatedButton(
-        onPressed: () {
-          GoRouter.of(context).go('/loader?next=/phone');
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(28.r),
-          ),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF8F39B2), Color(0xFF2F208E)],
-            ),
-            borderRadius: BorderRadius.circular(28.r),
-          ),
-          child: Center(
-            child: Text(
-              AppStrings.letsGo,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18.sp,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ),
-      ),
+  Widget _buildLetsGoButton(BuildContext context, Translations tr) {
+    return GradientCtaButton(
+      label: tr.letsGo,
+
+      width: 380.w,
+      height: 58,
+      onPressed: () {
+        GoRouter.of(context).go('/loader?next=/phone');
+      },
     );
   }
 }

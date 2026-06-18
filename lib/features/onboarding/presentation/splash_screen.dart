@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../constants/app_constants.dart';
 import '../../../core/services/session_prefs.dart';
+import '../../../core/services/session_state_provider.dart';
 import '../../onboarding/domain/document_service.dart';
 import '../../profile/domain/profile_service.dart';
 
@@ -47,8 +48,17 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
 
     if (isLoggedIn) {
       await _bootstrapProfileState();
+      // Sync merged profile data (portfolioId, photo URL, profileType) into
+      // Riverpod so dashboard/top-bar consumers see the correct state on
+      // first load without requiring a manual refresh.
+      await ref.read(sessionStateProvider.notifier).refresh();
+      // Only fully-onboarded creators land on the dashboard. Anyone whose
+      // profile isn't completed yet (isCreator: false) goes to /options
+      // so they can finish onboarding.
+      final profile = await SessionPrefs.instance.getProfile();
+      final isCreator = profile?['isCreator'] as bool? ?? false;
       if (!mounted) return;
-      context.go('/landing');
+      context.go(isCreator ? '/landing' : '/options');
     } else {
       context.go('/start');
     }

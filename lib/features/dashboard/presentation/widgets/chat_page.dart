@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,14 +7,22 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../constants/app_constants.dart';
+import '../../../../core/localization/locale_extension.dart';
 import '../../../../core/services/session_prefs.dart';
+import '../../../../core/services/session_state_provider.dart';
+import '../../../../core/utils/call_utils.dart';
 import '../../../../core/widgets/common_background.dart';
 import '../../../../core/widgets/custom_text.dart';
 import '../../../../core/widgets/online_indicator.dart';
+import '../../../../core/widgets/voice_search_mic_button.dart';
 import '../../application/dashboard_providers.dart';
 import '../../application/states/profile_list_state.dart';
 import '../../../chat/application/chat_providers.dart';
 import '../../../chat/application/states/chat_state.dart';
+import '../../../../core/services/socket_service.dart';
+import '../../../online/application/online_providers.dart';
+import '../../../posts/presentation/full_post_view.dart';
+import '../../../onboarding/application/category_provider.dart';
 
 class ChatPage extends ConsumerStatefulWidget {
   final Function(bool)? onChatStateChanged;
@@ -32,12 +42,13 @@ class _ChatPageState extends ConsumerState<ChatPage>
     with TickerProviderStateMixin {
   String _currentUserId = '';
   bool _isFullScreenChat = false;
-  String _selectedSkill = '';
+  String _selectedCategory = '';
   final TextEditingController _messageController = TextEditingController();
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
   bool _didOpenInitialRecipient = false;
+  Timer? _pollTimer;
 
   // Animated text flip for chat header
   static const List<String> _roleWords = [
@@ -49,94 +60,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
   late AnimationController _flipController;
   late Animation<double> _flipAnimation;
   int _currentRoleIndex = 0;
-
-  // ─── Skills Data (alphabetical) ───
-  final Map<String, List<String>> _skillsByLetter = {
-    'A': ['Acting', 'Anchoring', 'Animation', 'Athletics'],
-    'B': ['Baking', 'Bartending', 'Beatboxing', 'Branding', 'Blogging'],
-    'C': ['Calligraphy', 'Carpentry', 'Choreography', 'Comedy', 'Cooking'],
-    'D': ['Dance', 'DJing', 'Drawing', 'Drumming'],
-    'E': ['Editing', 'Embroidery', 'Event Planning'],
-    'F': ['Fashion Design', 'Filmmaking', 'Fitness Training', 'Floral Design'],
-    'G': ['Gaming', 'Gardening', 'Graphic Design', 'Guitar'],
-    'H': ['Hairstyling', 'Handicrafts'],
-    'I': ['Illustration', 'Interior Design'],
-    'J': ['Jewelry Making', 'Journalism'],
-    'K': ['Knitting', 'Karate'],
-    'L': ['Landscaping', 'Leather Crafting'],
-    'M': ['Makeup', 'Martial Arts', 'Music Production', 'Modeling'],
-    'N': ['Nail Art', 'Nutrition'],
-    'O': ['Origami'],
-    'P': ['Painting', 'Photography', 'Pottery', 'Public Speaking'],
-    'Q': ['Quilting'],
-    'R': ['Rapping', 'Robotics'],
-    'S': ['Sculpting', 'Singing', 'Sketching', 'Storytelling'],
-    'T': ['Tattooing', 'Teaching', 'Theater'],
-    'U': ['Ukulele', 'UI/UX Design'],
-    'V': ['Videography', 'Voice Acting'],
-    'W': ['Web Design', 'Woodworking', 'Writing'],
-    'Y': ['Yoga'],
-  };
-
-  // ─── Creators Data (for search results) ───
-  final List<CreatorProfile> _allCreators = [
-    CreatorProfile(
-      name: 'Alan Tuts',
-      role: 'Classical Dancer',
-      avatar: AppAssets.professionalProfileJpg,
-      skill: 'Dance',
-      isOnline: true,
-    ),
-    CreatorProfile(
-      name: 'Akash Dance',
-      role: 'Hip-Hop Dancer',
-      avatar: AppAssets.skilledProfileJpg,
-      skill: 'Dance',
-      isOnline: true,
-    ),
-    CreatorProfile(
-      name: 'AlansTurn',
-      role: 'All Styles',
-      avatar: AppAssets.profileImg1,
-      skill: 'Dance',
-      isOnline: true,
-    ),
-    CreatorProfile(
-      name: 'BobsLand',
-      role: 'Classical Dancer',
-      avatar: AppAssets.professionalProfileJpg,
-      skill: 'Dance',
-      isOnline: true,
-    ),
-    CreatorProfile(
-      name: 'Akash Dance',
-      role: 'All Styles',
-      avatar: AppAssets.skilledProfileJpg,
-      skill: 'Dance',
-      isOnline: false,
-    ),
-    CreatorProfile(
-      name: 'AlansTurn',
-      role: 'All Styles',
-      avatar: AppAssets.profileImg1,
-      skill: 'Dance',
-      isOnline: true,
-    ),
-    CreatorProfile(
-      name: 'Charlie Arts',
-      role: 'Contemporary',
-      avatar: AppAssets.professionalProfileJpg,
-      skill: 'Acting',
-      isOnline: true,
-    ),
-    CreatorProfile(
-      name: 'Diana Flow',
-      role: 'Ballet',
-      avatar: AppAssets.skilledProfileJpg,
-      skill: 'Animation',
-      isOnline: false,
-    ),
-  ];
 
   @override
   void initState() {
@@ -158,12 +81,19 @@ class _ChatPageState extends ConsumerState<ChatPage>
       final notifier = ref.read(chatNotifierProvider.notifier);
       await notifier.fetchConversations(refresh: true);
 
-      // Open chat with initial recipient if provided
+      // Seed online statuses from profile list (API data) and ask the socket
+      // for current status of all conversation participants.
+      _seedAndRequestOnlineStatuses();
+
+      // Open chat with initial recipient if provided. Fire-and-forget so
+      // the chat view appears as soon as state flips — the messages
+      // fetch inside continues in the background.
       if (widget.initialRecipientId.isNotEmpty && !_didOpenInitialRecipient) {
         _didOpenInitialRecipient = true;
-        await notifier.openChatWithRecipient(widget.initialRecipientId);
-        widget.onChatStateChanged?.call(true);
+        notifier.openChatWithRecipient(widget.initialRecipientId);
       }
+
+      _startPolling();
     });
   }
 
@@ -175,9 +105,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
       _didOpenInitialRecipient = true;
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         final notifier = ref.read(chatNotifierProvider.notifier);
+        // Flip into the chat view immediately. fetchConversations and the
+        // messages fetch both happen in the background.
+        notifier.openChatWithRecipient(widget.initialRecipientId);
         await notifier.fetchConversations(refresh: true);
-        await notifier.openChatWithRecipient(widget.initialRecipientId);
-        widget.onChatStateChanged?.call(true);
       });
     }
   }
@@ -198,8 +129,50 @@ class _ChatPageState extends ConsumerState<ChatPage>
     });
   }
 
+  void _seedAndRequestOnlineStatuses() {
+    final chatState = ref.read(chatNotifierProvider);
+    final profileState = ref.read(profileListNotifierProvider);
+    final onlineNotifier = ref.read(onlineNotifierProvider.notifier);
+
+    // Collect all participant IDs from conversations
+    final participantIds = chatState.conversations
+        .map((c) => c.participantId ?? '')
+        .where((id) => id.isNotEmpty)
+        .toSet();
+
+    if (widget.initialRecipientId.isNotEmpty) {
+      participantIds.add(widget.initialRecipientId);
+    }
+
+    // Seed from profile list (API data) for participants we have profile data for
+    final seeds = <String, bool>{};
+    for (final id in participantIds) {
+      final profile = profileState.profiles
+          .where((p) => p.id == id || p.nickName == id)
+          .firstOrNull;
+      if (profile != null) {
+        seeds[id] = profile.onlineStatus.toUpperCase() == 'ONLINE';
+      }
+    }
+    if (seeds.isNotEmpty) {
+      onlineNotifier.seedStatuses(seeds);
+    }
+
+    // Ask socket to push current status for all participants
+    SocketService().requestUsersStatus(participantIds.toList());
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(const Duration(seconds: 8), (_) {
+      if (!mounted) return;
+      ref.read(chatNotifierProvider.notifier).silentRefresh();
+    });
+  }
+
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _flipController.dispose();
     _messageController.dispose();
     _searchController.dispose();
@@ -208,50 +181,79 @@ class _ChatPageState extends ConsumerState<ChatPage>
     super.dispose();
   }
 
-  Map<String, List<String>> get _filteredSkills {
+  /// Groups category names A-Z, filtered by the current search query.
+  Map<String, List<String>> _groupCategories(List<String> categories) {
     final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return _skillsByLetter;
-    final filtered = <String, List<String>>{};
-    for (final entry in _skillsByLetter.entries) {
-      final matching = entry.value
-          .where((s) => s.toLowerCase().contains(query))
-          .toList();
-      if (matching.isNotEmpty) {
-        filtered[entry.key] = matching;
-      }
+    final grouped = <String, List<String>>{};
+    for (final name in categories) {
+      if (name.isEmpty) continue;
+      if (query.isNotEmpty && !name.toLowerCase().contains(query)) continue;
+      final letter = name[0].toUpperCase();
+      grouped.putIfAbsent(letter, () => []).add(name);
     }
-    return filtered;
+    for (final list in grouped.values) {
+      list.sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+    }
+    return grouped;
   }
 
-  List<CreatorProfile> get _filteredCreators {
-    return _allCreators
-        .where((c) => c.skill.toLowerCase() == _selectedSkill.toLowerCase())
-        .toList();
+  /// Groups profiles A-Z by display name.
+  Map<String, List<ProfileItem>> _groupProfiles(List<ProfileItem> profiles) {
+    final grouped = <String, List<ProfileItem>>{};
+    for (final p in profiles) {
+      final name = p.displayName.trim();
+      final letter = name.isEmpty ? '#' : name[0].toUpperCase();
+      grouped.putIfAbsent(letter, () => []).add(p);
+    }
+    for (final list in grouped.values) {
+      list.sort(
+        (a, b) => a.displayName.toLowerCase().compareTo(
+              b.displayName.toLowerCase(),
+            ),
+      );
+    }
+    return grouped;
   }
 
   List<ChatConversation> _mapConversations(ChatState chatState) {
     final profileState = ref.watch(profileListNotifierProvider);
+    final onlineState = ref.watch(onlineNotifierProvider);
     final activeRecipientId = chatState.activeRecipientId;
-    return chatState.conversations.map((c) {
+    final currentUserId = ref.read(currentUserIdProvider);
+    final conversations = chatState.conversations.map((c) {
       final participantId = c.participantId ?? '';
       final profile = _findProfileById(profileState.profiles, participantId);
+      final latestMsg = c.latestMessage;
+      final isFromOther =
+          latestMsg != null && latestMsg.senderId != currentUserId;
+      final isUnread =
+          isFromOther && latestMsg.readAt == null && latestMsg.status != 'READ';
+      // Use live socket status; fall back to API profile status if available
+      final apiIsOnline = profile?.onlineStatus.toUpperCase() == 'ONLINE';
+      final isOnline = onlineState.userStatuses.containsKey(participantId)
+          ? onlineState.userStatuses[participantId]!
+          : apiIsOnline;
       return ChatConversation(
         conversationId: c.conversationId ?? '',
         participantId: participantId,
         name:
             profile?.displayName ??
             (participantId.isNotEmpty ? participantId : 'User'),
-        role: profile?.proficiency ?? '',
+        role: profile?.category ?? '',
         avatar: profile?.profilePhotoUrl ?? AppAssets.professionalProfileJpg,
-        lastMessage: c.latestMessage?.content?.text ?? '',
-        timestamp: '',
-        unreadCount: 0,
-        isOnline: true,
+        lastMessage: latestMsg?.content?.text ?? '',
+        timestamp: _formatMessageTime(latestMsg?.createdAt),
+        unreadCount: isUnread ? 1 : 0,
+        isOnline: isOnline,
         isNowTalking:
             chatState.viewMode == ChatViewMode.chat &&
             participantId == activeRecipientId,
       );
     }).toList();
+
+    // Sort by most recent message first
+    conversations.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+    return conversations;
   }
 
   ProfileItem? _findProfileById(List<ProfileItem> profiles, String profileId) {
@@ -332,16 +334,22 @@ class _ChatPageState extends ConsumerState<ChatPage>
     return AssetImage(avatarPath);
   }
 
-  Map<String, List<CreatorProfile>> get _creatorsGrouped {
-    final creators = _filteredCreators;
-    final grouped = <String, List<CreatorProfile>>{};
-    for (final c in creators) {
-      final letter = c.name[0].toUpperCase();
-      grouped.putIfAbsent(letter, () => []);
-      grouped[letter]!.add(c);
-    }
-    final sortedKeys = grouped.keys.toList()..sort();
-    return {for (final k in sortedKeys) k: grouped[k]!};
+  /// Opens a chat with [profile] after the standard subscription gate.
+  ///
+  /// The view-mode flip inside [openChatWithRecipient] is synchronous —
+  /// fire-and-forget so the chat screen appears immediately. The network
+  /// fetch for messages continues in the background; UI shows a loader
+  /// in the meantime.
+  ///
+  /// We also don't await `onChatStateChanged` here — the post-frame
+  /// callback in [build] already fires it the moment viewMode changes,
+  /// so an extra call after the await would just be a delayed duplicate.
+  Future<void> _openChatWith(ProfileItem profile) async {
+    final allowed = await checkChatSubscription(context: context, ref: ref);
+    if (!allowed || !mounted) return;
+    ref
+        .read(chatNotifierProvider.notifier)
+        .openChatWithRecipient(profile.id);
   }
 
   @override
@@ -349,10 +357,19 @@ class _ChatPageState extends ConsumerState<ChatPage>
     final chatState = ref.watch(chatNotifierProvider);
     final viewMode = chatState.viewMode;
 
+    // Hide nav bar on all internal pages — only show on chat list (messages)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final shouldHideNav = viewMode != ChatViewMode.messages;
+      widget.onChatStateChanged?.call(shouldHideNav);
+    });
+
+    // Page switch between messages/search/chat needs to feel instant —
+    // the default `AppTransitions.duration` (800ms) made opening a chat
+    // feel laggy. A short fade keeps the polish without the wait.
     return CommonBackground(
       child: SafeArea(
         child: AnimatedSwitcher(
-          duration: AppTransitions.duration,
+          duration: const Duration(milliseconds: 120),
           transitionBuilder: (child, animation) =>
               FadeTransition(opacity: animation, child: child),
           child: KeyedSubtree(
@@ -393,7 +410,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               CustomText(
-                AppStrings.messages,
+                ref.tr.messages,
                 fontSize: 24.sp,
                 fontWeight: FontWeight.w700,
                 fontFamily: 'Neue',
@@ -430,7 +447,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                       SizedBox(width: 12.w),
                       Expanded(
                         child: CustomText(
-                          AppStrings.searchHintCoach,
+                          ref.tr.searchHintCoach,
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w500,
                           color: AppColors.foundationHint,
@@ -464,9 +481,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
     // Show loading indicator
     if (isLoading && apiConversations.isEmpty) {
-      return const Center(
-        child: CircularProgressIndicator(color: Colors.white),
-      );
+      return Center(child: CircularProgressIndicator(color: Colors.white));
     }
 
     // Show empty state if no conversations
@@ -527,7 +542,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
         widget.onChatStateChanged?.call(true);
       },
       child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.vertical(
@@ -537,12 +552,13 @@ class _ChatPageState extends ConsumerState<ChatPage>
         ),
         child: Row(
           children: [
+            // Avatar with online indicator
             Stack(
               clipBehavior: Clip.none,
               children: [
                 Container(
-                  width: 54.w,
-                  height: 54.w,
+                  width: 48.w,
+                  height: 48.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     image: DecorationImage(
@@ -552,64 +568,98 @@ class _ChatPageState extends ConsumerState<ChatPage>
                   ),
                 ),
                 Positioned(
-                  top: 0,
+                  bottom: 0,
                   right: 0,
                   child: OnlineIndicator(
                     userId: chat.participantId,
-                    size: 12,
+                    size: 10,
                     onlineColor: AppColors.foundationGreenNormal,
                     offlineColor: AppColors.foundationErrorDark,
                   ),
                 ),
               ],
             ),
-            SizedBox(width: 24.w),
+            SizedBox(width: 12.w),
+
+            // Name + last message
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   CustomText(
                     chat.name,
-                    fontSize: 18.sp,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 16.sp,
+                    fontWeight: chat.unreadCount > 0
+                        ? FontWeight.w700
+                        : FontWeight.w600,
                     fontFamily: 'Neue',
                     color: AppColors.foundationBlack20,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 8.h),
+                  SizedBox(height: 4.h),
                   CustomText(
-                    chat.role,
-                    fontSize: 14.sp,
-                    fontWeight: FontWeight.w400,
-                    color: AppColors.foundationBlack20,
+                    chat.lastMessage.isNotEmpty ? chat.lastMessage : chat.role,
+                    fontSize: 13.sp,
+                    fontWeight: chat.unreadCount > 0
+                        ? FontWeight.w600
+                        : FontWeight.w400,
+                    color: chat.unreadCount > 0
+                        ? Colors.white
+                        : AppColors.foundationBlack80,
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ],
               ),
             ),
-            if (chat.isNowTalking)
-              CustomText(
-                AppStrings.nowTalking,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w500,
-                color: AppColors.foundationBlack20,
-              )
-            else
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  GestureDetector(
-                    onTap: () {},
-                    child: Container(
-                      width: 44.w,
-                      height: 44.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.12),
+
+            SizedBox(width: 8.w),
+
+            // Timestamp + unread + call
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                if (chat.timestamp.isNotEmpty)
+                  CustomText(
+                    chat.timestamp,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w400,
+                    color: chat.unreadCount > 0
+                        ? AppColors.foundationGreenNormal
+                        : AppColors.foundationBlack80,
+                  ),
+                SizedBox(height: 4.h),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (chat.unreadCount > 0)
+                      Container(
+                        width: 8.w,
+                        height: 8.w,
+                        margin: EdgeInsets.only(right: 8.w),
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: AppColors.foundationGreenNormal,
+                        ),
                       ),
-                      child: Center(
+                    GestureDetector(
+                      onTap: () {
+                        initiateCallWithSubscriptionCheck(
+                          context: context,
+                          ref: ref,
+                          recipientId: chat.participantId,
+                        );
+                      },
+                      child: Container(
+                        padding: EdgeInsets.all(12.w),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.white.withValues(alpha: 0.12),
+                        ),
                         child: SvgPicture.asset(
                           AppAssets.callSvg,
-                          width: 24.w,
-                          height: 24.w,
+                          width: 20.w,
+                          height: 20.w,
                           colorFilter: ColorFilter.mode(
                             AppColors.foundationBlack20,
                             BlendMode.srcIn,
@@ -617,37 +667,10 @@ class _ChatPageState extends ConsumerState<ChatPage>
                         ),
                       ),
                     ),
-                  ),
-                  SizedBox(width: 12.w),
-                  GestureDetector(
-                    onTap: () {
-                      ref
-                          .read(chatNotifierProvider.notifier)
-                          .selectConversation(index);
-                      widget.onChatStateChanged?.call(true);
-                    },
-                    child: Container(
-                      width: 44.w,
-                      height: 44.w,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.white.withValues(alpha: 0.12),
-                      ),
-                      child: Center(
-                        child: SvgPicture.asset(
-                          AppAssets.messageSvg,
-                          width: 24.w,
-                          height: 24.w,
-                          colorFilter: ColorFilter.mode(
-                            AppColors.foundationBlack20,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -658,9 +681,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
   // ─── Search Screen (skills alphabetically) ───
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Widget _buildSearchScreen() {
-    final skills = _filteredSkills;
-    final sortedLetters = skills.keys.toList()..sort();
-
     return Column(
       children: [
         // Header with back + search
@@ -717,7 +737,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                   focusNode: _searchFocusNode,
                   onChanged: (_) => setState(() {}),
                   decoration: InputDecoration(
-                    hintText: AppStrings.searchHintGeneric,
+                    hintText: ref.tr.searchHintGeneric,
                     hintStyle: TextStyle(
                       color: AppColors.foundationHint,
                       fontSize: 14.sp,
@@ -732,12 +752,18 @@ class _ChatPageState extends ConsumerState<ChatPage>
                       ),
                     ),
                     suffixIcon: Padding(
-                      padding: EdgeInsets.all(16.w),
-                      child: Icon(
-                        Icons.mic_none,
-                        color: AppColors.foundationHint,
-                        size: 24.sp,
+                      padding: EdgeInsets.only(right: 16.w),
+                      child: VoiceSearchMicButton(
+                        controller: _searchController,
+                        textFocusNode: _searchFocusNode,
+                        iconColor: AppColors.foundationHint,
+                        size: 24,
+                        onFinalResult: (_) => setState(() {}),
                       ),
+                    ),
+                    suffixIconConstraints: BoxConstraints(
+                      minWidth: 40.w,
+                      minHeight: 40.w,
                     ),
                     border: InputBorder.none,
                     contentPadding: EdgeInsets.symmetric(
@@ -755,29 +781,46 @@ class _ChatPageState extends ConsumerState<ChatPage>
             ],
           ),
         ),
-        // Skills List (alphabetical)
+        // Categories list (alphabetical) — real categories from the backend.
         Expanded(
-          child: sortedLetters.isEmpty
-              ? Center(
+          child: ref.watch(categoryNamesProvider).when(
+                loading: () => const Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
+                error: (_, __) => Center(
                   child: CustomText(
-                    AppStrings.noSkillsFound,
+                    ref.tr.noSkillsFound,
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 24.w,
-                    vertical: 16.h,
-                  ),
-                  itemCount: sortedLetters.length,
-                  itemBuilder: (context, index) {
-                    final letter = sortedLetters[index];
-                    final items = skills[letter]!;
-                    return _buildSkillGroup(letter, items);
-                  },
                 ),
+                data: (categories) {
+                  final grouped = _groupCategories(categories);
+                  final sortedLetters = grouped.keys.toList()..sort();
+                  if (sortedLetters.isEmpty) {
+                    return Center(
+                      child: CustomText(
+                        ref.tr.noSkillsFound,
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white.withValues(alpha: 0.5),
+                      ),
+                    );
+                  }
+                  return ListView.builder(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: 24.w,
+                      vertical: 16.h,
+                    ),
+                    itemCount: sortedLetters.length,
+                    itemBuilder: (context, index) {
+                      final letter = sortedLetters[index];
+                      return _buildSkillGroup(letter, grouped[letter]!);
+                    },
+                  );
+                },
+              ),
         ),
       ],
     );
@@ -807,7 +850,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
               return GestureDetector(
                 onTap: () {
                   setState(() {
-                    _selectedSkill = entry.value;
+                    _selectedCategory = entry.value;
                   });
                   ref
                       .read(chatNotifierProvider.notifier)
@@ -848,9 +891,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
   // ─── Search Results Screen ───
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   Widget _buildSearchResultsScreen() {
-    final grouped = _creatorsGrouped;
-    final sortedLetters = grouped.keys.toList()..sort();
-
     return Column(
       children: [
         // Header
@@ -886,14 +926,14 @@ class _ChatPageState extends ConsumerState<ChatPage>
                 child: Row(
                   children: [
                     CustomText(
-                      AppStrings.resultsFor,
+                      ref.tr.resultsFor,
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
                       color: AppColors.foundationBlack20,
                     ),
                     CustomText(
-                      '"$_selectedSkill"',
+                      '"$_selectedCategory"',
                       fontSize: 20.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -929,7 +969,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                     Icon(Icons.tune, color: Colors.white, size: 18.sp),
                     SizedBox(width: 8.w),
                     CustomText(
-                      AppStrings.filters,
+                      ref.tr.filters,
                       fontSize: 14.sp,
                       fontWeight: FontWeight.w500,
                       color: Colors.white,
@@ -940,32 +980,50 @@ class _ChatPageState extends ConsumerState<ChatPage>
             ],
           ),
         ),
-        // Creators list grouped alphabetically
+        // Creators list — real profiles in the selected category.
         Expanded(
-          child: sortedLetters.isEmpty
-              ? Center(
+          child:
+              ref.watch(chatCategoryProfilesProvider(_selectedCategory)).when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            error: (_, __) => Center(
+              child: CustomText(
+                ref.tr.noCreatorsFound,
+                fontSize: 16.sp,
+                fontWeight: FontWeight.w500,
+                color: Colors.white.withValues(alpha: 0.5),
+              ),
+            ),
+            data: (profiles) {
+              final grouped = _groupProfiles(profiles);
+              final sortedLetters = grouped.keys.toList()..sort();
+              if (sortedLetters.isEmpty) {
+                return Center(
                   child: CustomText(
-                    AppStrings.noCreatorsFound,
+                    ref.tr.noCreatorsFound,
                     fontSize: 16.sp,
                     fontWeight: FontWeight.w500,
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
-                )
-              : ListView.builder(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  itemCount: sortedLetters.length,
-                  itemBuilder: (context, index) {
-                    final letter = sortedLetters[index];
-                    final creators = grouped[letter]!;
-                    return _buildCreatorGroup(letter, creators);
-                  },
-                ),
+                );
+              }
+              return ListView.builder(
+                padding: EdgeInsets.symmetric(horizontal: 16.w),
+                itemCount: sortedLetters.length,
+                itemBuilder: (context, index) {
+                  final letter = sortedLetters[index];
+                  return _buildCreatorGroup(letter, grouped[letter]!);
+                },
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildCreatorGroup(String letter, List<CreatorProfile> creators) {
+  Widget _buildCreatorGroup(String letter, List<ProfileItem> profiles) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -978,123 +1036,137 @@ class _ChatPageState extends ConsumerState<ChatPage>
           color: AppColors.foundationBlack20,
         ),
         SizedBox(height: 8.h),
-        ...creators.map((creator) => _buildCreatorTile(creator)),
+        ...profiles.map((profile) => _buildCreatorTile(profile)),
       ],
     );
   }
 
-  Widget _buildCreatorTile(CreatorProfile creator) {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
-      margin: EdgeInsets.only(bottom: 4.h),
-      child: Row(
-        children: [
-          // Avatar with online indicator
-          Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                width: 48.w,
-                height: 48.w,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  image: DecorationImage(
-                    image: AssetImage(creator.avatar),
-                    fit: BoxFit.cover,
-                  ),
-                ),
-              ),
-              Positioned(
-                top: 0,
-                right: 0,
-                child: Container(
-                  width: 12.w,
-                  height: 12.w,
+  Widget _buildCreatorTile(ProfileItem profile) {
+    final avatar = profile.profilePhotoUrl ?? AppAssets.professionalProfileJpg;
+    final isOnline = profile.onlineStatus.toUpperCase() == 'ONLINE';
+    // Every profile here was filtered by the selected category, so fall
+    // back to that when the trimmed list payload omits `category`.
+    final role = profile.category.isNotEmpty
+        ? profile.category
+        : _selectedCategory;
+
+    return GestureDetector(
+      onTap: () => _openChatWith(profile),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+        margin: EdgeInsets.only(bottom: 4.h),
+        child: Row(
+          children: [
+            // Avatar with online indicator
+            Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Container(
+                  width: 48.w,
+                  height: 48.w,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: creator.isOnline
-                        ? AppColors.foundationGreenNormal
-                        : AppColors.foundationErrorDark,
+                    image: DecorationImage(
+                      image: _avatarImage(avatar),
+                      fit: BoxFit.cover,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          SizedBox(width: 16.w),
-          // Name and Role
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                CustomText(
-                  creator.name,
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w700,
-                  fontFamily: 'Neue',
-                  color: AppColors.foundationBlack20,
-                ),
-                SizedBox(height: 4.h),
-                CustomText(
-                  creator.role,
-                  fontSize: 12.sp,
-                  fontWeight: FontWeight.w400,
-                  color: AppColors.foundationHint,
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: OnlineIndicator(
+                    userId: profile.id,
+                    size: 12,
+                    initialIsOnline: isOnline,
+                    showBorder: false,
+                    onlineColor: AppColors.foundationGreenNormal,
+                    offlineColor: AppColors.foundationErrorDark,
+                  ),
                 ),
               ],
             ),
-          ),
-          // Call and Message buttons
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              GestureDetector(
-                onTap: () {},
-                child: Container(
-                  width: 40.w,
-                  height: 40.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white12,
+            SizedBox(width: 16.w),
+            // Name and Role
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomText(
+                    profile.displayName,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w700,
+                    fontFamily: 'Neue',
+                    color: AppColors.foundationBlack20,
                   ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      AppAssets.callSvg,
-                      width: 20.w,
-                      height: 20.w,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
+                  SizedBox(height: 4.h),
+                  CustomText(
+                    role,
+                    fontSize: 12.sp,
+                    fontWeight: FontWeight.w400,
+                    color: AppColors.foundationHint,
+                  ),
+                ],
+              ),
+            ),
+            // Call and Message buttons
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                GestureDetector(
+                  onTap: () => initiateCallWithSubscriptionCheck(
+                    context: context,
+                    ref: ref,
+                    recipientId: profile.id,
+                  ),
+                  child: Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white12,
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        AppAssets.callSvg,
+                        width: 20.w,
+                        height: 20.w,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              SizedBox(width: 12.w),
-              GestureDetector(
-                onTap: () {},
-                child: Container(
-                  width: 40.w,
-                  height: 40.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.white12,
-                  ),
-                  child: Center(
-                    child: SvgPicture.asset(
-                      AppAssets.messageSvg,
-                      width: 20.w,
-                      height: 20.w,
-                      colorFilter: const ColorFilter.mode(
-                        Colors.white,
-                        BlendMode.srcIn,
+                SizedBox(width: 12.w),
+                GestureDetector(
+                  onTap: () => _openChatWith(profile),
+                  child: Container(
+                    width: 40.w,
+                    height: 40.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.white12,
+                    ),
+                    child: Center(
+                      child: SvgPicture.asset(
+                        AppAssets.messageSvg,
+                        width: 20.w,
+                        height: 20.w,
+                        colorFilter: const ColorFilter.mode(
+                          Colors.white,
+                          BlendMode.srcIn,
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          ),
-        ],
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1127,8 +1199,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
     );
     final headerAvatar =
         activeConversation?.avatar ?? _avatarForRecipient(activeRecipientId);
-    final headerName =
-        activeConversation?.name ?? _displayNameForRecipient(activeRecipientId);
 
     return Container(
       padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
@@ -1173,7 +1243,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                     end: Alignment.bottomLeft,
                   ).createShader(bounds),
                   child: CustomText(
-                    AppStrings.chatWith,
+                    ref.tr.chatWith,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w700,
                     fontFamily: 'Neue',
@@ -1257,19 +1327,15 @@ class _ChatPageState extends ConsumerState<ChatPage>
     final displayRole = chat?.role ?? '';
     final participantId = chat?.participantId ?? activeRecipientId;
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 4.h),
+      padding: EdgeInsets.all(1.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24.r),
-        gradient: const LinearGradient(
-          colors: [AppColors.accentCyan, AppColors.accentPink],
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-        ),
+        borderRadius: BorderRadius.circular(20.r),
+        gradient: AppColors.ctaBorderGradient,
       ),
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 6.w, vertical: 6.h),
         decoration: BoxDecoration(
-          // color: AppColors.foundationBlack800,
+          color: const Color(0xFF1A1A2E),
           borderRadius: BorderRadius.circular(20.r),
         ),
         child: Row(
@@ -1324,7 +1390,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
               ),
             ),
             CustomText(
-              AppStrings.nowTalking,
+              ref.tr.nowTalking,
               fontSize: 16.sp,
               fontWeight: FontWeight.w500,
               color: AppColors.foundationBlack20,
@@ -1364,50 +1430,65 @@ class _ChatPageState extends ConsumerState<ChatPage>
 
     return Container(
       height: 0.27.sh,
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(24.r)),
-      child: ClipRRect(
+      padding: EdgeInsets.all(1.w),
+      decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(24.r),
-        child: ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: itemCount,
-          itemBuilder: (context, index) {
-            // Handle the new recipient case (we put it at the top)
-            if (hasActiveRecipient &&
-                !activeChatInList &&
-                chatState.viewMode == ChatViewMode.chat) {
-              if (index == 0) {
-                // Build a temporary ChatConversation for the new recipient
-                final profileState = ref.read(profileListNotifierProvider);
-                final profile = _findProfileById(
-                  profileState.profiles,
-                  activeRecipientId,
-                );
+        gradient: AppColors.ctaBorderGradient,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF1A1A2E),
+          borderRadius: BorderRadius.circular(22.r),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(22.r),
+          child: ListView.builder(
+            padding: EdgeInsets.zero,
+            itemCount: itemCount,
+            itemBuilder: (context, index) {
+              // Handle the new recipient case (we put it at the top)
+              if (hasActiveRecipient &&
+                  !activeChatInList &&
+                  chatState.viewMode == ChatViewMode.chat) {
+                if (index == 0) {
+                  // Build a temporary ChatConversation for the new recipient
+                  final profileState = ref.read(profileListNotifierProvider);
+                  final profile = _findProfileById(
+                    profileState.profiles,
+                    activeRecipientId,
+                  );
 
-                final newChat = ChatConversation(
-                  conversationId: '',
-                  participantId: activeRecipientId,
-                  name: profile?.displayName ?? 'User',
-                  role: profile?.proficiency ?? '',
-                  avatar:
-                      profile?.profilePhotoUrl ??
-                      AppAssets.professionalProfileJpg,
-                  lastMessage: '',
-                  timestamp: '',
-                  unreadCount: 0,
-                  isOnline: true,
-                  isNowTalking: true,
-                );
+                  final onlineState = ref.read(onlineNotifierProvider);
+                  final apiIsOnline =
+                      profile?.onlineStatus.toUpperCase() == 'ONLINE';
+                  final newChat = ChatConversation(
+                    conversationId: '',
+                    participantId: activeRecipientId,
+                    name: profile?.displayName ?? 'User',
+                    role: profile?.category ?? '',
+                    avatar:
+                        profile?.profilePhotoUrl ??
+                        AppAssets.professionalProfileJpg,
+                    lastMessage: '',
+                    timestamp: '',
+                    unreadCount: 0,
+                    isOnline: onlineState.userStatuses.containsKey(activeRecipientId)
+                        ? onlineState.userStatuses[activeRecipientId]!
+                        : apiIsOnline,
+                    isNowTalking: true,
+                  );
 
-                // We pass a single item list to _buildHirerTile since it just needs the index and list to determine isFirst/isLast
-                return _buildHirerTile(0, [newChat]);
+                  // We pass a single item list to _buildHirerTile since it just needs the index and list to determine isFirst/isLast
+                  return _buildHirerTile(0, [newChat]);
+                }
+                // For other items, offset the index
+                return _buildHirerTile(index - 1, displayConversations);
               }
-              // For other items, offset the index
-              return _buildHirerTile(index - 1, displayConversations);
-            }
 
-            // Normal case
-            return _buildHirerTile(index, displayConversations);
-          },
+              // Normal case
+              return _buildHirerTile(index, displayConversations);
+            },
+          ),
         ),
       ),
     );
@@ -1445,20 +1526,17 @@ class _ChatPageState extends ConsumerState<ChatPage>
               Positioned(
                 top: 0,
                 right: 0,
-                child: Container(
-                  width: 12.w,
-                  height: 12.w,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: chat.isOnline
-                        ? AppColors.foundationGreenNormal
-                        : AppColors.foundationErrorDark,
-                  ),
+                child: OnlineIndicator(
+                  userId: chat.participantId,
+                  size: 12,
+                  initialIsOnline: chat.isOnline,
+                  onlineColor: AppColors.foundationGreenNormal,
+                  offlineColor: AppColors.foundationErrorDark,
                 ),
               ),
             ],
           ),
-          SizedBox(width: 24.w),
+          SizedBox(width: 8.w),
           // Name and Role
           Expanded(
             child: Column(
@@ -1483,7 +1561,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
           ),
           if (chat.isNowTalking)
             CustomText(
-              AppStrings.nowTalking,
+              ref.tr.nowTalking,
               fontSize: 16.sp,
               fontWeight: FontWeight.w500,
               color: AppColors.foundationBlack20,
@@ -1493,14 +1571,14 @@ class _ChatPageState extends ConsumerState<ChatPage>
               mainAxisSize: MainAxisSize.min,
               children: [
                 GestureDetector(
-                  onTap: () {
-                    ref
-                        .read(chatNotifierProvider.notifier)
-                        .initiateCall(chat.participantId);
-                  },
+                  onTap: () => initiateCallWithSubscriptionCheck(
+                    context: context,
+                    ref: ref,
+                    recipientId: chat.participantId,
+                  ),
                   child: Container(
-                    width: 44.w,
-                    height: 44.w,
+                    width: 40.w,
+                    height: 40.w,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
                       color: Colors.white12,
@@ -1508,8 +1586,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
                     child: Center(
                       child: SvgPicture.asset(
                         AppAssets.callSvg,
-                        width: 24.w,
-                        height: 24.w,
+                        width: 22.w,
+                        height: 22.w,
                         colorFilter: const ColorFilter.mode(
                           Colors.white,
                           BlendMode.srcIn,
@@ -1518,34 +1596,34 @@ class _ChatPageState extends ConsumerState<ChatPage>
                     ),
                   ),
                 ),
-                SizedBox(width: 12.w),
-                GestureDetector(
-                  onTap: () {
-                    ref
-                        .read(chatNotifierProvider.notifier)
-                        .selectConversation(index);
-                    widget.onChatStateChanged?.call(true);
-                  },
-                  child: Container(
-                    width: 44.w,
-                    height: 44.w,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.white12,
-                    ),
-                    child: Center(
-                      child: SvgPicture.asset(
-                        AppAssets.messageSvg,
-                        width: 24.w,
-                        height: 24.w,
-                        colorFilter: const ColorFilter.mode(
-                          Colors.white,
-                          BlendMode.srcIn,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+                // SizedBox(width: 12.w),
+                // GestureDetector(
+                //   onTap: () {
+                //     ref
+                //         .read(chatNotifierProvider.notifier)
+                //         .selectConversation(index);
+                //     widget.onChatStateChanged?.call(true);
+                //   },
+                //   child: Container(
+                //     width: 40.w,
+                //     height: 40.w,
+                //     decoration: BoxDecoration(
+                //       shape: BoxShape.circle,
+                //       color: Colors.white12,
+                //     ),
+                //     child: Center(
+                //       child: SvgPicture.asset(
+                //         AppAssets.messageSvg,
+                //         width: 22.w,
+                //         height: 22.w,
+                //         colorFilter: const ColorFilter.mode(
+                //           Colors.white,
+                //           BlendMode.srcIn,
+                //         ),
+                //       ),
+                //     ),
+                //   ),
+                // ),
               ],
             ),
         ],
@@ -1558,11 +1636,6 @@ class _ChatPageState extends ConsumerState<ChatPage>
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(24.r),
             bottom: Radius.circular(24.r),
-          ),
-          gradient: const LinearGradient(
-            colors: [AppColors.accentCyan, AppColors.accentPink],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
           ),
         ),
         padding: EdgeInsets.all(1.w), // Border width
@@ -1642,47 +1715,192 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Widget _buildMessageBubble(ChatMessage message) {
+    // Check if message contains a post URL
+    final postUrlMatch = RegExp(
+      r'Check out this post: (.+)',
+    ).firstMatch(message.text);
+    final hasPostUrl = postUrlMatch != null;
+    final postUrl = hasPostUrl ? postUrlMatch.group(1) : null;
+
     return Column(
       crossAxisAlignment: message.isOwn
           ? CrossAxisAlignment.end
           : CrossAxisAlignment.start,
       children: [
-        Container(
-          constraints: BoxConstraints(maxWidth: 240.w),
-          padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
-          decoration: BoxDecoration(
-            color: message.isOwn
-                ? Colors.white.withValues(alpha: 0.48)
-                : Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(24.r),
-          ),
-          child: Column(
-            crossAxisAlignment: message.isOwn
-                ? CrossAxisAlignment.end
-                : CrossAxisAlignment.start,
-            children: [
-              CustomText(
-                message.text,
-                fontSize: 16.sp,
-                fontWeight: FontWeight.w500,
-                color: message.isOwn
-                    ? Colors.white
-                    : AppColors.foundationBlack20,
-              ),
-              SizedBox(height: 10.h),
-              CustomText(
-                message.timestamp,
-                fontSize: 10.sp,
-                fontWeight: FontWeight.w500,
-                color: message.isOwn
-                    ? AppColors.foundationTimestamp
-                    : AppColors.foundationBlack100,
-              ),
-            ],
+        GestureDetector(
+          onTap: hasPostUrl && postUrl != null
+              ? () => _handlePostUrlTap(postUrl)
+              : null,
+          child: Container(
+            constraints: BoxConstraints(maxWidth: 240.w),
+            padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 12.h),
+            decoration: BoxDecoration(
+              color: message.isOwn
+                  ? Colors.white.withValues(alpha: 0.48)
+                  : Colors.white.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(24.r),
+              border: hasPostUrl
+                  ? Border.all(
+                      color: const Color(0xFF00D9FF).withValues(alpha: 0.5),
+                      width: 1.5,
+                    )
+                  : null,
+            ),
+            child: Column(
+              crossAxisAlignment: message.isOwn
+                  ? CrossAxisAlignment.end
+                  : CrossAxisAlignment.start,
+              children: [
+                if (hasPostUrl) ...[
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.article_outlined,
+                        color: const Color(0xFF00D9FF),
+                        size: 16.sp,
+                      ),
+                      SizedBox(width: 6.w),
+                      CustomText(
+                        'Shared Post',
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        color: const Color(0xFF00D9FF),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: 8.h),
+                  CustomText(
+                    'Tap to view',
+                    fontSize: 14.sp,
+                    fontWeight: FontWeight.w500,
+                    color: message.isOwn
+                        ? Colors.white.withValues(alpha: 0.8)
+                        : AppColors.foundationBlack20.withValues(alpha: 0.8),
+                  ),
+                ] else
+                  CustomText(
+                    message.text,
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w500,
+                    color: message.isOwn
+                        ? Colors.white
+                        : AppColors.foundationBlack20,
+                  ),
+                SizedBox(height: 10.h),
+                CustomText(
+                  message.timestamp,
+                  fontSize: 10.sp,
+                  fontWeight: FontWeight.w500,
+                  color: message.isOwn
+                      ? AppColors.foundationTimestamp
+                      : AppColors.foundationBlack100,
+                ),
+              ],
+            ),
           ),
         ),
       ],
     );
+  }
+
+  void _handlePostUrlTap(String postUrl) {
+    // Parse the shared URL: https://skillioo.in/post/{mediaId}?src={encodedUrl}&t={video|image}
+    // The ?src param carries the already-resolved Cloudinary URL so no API
+    // call is needed. Legacy shares without ?src fall through to a best-effort
+    // URL detection.
+    Uri uri;
+    try {
+      uri = Uri.parse(postUrl);
+    } catch (_) {
+      return;
+    }
+
+    // Prefer the embedded src param (new share format).
+    final encodedSrc = uri.queryParameters['src'];
+    if (encodedSrc != null && encodedSrc.isNotEmpty) {
+      var mediaUrl = Uri.decodeComponent(encodedSrc);
+      if (mediaUrl.startsWith('http://')) {
+        mediaUrl = mediaUrl.replaceFirst('http://', 'https://');
+      }
+      final isVideo = uri.queryParameters['t'] == 'video' ||
+          mediaUrl.contains('/video/upload/') ||
+          mediaUrl.endsWith('.mp4');
+      final rawMediaId = uri.pathSegments.lastOrNull ?? '';
+      // Treat 'null' string, empty, or direct URLs as absent mediaId
+      final mediaId = (rawMediaId == 'null' ||
+              rawMediaId.isEmpty ||
+              rawMediaId.startsWith('http'))
+          ? null
+          : rawMediaId;
+
+      String _d(String? key) {
+        final v = uri.queryParameters[key ?? ''];
+        return v != null && v.isNotEmpty ? Uri.decodeComponent(v) : '';
+      }
+
+      var avatarUrl = _d('avatar');
+      if (avatarUrl.startsWith('http://')) {
+        avatarUrl = avatarUrl.replaceFirst('http://', 'https://');
+      }
+
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => FullPostViewScreen.single(
+              mediaUrl: mediaUrl,
+              isVideo: isVideo,
+              recipientId: _d('uid'),
+              profileName: _d('name'),
+              profilePhotoUrl: avatarUrl.isNotEmpty ? avatarUrl : null,
+              category: _d('cat'),
+              subcategory: _d('sub'),
+              proficiency: _d('pro'),
+              mediaId: mediaId,
+              totalComments: 0,
+              totalLikes: 0,
+              totalViews: 0,
+              description: '',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+
+    // Legacy format — mediaId might be a direct Cloudinary URL embedded in path.
+    final pathToken = uri.pathSegments.lastOrNull ?? '';
+    if (pathToken.isEmpty || pathToken == 'null') return;
+
+    final isDirectUrl =
+        pathToken.startsWith('http://') || pathToken.startsWith('https://');
+    if (isDirectUrl) {
+      final mediaUrl = pathToken.startsWith('http://')
+          ? pathToken.replaceFirst('http://', 'https://')
+          : pathToken;
+      final isVideo =
+          mediaUrl.contains('/video/upload/') || mediaUrl.endsWith('.mp4');
+      if (mounted) {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => FullPostViewScreen.single(
+              mediaUrl: mediaUrl,
+              isVideo: isVideo,
+              recipientId: '',
+              profileName: '',
+              category: '',
+              subcategory: '',
+              proficiency: '',
+              mediaId: '',
+              totalComments: 0,
+              totalLikes: 0,
+              totalViews: 0,
+              description: '',
+            ),
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildSwitchModeLink() {
@@ -1702,8 +1920,8 @@ class _ChatPageState extends ConsumerState<ChatPage>
           ).createShader(bounds),
           child: CustomText(
             _isFullScreenChat
-                ? AppStrings.switchToHalfScreen
-                : AppStrings.switchToFullScreen,
+                ? ref.tr.switchToHalfScreen
+                : ref.tr.switchToFullScreen,
             fontSize: 16.sp,
             fontWeight: FontWeight.w600,
             color: Colors.white,
@@ -1716,8 +1934,9 @@ class _ChatPageState extends ConsumerState<ChatPage>
   }
 
   Widget _buildBottomInputBar() {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
     return Container(
-      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h),
+      padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 12.h + bottomPadding),
       decoration: BoxDecoration(
         color: AppColors.foundationBlack800,
         borderRadius: BorderRadius.vertical(top: Radius.circular(48.r)),
@@ -1737,7 +1956,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
                     child: TextField(
                       controller: _messageController,
                       decoration: InputDecoration(
-                        hintText: AppStrings.typeMessage,
+                        hintText: ref.tr.typeMessage,
                         hintStyle: TextStyle(
                           color: AppColors.foundationHint,
                           fontSize: 14.sp,
@@ -1810,7 +2029,7 @@ class _ChatPageState extends ConsumerState<ChatPage>
               ),
               child: Center(
                 child: CustomText(
-                  AppStrings.endChat,
+                  ref.tr.endChat,
                   fontSize: 14.sp,
                   fontWeight: FontWeight.w500,
                   color: AppColors.foundationBlack20,
@@ -1861,21 +2080,5 @@ class ChatMessage {
     required this.text,
     required this.isOwn,
     required this.timestamp,
-  });
-}
-
-class CreatorProfile {
-  final String name;
-  final String role;
-  final String avatar;
-  final String skill;
-  final bool isOnline;
-
-  CreatorProfile({
-    required this.name,
-    required this.role,
-    required this.avatar,
-    required this.skill,
-    required this.isOnline,
   });
 }

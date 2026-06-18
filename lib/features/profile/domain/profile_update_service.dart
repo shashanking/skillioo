@@ -2,7 +2,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class ProfileUpdateService extends BaseServiceProvider {
-  ProfileUpdateService() : super(baseUrl: ApiConfig.baseUrl);
+  ProfileUpdateService({super.client}) : super(baseUrl: ApiConfig.baseUrl);
 
   Future<Map<String, dynamic>> updateProfile({
     required String accessToken,

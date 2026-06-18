@@ -1,32 +1,29 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../localization/app_locale.dart';
+import '../../localization/locale_extension.dart';
+import '../../localization/locale_notifier.dart';
 import '../common_background.dart';
 import '../custom_text.dart';
+import '../gradient_cta_button.dart';
 import '../icon_button.dart';
 
-class MenuLanguageScreen extends StatefulWidget {
+class MenuLanguageScreen extends ConsumerStatefulWidget {
   const MenuLanguageScreen({super.key});
 
   @override
-  State<MenuLanguageScreen> createState() => _MenuLanguageScreenState();
+  ConsumerState<MenuLanguageScreen> createState() => _MenuLanguageScreenState();
 }
 
-class _MenuLanguageScreenState extends State<MenuLanguageScreen> {
-  final List<String> _languages = const [
-    'English',
-    'Hindi',
-    'Marathi',
-    'Kannada',
-    'Telugu',
-    'Malayalam',
-  ];
-
-  int _selectedIndex = 0;
-
+class _MenuLanguageScreenState extends ConsumerState<MenuLanguageScreen> {
   @override
   Widget build(BuildContext context) {
+    final currentLocale = ref.watch(localeNotifierProvider);
+    final tr = ref.tr;
+
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -38,19 +35,19 @@ class _MenuLanguageScreenState extends State<MenuLanguageScreen> {
                   // Header
                   Container(
                     padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 24.h),
-                    decoration: BoxDecoration(color: AppColors.glassWhite12),
+                    decoration: BoxDecoration(color: AppColors.glassWhite20),
                     width: double.infinity,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: 16.h),
                         IconCircleButton(
-                          icon: Icons.arrow_back,
+                          assetPath: 'assets/images/arrow-left.png',
                           onTap: () => Navigator.of(context).maybePop(),
                         ),
                         SizedBox(height: 24.h),
                         CustomText(
-                          AppStrings.selectYourLanguage,
+                          tr.selectYourLanguage,
                           fontSize: 20.sp,
                           fontWeight: FontWeight.w700,
                           fontFamily: 'Neue',
@@ -58,7 +55,7 @@ class _MenuLanguageScreenState extends State<MenuLanguageScreen> {
                         ),
                         SizedBox(height: 4.h),
                         CustomText(
-                          AppStrings.languageSubtitle,
+                          tr.languageSubtitle,
                           fontSize: 16.sp,
                           fontWeight: FontWeight.w400,
                           color: AppColors.foundationBlack20,
@@ -74,15 +71,18 @@ class _MenuLanguageScreenState extends State<MenuLanguageScreen> {
                         vertical: 24.h,
                       ),
                       child: Column(
-                        children: List.generate(_languages.length, (index) {
-                          final isSelected = index == _selectedIndex;
+                        children: List.generate(AppLocale.values.length, (
+                          index,
+                        ) {
+                          final locale = AppLocale.values[index];
+                          final isSelected = locale == currentLocale;
                           return Padding(
                             padding: EdgeInsets.only(bottom: 12.h),
                             child: GestureDetector(
                               onTap: () {
-                                setState(() {
-                                  _selectedIndex = index;
-                                });
+                                ref
+                                    .read(localeNotifierProvider.notifier)
+                                    .setLocale(locale);
                               },
                               child: Container(
                                 width: double.infinity,
@@ -98,11 +98,23 @@ class _MenuLanguageScreenState extends State<MenuLanguageScreen> {
                                   borderRadius: BorderRadius.circular(48.r),
                                 ),
                                 alignment: Alignment.centerLeft,
-                                child: CustomText(
-                                  _languages[index],
-                                  fontSize: 16.sp,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.foundationBlack20,
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: CustomText(
+                                        locale.displayName,
+                                        fontSize: 16.sp,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.foundationBlack20,
+                                      ),
+                                    ),
+                                    CustomText(
+                                      locale.nativeName,
+                                      fontSize: 14.sp,
+                                      fontWeight: FontWeight.w400,
+                                      color: AppColors.foundationBlack20,
+                                    ),
+                                  ],
                                 ),
                               ),
                             ),
@@ -118,23 +130,11 @@ class _MenuLanguageScreenState extends State<MenuLanguageScreen> {
                 left: 16.w,
                 right: 16.w,
                 bottom: 24.h,
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).maybePop(),
-                  child: Container(
-                    width: double.infinity,
-                    height: 58.h,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.ctaGradient,
-                      borderRadius: BorderRadius.circular(48.r),
-                    ),
-                    alignment: Alignment.center,
-                    child: CustomText(
-                      AppStrings.continueText,
-                      fontSize: 16.sp,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.foundationBlack20,
-                    ),
-                  ),
+                child: GradientCtaButton(
+                  label: tr.continueText,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  width: double.infinity,
+                  borderRadius: BorderRadius.circular(48.r),
                 ),
               ),
             ],

@@ -24,6 +24,8 @@ mixin _$SubscriptionState {
   SubscriptionStatus get subscriptionStatus =>
       throw _privateConstructorUsedError;
   UserSubscriptionResponse? get activeSubscription =>
+      throw _privateConstructorUsedError; // Plan Aggregator
+  PlanAggregatorResponse? get aggregator =>
       throw _privateConstructorUsedError; // Initiate
   SubscriptionStatus get initiateStatus => throw _privateConstructorUsedError;
   String get paymentLink => throw _privateConstructorUsedError;
@@ -48,6 +50,7 @@ abstract class $SubscriptionStateCopyWith<$Res> {
     List<PlanMasterResponse> plans,
     SubscriptionStatus subscriptionStatus,
     UserSubscriptionResponse? activeSubscription,
+    PlanAggregatorResponse? aggregator,
     SubscriptionStatus initiateStatus,
     String paymentLink,
     String errorMessage,
@@ -73,6 +76,7 @@ class _$SubscriptionStateCopyWithImpl<$Res, $Val extends SubscriptionState>
     Object? plans = null,
     Object? subscriptionStatus = null,
     Object? activeSubscription = freezed,
+    Object? aggregator = freezed,
     Object? initiateStatus = null,
     Object? paymentLink = null,
     Object? errorMessage = null,
@@ -95,6 +99,10 @@ class _$SubscriptionStateCopyWithImpl<$Res, $Val extends SubscriptionState>
                 ? _value.activeSubscription
                 : activeSubscription // ignore: cast_nullable_to_non_nullable
                       as UserSubscriptionResponse?,
+            aggregator: freezed == aggregator
+                ? _value.aggregator
+                : aggregator // ignore: cast_nullable_to_non_nullable
+                      as PlanAggregatorResponse?,
             initiateStatus: null == initiateStatus
                 ? _value.initiateStatus
                 : initiateStatus // ignore: cast_nullable_to_non_nullable
@@ -127,6 +135,7 @@ abstract class _$$SubscriptionStateImplCopyWith<$Res>
     List<PlanMasterResponse> plans,
     SubscriptionStatus subscriptionStatus,
     UserSubscriptionResponse? activeSubscription,
+    PlanAggregatorResponse? aggregator,
     SubscriptionStatus initiateStatus,
     String paymentLink,
     String errorMessage,
@@ -151,6 +160,7 @@ class __$$SubscriptionStateImplCopyWithImpl<$Res>
     Object? plans = null,
     Object? subscriptionStatus = null,
     Object? activeSubscription = freezed,
+    Object? aggregator = freezed,
     Object? initiateStatus = null,
     Object? paymentLink = null,
     Object? errorMessage = null,
@@ -173,6 +183,10 @@ class __$$SubscriptionStateImplCopyWithImpl<$Res>
             ? _value.activeSubscription
             : activeSubscription // ignore: cast_nullable_to_non_nullable
                   as UserSubscriptionResponse?,
+        aggregator: freezed == aggregator
+            ? _value.aggregator
+            : aggregator // ignore: cast_nullable_to_non_nullable
+                  as PlanAggregatorResponse?,
         initiateStatus: null == initiateStatus
             ? _value.initiateStatus
             : initiateStatus // ignore: cast_nullable_to_non_nullable
@@ -198,6 +212,7 @@ class _$SubscriptionStateImpl implements _SubscriptionState {
     final List<PlanMasterResponse> plans = const [],
     this.subscriptionStatus = SubscriptionStatus.initial,
     this.activeSubscription = null,
+    this.aggregator = null,
     this.initiateStatus = SubscriptionStatus.initial,
     this.paymentLink = '',
     this.errorMessage = '',
@@ -223,6 +238,10 @@ class _$SubscriptionStateImpl implements _SubscriptionState {
   @override
   @JsonKey()
   final UserSubscriptionResponse? activeSubscription;
+  // Plan Aggregator
+  @override
+  @JsonKey()
+  final PlanAggregatorResponse? aggregator;
   // Initiate
   @override
   @JsonKey()
@@ -236,7 +255,7 @@ class _$SubscriptionStateImpl implements _SubscriptionState {
 
   @override
   String toString() {
-    return 'SubscriptionState(plansStatus: $plansStatus, plans: $plans, subscriptionStatus: $subscriptionStatus, activeSubscription: $activeSubscription, initiateStatus: $initiateStatus, paymentLink: $paymentLink, errorMessage: $errorMessage)';
+    return 'SubscriptionState(plansStatus: $plansStatus, plans: $plans, subscriptionStatus: $subscriptionStatus, activeSubscription: $activeSubscription, aggregator: $aggregator, initiateStatus: $initiateStatus, paymentLink: $paymentLink, errorMessage: $errorMessage)';
   }
 
   @override
@@ -251,6 +270,8 @@ class _$SubscriptionStateImpl implements _SubscriptionState {
                 other.subscriptionStatus == subscriptionStatus) &&
             (identical(other.activeSubscription, activeSubscription) ||
                 other.activeSubscription == activeSubscription) &&
+            (identical(other.aggregator, aggregator) ||
+                other.aggregator == aggregator) &&
             (identical(other.initiateStatus, initiateStatus) ||
                 other.initiateStatus == initiateStatus) &&
             (identical(other.paymentLink, paymentLink) ||
@@ -266,6 +287,7 @@ class _$SubscriptionStateImpl implements _SubscriptionState {
     const DeepCollectionEquality().hash(_plans),
     subscriptionStatus,
     activeSubscription,
+    aggregator,
     initiateStatus,
     paymentLink,
     errorMessage,
@@ -289,6 +311,7 @@ abstract class _SubscriptionState implements SubscriptionState {
     final List<PlanMasterResponse> plans,
     final SubscriptionStatus subscriptionStatus,
     final UserSubscriptionResponse? activeSubscription,
+    final PlanAggregatorResponse? aggregator,
     final SubscriptionStatus initiateStatus,
     final String paymentLink,
     final String errorMessage,
@@ -302,7 +325,9 @@ abstract class _SubscriptionState implements SubscriptionState {
   @override
   SubscriptionStatus get subscriptionStatus;
   @override
-  UserSubscriptionResponse? get activeSubscription; // Initiate
+  UserSubscriptionResponse? get activeSubscription; // Plan Aggregator
+  @override
+  PlanAggregatorResponse? get aggregator; // Initiate
   @override
   SubscriptionStatus get initiateStatus;
   @override

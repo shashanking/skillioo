@@ -23,6 +23,11 @@ mixin _$AuthState {
   String get purpose => throw _privateConstructorUsedError;
   String get errorMessage => throw _privateConstructorUsedError;
   bool get isResending => throw _privateConstructorUsedError;
+  String get profileId => throw _privateConstructorUsedError;
+  String get accessToken => throw _privateConstructorUsedError;
+  String get refreshToken => throw _privateConstructorUsedError;
+  bool get isCreator => throw _privateConstructorUsedError;
+  bool get isOnboarded => throw _privateConstructorUsedError;
 
   /// Create a copy of AuthState
   /// with the given fields replaced by the non-null parameter values.
@@ -43,6 +48,11 @@ abstract class $AuthStateCopyWith<$Res> {
     String purpose,
     String errorMessage,
     bool isResending,
+    String profileId,
+    String accessToken,
+    String refreshToken,
+    bool isCreator,
+    bool isOnboarded,
   });
 }
 
@@ -67,6 +77,11 @@ class _$AuthStateCopyWithImpl<$Res, $Val extends AuthState>
     Object? purpose = null,
     Object? errorMessage = null,
     Object? isResending = null,
+    Object? profileId = null,
+    Object? accessToken = null,
+    Object? refreshToken = null,
+    Object? isCreator = null,
+    Object? isOnboarded = null,
   }) {
     return _then(
       _value.copyWith(
@@ -94,6 +109,26 @@ class _$AuthStateCopyWithImpl<$Res, $Val extends AuthState>
                 ? _value.isResending
                 : isResending // ignore: cast_nullable_to_non_nullable
                       as bool,
+            profileId: null == profileId
+                ? _value.profileId
+                : profileId // ignore: cast_nullable_to_non_nullable
+                      as String,
+            accessToken: null == accessToken
+                ? _value.accessToken
+                : accessToken // ignore: cast_nullable_to_non_nullable
+                      as String,
+            refreshToken: null == refreshToken
+                ? _value.refreshToken
+                : refreshToken // ignore: cast_nullable_to_non_nullable
+                      as String,
+            isCreator: null == isCreator
+                ? _value.isCreator
+                : isCreator // ignore: cast_nullable_to_non_nullable
+                      as bool,
+            isOnboarded: null == isOnboarded
+                ? _value.isOnboarded
+                : isOnboarded // ignore: cast_nullable_to_non_nullable
+                      as bool,
           )
           as $Val,
     );
@@ -116,6 +151,11 @@ abstract class _$$AuthStateImplCopyWith<$Res>
     String purpose,
     String errorMessage,
     bool isResending,
+    String profileId,
+    String accessToken,
+    String refreshToken,
+    bool isCreator,
+    bool isOnboarded,
   });
 }
 
@@ -139,6 +179,11 @@ class __$$AuthStateImplCopyWithImpl<$Res>
     Object? purpose = null,
     Object? errorMessage = null,
     Object? isResending = null,
+    Object? profileId = null,
+    Object? accessToken = null,
+    Object? refreshToken = null,
+    Object? isCreator = null,
+    Object? isOnboarded = null,
   }) {
     return _then(
       _$AuthStateImpl(
@@ -166,6 +211,26 @@ class __$$AuthStateImplCopyWithImpl<$Res>
             ? _value.isResending
             : isResending // ignore: cast_nullable_to_non_nullable
                   as bool,
+        profileId: null == profileId
+            ? _value.profileId
+            : profileId // ignore: cast_nullable_to_non_nullable
+                  as String,
+        accessToken: null == accessToken
+            ? _value.accessToken
+            : accessToken // ignore: cast_nullable_to_non_nullable
+                  as String,
+        refreshToken: null == refreshToken
+            ? _value.refreshToken
+            : refreshToken // ignore: cast_nullable_to_non_nullable
+                  as String,
+        isCreator: null == isCreator
+            ? _value.isCreator
+            : isCreator // ignore: cast_nullable_to_non_nullable
+                  as bool,
+        isOnboarded: null == isOnboarded
+            ? _value.isOnboarded
+            : isOnboarded // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -181,6 +246,11 @@ class _$AuthStateImpl implements _AuthState {
     this.purpose = '',
     this.errorMessage = '',
     this.isResending = false,
+    this.profileId = '',
+    this.accessToken = '',
+    this.refreshToken = '',
+    this.isCreator = false,
+    this.isOnboarded = false,
   });
 
   @override
@@ -201,10 +271,25 @@ class _$AuthStateImpl implements _AuthState {
   @override
   @JsonKey()
   final bool isResending;
+  @override
+  @JsonKey()
+  final String profileId;
+  @override
+  @JsonKey()
+  final String accessToken;
+  @override
+  @JsonKey()
+  final String refreshToken;
+  @override
+  @JsonKey()
+  final bool isCreator;
+  @override
+  @JsonKey()
+  final bool isOnboarded;
 
   @override
   String toString() {
-    return 'AuthState(status: $status, phoneNumber: $phoneNumber, verificationId: $verificationId, purpose: $purpose, errorMessage: $errorMessage, isResending: $isResending)';
+    return 'AuthState(status: $status, phoneNumber: $phoneNumber, verificationId: $verificationId, purpose: $purpose, errorMessage: $errorMessage, isResending: $isResending, profileId: $profileId, accessToken: $accessToken, refreshToken: $refreshToken, isCreator: $isCreator, isOnboarded: $isOnboarded)';
   }
 
   @override
@@ -221,7 +306,17 @@ class _$AuthStateImpl implements _AuthState {
             (identical(other.errorMessage, errorMessage) ||
                 other.errorMessage == errorMessage) &&
             (identical(other.isResending, isResending) ||
-                other.isResending == isResending));
+                other.isResending == isResending) &&
+            (identical(other.profileId, profileId) ||
+                other.profileId == profileId) &&
+            (identical(other.accessToken, accessToken) ||
+                other.accessToken == accessToken) &&
+            (identical(other.refreshToken, refreshToken) ||
+                other.refreshToken == refreshToken) &&
+            (identical(other.isCreator, isCreator) ||
+                other.isCreator == isCreator) &&
+            (identical(other.isOnboarded, isOnboarded) ||
+                other.isOnboarded == isOnboarded));
   }
 
   @override
@@ -233,6 +328,11 @@ class _$AuthStateImpl implements _AuthState {
     purpose,
     errorMessage,
     isResending,
+    profileId,
+    accessToken,
+    refreshToken,
+    isCreator,
+    isOnboarded,
   );
 
   /// Create a copy of AuthState
@@ -252,6 +352,11 @@ abstract class _AuthState implements AuthState {
     final String purpose,
     final String errorMessage,
     final bool isResending,
+    final String profileId,
+    final String accessToken,
+    final String refreshToken,
+    final bool isCreator,
+    final bool isOnboarded,
   }) = _$AuthStateImpl;
 
   @override
@@ -266,6 +371,16 @@ abstract class _AuthState implements AuthState {
   String get errorMessage;
   @override
   bool get isResending;
+  @override
+  String get profileId;
+  @override
+  String get accessToken;
+  @override
+  String get refreshToken;
+  @override
+  bool get isCreator;
+  @override
+  bool get isOnboarded;
 
   /// Create a copy of AuthState
   /// with the given fields replaced by the non-null parameter values.

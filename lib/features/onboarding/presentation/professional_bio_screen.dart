@@ -4,7 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../constants/app_constants.dart';
+import '../../../core/widgets/gradient_cta_button.dart';
+import '../../../core/services/session_state_provider.dart';
 import '../../../core/widgets/common_background.dart';
 import '../application/onboarding_data_provider.dart';
 import '../application/professional_bio_provider.dart';
@@ -31,6 +32,11 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
   final TextEditingController _monthlyController = TextEditingController();
 
   bool _showContinue = false;
+  String? _bioError;
+  String? _hourlyError;
+  String? _dailyError;
+  String? _weeklyError;
+  String? _monthlyError;
 
   @override
   void initState() {
@@ -50,12 +56,33 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
     final monthly = _monthlyController.text.trim();
 
     setState(() {
+      _bioError = bio.isNotEmpty && bio.length < 10
+          ? 'Bio must be at least 10 characters'
+          : null;
+      _hourlyError = hourly.isNotEmpty && (double.tryParse(hourly) ?? 0) <= 0
+          ? 'Enter a valid amount'
+          : null;
+      _dailyError = daily.isNotEmpty && (double.tryParse(daily) ?? 0) <= 0
+          ? 'Enter a valid amount'
+          : null;
+      _weeklyError = weekly.isNotEmpty && (double.tryParse(weekly) ?? 0) <= 0
+          ? 'Enter a valid amount'
+          : null;
+      _monthlyError = monthly.isNotEmpty && (double.tryParse(monthly) ?? 0) <= 0
+          ? 'Enter a valid amount'
+          : null;
+
       _showContinue =
-          bio.isNotEmpty &&
+          bio.length >= 10 &&
+          _bioError == null &&
           hourly.isNotEmpty &&
+          _hourlyError == null &&
           daily.isNotEmpty &&
+          _dailyError == null &&
           weekly.isNotEmpty &&
-          monthly.isNotEmpty;
+          _weeklyError == null &&
+          monthly.isNotEmpty &&
+          _monthlyError == null;
     });
   }
 
@@ -99,192 +126,199 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
                 left: 0,
                 right: 0,
                 bottom: 24.h,
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 16.w),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 58.h,
-                    child: Builder(
-                      builder: (context) {
-                        final isRegistering =
-                            ref.watch(registrationNotifierProvider).status ==
-                            RegistrationStatus.loading;
-                        return TextButton(
-                          onPressed: (_showContinue && !isRegistering)
-                              ? () async {
-                                  final bio = _bioController.text.trim();
-                                  final hourly = _hourlyController.text.trim();
-                                  final daily = _dailyController.text.trim();
-                                  final weekly = _weeklyController.text.trim();
-                                  final monthly = _monthlyController.text
-                                      .trim();
-
-                                  ref
-                                      .read(professionalBioProvider.notifier)
-                                      .state = ProfessionalBioData(
-                                    bio: bio,
-                                    hourly: hourly,
-                                    daily: daily,
-                                    weekly: weekly,
-                                    monthly: monthly,
-                                  );
-
-                                  final talentType = ref.read(
-                                    talentTypeProvider,
-                                  );
-                                  final proficiency =
-                                      talentType == TalentType.professional
-                                      ? 'PROFESSIONAL'
-                                      : 'SKILLED';
-                                  final eventsCount =
-                                      int.tryParse(
-                                        ref.read(
-                                              professionalEventsCountProvider,
-                                            ) ??
-                                            '0',
-                                      ) ??
-                                      0;
-
-                                  // Sync document IDs from registration state
-                                  final regState = ref.read(
-                                    registrationNotifierProvider,
-                                  );
-
-                                  // Update onboarding data with portfolio + docs + social media follows
-                                  final updatedData = ref
-                                      .read(onboardingDataProvider)
-                                      .copyWith(
-                                        category:
-                                            ref.read(talentCategoryProvider) ??
-                                            '',
-                                        subCategory:
-                                            ref.read(
-                                              talentSubcategoryProvider,
-                                            ) ??
-                                            '',
-                                        proficiency: proficiency,
-                                        bio: bio,
-                                        totalEvents: eventsCount,
-                                        hourlyPricing:
-                                            double.tryParse(hourly) ?? 0,
-                                        dailyPricing:
-                                            double.tryParse(daily) ?? 0,
-                                        weeklyPricing:
-                                            double.tryParse(weekly) ?? 0,
-                                        monthlyPricing:
-                                            double.tryParse(monthly) ?? 0,
-                                        profileDocumentId:
-                                            regState.profileDocumentId,
-                                        videoDocumentIds:
-                                            regState.videoDocumentIds,
-                                        imageDocumentIds:
-                                            regState.imageDocumentIds,
-                                        eventsDoneDocumentIds:
-                                            regState.eventsDoneDocumentIds,
-                                      );
-                                  ref
-                                          .read(onboardingDataProvider.notifier)
-                                          .state =
-                                      updatedData;
-
-                                  // Validate mandatory uploads before calling API
-                                  final missing = <String>[];
-                                  if (updatedData.profileDocumentId.isEmpty) {
-                                    missing.add('profile photo');
-                                  }
-                                  if (updatedData.videoDocumentIds.isEmpty) {
-                                    missing.add('video');
-                                  }
-                                  if (proficiency == 'PROFESSIONAL') {
-                                    if (updatedData.imageDocumentIds.isEmpty) {
-                                      missing.add('portfolio image');
-                                    }
-                                    if (updatedData
-                                        .eventsDoneDocumentIds
-                                        .isEmpty) {
-                                      missing.add(
-                                        'events/certificates document',
-                                      );
-                                    }
-                                  }
-
-                                  if (missing.isNotEmpty) {
-                                    if (!context.mounted) return;
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          'Please upload: ${missing.join(', ')} before continuing.',
-                                        ),
-                                        backgroundColor: Colors.red,
-                                        duration: const Duration(seconds: 4),
-                                      ),
+                child: Visibility(
+                  visible: _showContinue,
+                  child: Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 16.w),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 58.h,
+                      child: Builder(
+                        // The Builder rebuilds on every status change
+                        // (because we ref.watch below). Its inner context
+                        // becomes deactivated across rebuilds, so we
+                        // capture messenger/router from the State's
+                        // outer `context` (stable for the lifetime of
+                        // this screen) instead of the Builder's.
+                        builder: (_) {
+                          final isRegistering =
+                              ref.watch(registrationNotifierProvider).status ==
+                              RegistrationStatus.loading;
+                          return GradientCtaButton(
+                            label: isRegistering ? 'Loading' : 'Continue',
+                            width: double.infinity,
+                            height: 58,
+                            enabled: _showContinue && !isRegistering,
+                            onPressed: (_showContinue && !isRegistering)
+                                ? () async {
+                                    // Capture before any await — using
+                                    // a deactivated context after the
+                                    // Builder rebuilds throws
+                                    // "deactivated widget's ancestor
+                                    // is unsafe".
+                                    final messenger = ScaffoldMessenger.of(
+                                      context,
                                     );
-                                    return;
-                                  }
+                                    final router = GoRouter.of(context);
 
-                                  await ref
-                                      .read(
-                                        registrationNotifierProvider.notifier,
-                                      )
-                                      .registerProfile(updatedData);
+                                    final bio = _bioController.text.trim();
+                                    final hourly = _hourlyController.text
+                                        .trim();
+                                    final daily = _dailyController.text.trim();
+                                    final weekly = _weeklyController.text
+                                        .trim();
+                                    final monthly = _monthlyController.text
+                                        .trim();
 
-                                  if (!context.mounted) return;
-                                  final finalState = ref.read(
-                                    registrationNotifierProvider,
-                                  );
-                                  if (finalState.status ==
-                                      RegistrationStatus.success) {
-                                    GoRouter.of(context).go('/enter-pin');
-                                  } else if (finalState.status ==
-                                      RegistrationStatus.error) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(
-                                          finalState.errorMessage.isNotEmpty
-                                              ? finalState.errorMessage
-                                              : 'Registration failed. Please try again.',
-                                        ),
-                                        backgroundColor: Colors.red,
-                                      ),
+                                    ref
+                                        .read(professionalBioProvider.notifier)
+                                        .state = ProfessionalBioData(
+                                      bio: bio,
+                                      hourly: hourly,
+                                      daily: daily,
+                                      weekly: weekly,
+                                      monthly: monthly,
                                     );
+
+                                    final talentType = ref.read(
+                                      talentTypeProvider,
+                                    );
+                                    final proficiency =
+                                        talentType == TalentType.professional
+                                        ? 'PROFESSIONAL'
+                                        : 'SKILLED';
+                                    final eventsCount =
+                                        int.tryParse(
+                                          ref.read(
+                                                professionalEventsCountProvider,
+                                              ) ??
+                                              '0',
+                                        ) ??
+                                        0;
+
+                                    final regState = ref.read(
+                                      registrationNotifierProvider,
+                                    );
+
+                                    final updatedData = ref
+                                        .read(onboardingDataProvider)
+                                        .copyWith(
+                                          category:
+                                              ref.read(
+                                                talentCategoryProvider,
+                                              ) ??
+                                              '',
+                                          subCategory:
+                                              ref.read(
+                                                talentSubcategoryProvider,
+                                              ) ??
+                                              '',
+                                          proficiency: proficiency,
+                                          bio: bio,
+                                          totalEvents: eventsCount,
+                                          hourlyPricing:
+                                              double.tryParse(hourly) ?? 0,
+                                          dailyPricing:
+                                              double.tryParse(daily) ?? 0,
+                                          weeklyPricing:
+                                              double.tryParse(weekly) ?? 0,
+                                          monthlyPricing:
+                                              double.tryParse(monthly) ?? 0,
+                                          profileDocumentId:
+                                              regState.profileDocumentId,
+                                          videoDocumentIds:
+                                              regState.videoDocumentIds,
+                                          imageDocumentIds:
+                                              regState.imageDocumentIds,
+                                          eventsDoneDocumentIds:
+                                              regState.eventsDoneDocumentIds,
+                                        );
+                                    ref
+                                            .read(
+                                              onboardingDataProvider.notifier,
+                                            )
+                                            .state =
+                                        updatedData;
+
+                                    final missing = <String>[];
+                                    if (updatedData.profileDocumentId.isEmpty) {
+                                      missing.add('profile photo');
+                                    }
+                                    if (proficiency == 'PROFESSIONAL') {
+                                      if (updatedData
+                                          .imageDocumentIds
+                                          .isEmpty) {
+                                        missing.add('portfolio image');
+                                      }
+                                      if (updatedData
+                                          .eventsDoneDocumentIds
+                                          .isEmpty) {
+                                        missing.add(
+                                          'events/certificates document',
+                                        );
+                                      }
+                                    }
+
+                                    if (missing.isNotEmpty) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            'Please upload: ${missing.join(', ')} before continuing.',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                          duration: const Duration(seconds: 4),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    await ref
+                                        .read(
+                                          registrationNotifierProvider.notifier,
+                                        )
+                                        .registerProfile(updatedData);
+
+                                    final finalState = ref.read(
+                                      registrationNotifierProvider,
+                                    );
+                                    if (finalState.status ==
+                                        RegistrationStatus.success) {
+                                      // Pull the freshly-cached profile
+                                      // (now isCreator: true) into the
+                                      // reactive sessionState so the
+                                      // dashboard renders the creator
+                                      // top bar immediately — without
+                                      // this the user sees the
+                                      // Logout + Create Profile UI
+                                      // until the next app reload.
+                                      await ref
+                                          .read(sessionStateProvider.notifier)
+                                          .refresh();
+                                      // User was already logged in from
+                                      // OTP verify; PIN was set during
+                                      // signup. Registration completes
+                                      // creator status — drop them
+                                      // straight on the dashboard via
+                                      // the success splash.
+                                      router.go('/registration-success');
+                                    } else if (finalState.status ==
+                                        RegistrationStatus.error) {
+                                      messenger.showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            finalState.errorMessage.isNotEmpty
+                                                ? finalState.errorMessage
+                                                : 'Registration failed. Please try again.',
+                                          ),
+                                          backgroundColor: Colors.red,
+                                        ),
+                                      );
+                                    }
                                   }
-                                }
-                              : null,
-                          style: TextButton.styleFrom(
-                            padding: EdgeInsets.zero,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(48.r),
-                            ),
-                            backgroundColor: Colors.black,
-                          ),
-                          child: Ink(
-                            decoration: BoxDecoration(
-                              gradient: AppColors.ctaGradient,
-                              borderRadius: BorderRadius.circular(48.r),
-                            ),
-                            child: Center(
-                              child: isRegistering
-                                  ? SizedBox(
-                                      width: 22.w,
-                                      height: 22.w,
-                                      child: const CircularProgressIndicator(
-                                        color: Colors.white,
-                                        strokeWidth: 2.5,
-                                      ),
-                                    )
-                                  : Text(
-                                      'Continue',
-                                      style: TextStyle(
-                                        fontFamily: 'Outfit',
-                                        fontSize: 16.sp,
-                                        fontWeight: FontWeight.w600,
-                                        color: const Color(0xFFF5F5F5),
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        );
-                      },
+                                : null,
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -305,7 +339,11 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
             if (GoRouter.of(context).canPop()) {
               GoRouter.of(context).pop();
             } else {
-              GoRouter.of(context).go('/social-links');
+              final talentType = ref.read(talentTypeProvider);
+              final backRoute = talentType == TalentType.skilled
+                  ? '/skilled-social-links'
+                  : '/social-links';
+              GoRouter.of(context).go(backRoute);
             }
           },
           child: Container(
@@ -316,16 +354,17 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
         ),
         Text(
-          'Step: 1 of 3',
+          'Step: 4 of 4',
           style: TextStyle(
             fontFamily: 'Outfit',
             fontSize: 16.sp,
@@ -392,6 +431,21 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
             ),
           ),
         ),
+        if (_bioError != null) ...[
+          SizedBox(height: 6.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Text(
+              _bioError!,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w400,
+                color: Colors.redAccent,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -420,18 +474,22 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
           ),
         ),
         SizedBox(height: 16.h),
-        _buildRateField('Hourly Pricing', _hourlyController),
+        _buildRateField('Hourly Pricing', _hourlyController, _hourlyError),
         SizedBox(height: 12.h),
-        _buildRateField('Daily Pricing', _dailyController),
+        _buildRateField('Daily Pricing', _dailyController, _dailyError),
         SizedBox(height: 12.h),
-        _buildRateField('Weekly Pricing', _weeklyController),
+        _buildRateField('Weekly Pricing', _weeklyController, _weeklyError),
         SizedBox(height: 12.h),
-        _buildRateField('Monthly Pricing', _monthlyController),
+        _buildRateField('Monthly Pricing', _monthlyController, _monthlyError),
       ],
     );
   }
 
-  Widget _buildRateField(String label, TextEditingController controller) {
+  Widget _buildRateField(
+    String label,
+    TextEditingController controller,
+    String? error,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -449,7 +507,7 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
           height: 56.h,
           decoration: BoxDecoration(
             color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(48.r),
+            borderRadius: BorderRadius.circular(24.r),
           ),
           alignment: Alignment.centerLeft,
           padding: EdgeInsets.symmetric(horizontal: 24.w),
@@ -464,9 +522,22 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
               color: const Color(0xFFF5F5F5),
             ),
             cursorColor: Colors.white,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               border: InputBorder.none,
               isCollapsed: true,
+              prefixIcon: Padding(
+                padding: EdgeInsets.only(right: 8.w),
+                child: Text(
+                  '₹',
+                  style: TextStyle(
+                    fontFamily: 'Outfit',
+                    fontSize: 16.sp,
+                    fontWeight: FontWeight.w500,
+                    color: const Color(0xFFF5F5F5),
+                  ),
+                ),
+              ),
+              prefixIconConstraints: BoxConstraints(minWidth: 0, minHeight: 0),
             ),
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
@@ -474,6 +545,21 @@ class _ProfessionalBioScreenState extends ConsumerState<ProfessionalBioScreen> {
             ],
           ),
         ),
+        if (error != null) ...[
+          SizedBox(height: 4.h),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.w),
+            child: Text(
+              error,
+              style: TextStyle(
+                fontFamily: 'Outfit',
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w400,
+                color: Colors.redAccent,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }

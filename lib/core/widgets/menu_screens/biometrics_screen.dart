@@ -1,24 +1,35 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
 import '../../../core/services/auth_prefs.dart';
+import '../../localization/locale_extension.dart';
 import '../common_background.dart';
 import '../custom_text.dart';
+import '../gradient_cta_button.dart';
 import '../icon_button.dart';
 
-class BiometricsScreen extends StatefulWidget {
+class BiometricsScreen extends ConsumerStatefulWidget {
   const BiometricsScreen({super.key});
 
   @override
-  State<BiometricsScreen> createState() => _BiometricsScreenState();
+  ConsumerState<BiometricsScreen> createState() => _BiometricsScreenState();
 }
 
-class _BiometricsScreenState extends State<BiometricsScreen> {
-  final List<String> _fingerprints = [
-    AppStrings.fingerprint1,
-    AppStrings.fingerprint2,
-  ];
+class _BiometricsScreenState extends ConsumerState<BiometricsScreen> {
+  List<String> _fingerprints = [];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize with localized fingerprint names after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() {
+        _fingerprints = [ref.tr.fingerprint1, ref.tr.fingerprint2];
+      });
+    });
+  }
 
   void _onAddFingerprint() {
     showModalBottomSheet(
@@ -43,8 +54,9 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       builder: (ctx) {
+        final fingerprint = _fingerprints[index];
         return _DeleteFingerprintSheet(
-          fingerprintName: _fingerprints[index],
+          fingerprintName: fingerprint,
           onConfirm: () {
             setState(() {
               _fingerprints.removeAt(index);
@@ -58,6 +70,7 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final tr = ref.tr;
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -70,12 +83,12 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                 child: Row(
                   children: [
                     IconCircleButton(
-                      icon: Icons.arrow_back,
+                      assetPath: 'assets/images/arrow-left.png',
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(width: 24.w),
                     CustomText(
-                      AppStrings.biometrics,
+                      tr.biometrics,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -101,32 +114,15 @@ class _BiometricsScreenState extends State<BiometricsScreen> {
                       }),
                       const Spacer(),
                       // Add New Fingerprint CTA
-                      GestureDetector(
-                        onTap: _onAddFingerprint,
-                        child: Container(
-                          width: double.infinity,
-                          height: 58.h,
-                          decoration: BoxDecoration(
-                            gradient: AppColors.ctaGradient,
-                            borderRadius: BorderRadius.circular(48.r),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add,
-                                color: AppColors.foundationBlack20,
-                                size: 24.sp,
-                              ),
-                              SizedBox(width: 8.w),
-                              CustomText(
-                                AppStrings.addNewFingerprint,
-                                fontSize: 16.sp,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.foundationBlack20,
-                              ),
-                            ],
-                          ),
+                      GradientCtaButton(
+                        label: tr.addNewFingerprint,
+                        onPressed: _onAddFingerprint,
+                        width: double.infinity,
+                        borderRadius: BorderRadius.circular(48.r),
+                        leading: Icon(
+                          Icons.add,
+                          color: AppColors.foundationBlack20,
+                          size: 24.sp,
                         ),
                       ),
                       SizedBox(height: 24.h),

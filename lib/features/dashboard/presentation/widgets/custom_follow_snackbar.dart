@@ -143,7 +143,7 @@ class _SnackbarContentState extends State<_SnackbarContent>
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         CustomText(
-                          'Added to favorites',
+                          'Following',
                           fontSize: 14.sp,
                           fontWeight: FontWeight.w600,
                           color: Colors.white.withValues(alpha: 0.9),

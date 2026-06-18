@@ -1,8 +1,11 @@
 class ApiConfig {
   // ── Base URLs (3 microservices) ──
-  static const String customerBaseUrl = 'https://skillioo.in/customer/api';
-  static const String postBaseUrl = 'https://skillioo.in/post/api';
-  static const String paymentBaseUrl = 'https://skillioo.in/payment/api';
+  static const String customerBaseUrl =
+      'https://skillioo.mitraconsultancy.co.in/customer/api';
+  static const String postBaseUrl =
+      'https://skillioo.mitraconsultancy.co.in/post/api';
+  static const String paymentBaseUrl =
+      'https://skillioo.mitraconsultancy.co.in/payment/api';
 
   /// Legacy alias – existing services already reference this.
   static const String baseUrl = customerBaseUrl;
@@ -17,7 +20,10 @@ class ApiConfig {
 
   // ── Customer MS: Profile / Registration ──
   static const String profile = '/v1/profile';
+  static const String profileDetails = '/v1/profile/details';
   static const String profileLogin = '/v1/profile/login';
+  static const String profilePin = '/v1/profile/pin';
+  static const String profileForgotPin = '/v1/profile/forgotPin';
   static const String profileHiringRate = '/v1/profile/hiringRate';
   static const String profileCounts = '/v1/profile/counts';
 
@@ -28,9 +34,13 @@ class ApiConfig {
 
   // ── Customer MS: Call ──
   static const String call = '/v1/call';
+  static const String callToken = '/v1/call/token';
   static const String callAccept = '/v1/call/accept';
   static const String callReject = '/v1/call/reject';
   static const String callEnd = '/v1/call/end';
+
+  // ── Customer MS: FCM Token ──
+  static const String fcmToken = '/v1/token';
 
   // ── Customer MS: Notification ──
   static const String notification = '/v1/notification';
@@ -42,6 +52,7 @@ class ApiConfig {
   // ── Customer MS: User Subscription ──
   static const String userSubscription = '/v1/user-subscription';
   static const String userSubscriptionStatus = '/v1/user-subscription/status';
+  static const String planAggregator = '/v1/planAggregator';
 
   // ── Post MS: Short User ──
   static const String shortUser = '/v1/shortUser';
@@ -52,11 +63,27 @@ class ApiConfig {
   // ── Post MS: Comment ──
   static const String comment = '/v1/comment';
 
+  // ── Post MS: Like (profile) ──
+  static const String likeProfile = '/v1/like';
+
   // ── Post MS: Reaction ──
   static const String reaction = '/v1/reaction';
 
   // ── Post MS: Reach ──
   static const String reach = '/v1/reach';
+
+  // ── Post MS: Follow ──
+  static const String follow = '/v1/follow';
+  static const String followFollowers = '/v1/follow/followers';
+  static const String followFollowing = '/v1/follow/following';
+  static const String followCount = '/v1/follow/count';
+
+  // ── Post MS: Privacy ──
+  static const String privacy = '/v1/privacy';
+
+  // ── Customer MS: Category ──
+  static const String category = '/v1/category';
+  static const String subCategory = '/v1/subCategory';
 
   // ── Payment MS: Payment ──
   static const String payment = '/v1/payment';

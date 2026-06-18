@@ -9,6 +9,7 @@ import '../../../onboarding/domain/document_service.dart';
 import '../../../posts/application/post_providers.dart';
 import '../../../posts/application/states/post_state.dart';
 import '../../../posts/presentation/full_post_view.dart';
+import 'media_document_resolver.dart';
 
 class PostFeedGrid extends ConsumerStatefulWidget {
   const PostFeedGrid({super.key});
@@ -20,40 +21,50 @@ class PostFeedGrid extends ConsumerStatefulWidget {
 class _PostFeedGridState extends ConsumerState<PostFeedGrid> {
   Future<Map<String, DocumentInfo>>? _documentsFuture;
   List<String> _lastDocIds = const [];
+  final Map<String, DocumentInfo> _cachedDocuments = {};
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref
-          .read(postNotifierProvider.notifier)
-          .fetchFeed(mediaType: 'post', refresh: true);
+      // Feed is preloaded by Landing — only fetch if missing
+      final state = ref.read(postNotifierProvider);
+      if (state.feedPosts.isEmpty && state.feedStatus != PostStatus.loading) {
+        ref
+            .read(postNotifierProvider.notifier)
+            .fetchFeed(mediaType: 'post', refresh: true);
+      }
     });
   }
 
   Future<Map<String, DocumentInfo>> _fetchDocumentsByIds(
     List<String> ids,
   ) async {
+    // Only fetch IDs we haven't cached yet
+    final missingIds = ids.where((id) => !_cachedDocuments.containsKey(id)).toList();
+    if (missingIds.isEmpty) return _cachedDocuments;
+
     final token = await SessionPrefs.instance.getAccessToken();
-    if (token.isEmpty) return <String, DocumentInfo>{};
 
     final service = DocumentService();
-    final res = await service.getDocumentsByIds(ids: ids, accessToken: token);
+    final res = await service.getDocumentsByIds(
+      ids: missingIds,
+      accessToken: token.isNotEmpty ? token : null,
+    );
 
     final success = res['success'] as bool?;
-    if (success == false) return <String, DocumentInfo>{};
+    if (success == false) return _cachedDocuments;
 
     final list = res['data'] as List<dynamic>? ?? const [];
-    final map = <String, DocumentInfo>{};
     for (final item in list) {
       if (item is Map<String, dynamic>) {
         try {
           final doc = DocumentInfo.fromJson(item);
-          map[doc.id] = doc;
+          _cachedDocuments[doc.id] = doc;
         } catch (_) {}
       }
     }
-    return map;
+    return _cachedDocuments;
   }
 
   bool _isVideoFromDoc(DocumentInfo doc) {
@@ -66,7 +77,7 @@ class _PostFeedGridState extends ConsumerState<PostFeedGrid> {
   Widget build(BuildContext context) {
     final postState = ref.watch(postNotifierProvider);
     final media = postState.feedPosts
-        .where((m) => m.mediaType == 'post')
+        .where((m) => m.mediaType?.toLowerCase() == 'post')
         .where((m) => m.documentId != null && m.documentId!.isNotEmpty)
         .toList();
 
@@ -88,9 +99,7 @@ class _PostFeedGridState extends ConsumerState<PostFeedGrid> {
       return Center(
         child: Padding(
           padding: EdgeInsets.all(32.h),
-          child: CircularProgressIndicator(
-            color: Colors.white.withValues(alpha: 0.7),
-          ),
+          child: CircularProgressIndicator(color: Colors.white),
         ),
       );
     }
@@ -110,26 +119,34 @@ class _PostFeedGridState extends ConsumerState<PostFeedGrid> {
                 int totalComments,
                 int totalLikes,
                 int totalViews,
+                String description,
               })
             >[];
         for (final m in media) {
-          final firstId = (m.documentId ?? const []).isEmpty
-              ? null
-              : (m.documentId ?? const []).first;
-          if (firstId == null) continue;
-          final doc = docs[firstId];
-          if (doc == null) continue;
+          final doc = resolvePreferredDocument(m.documentId, docs);
+          final mediaUrl = doc != null
+              ? (doc.url.startsWith('http://')
+                    ? doc.url.replaceFirst('http://', 'https://')
+                    : doc.url)
+              : 'https://placehold.co/400x400/1e1e1e/FFFFFF/png?text=Media+Missing';
+
+          if (doc == null) {
+            debugPrint(
+              'PostFeedGrid: Document lookup failed for media ${m.id}. Defaulting to placeholder url.',
+            );
+          }
           final reach = m.reach;
           final likesMap = reach?.reactionsCount ?? reach?.reactionCount ?? {};
           final totalLikes = (likesMap['like'] as num?)?.toInt() ?? 0;
           items.add((
-            url: doc.url,
-            isVideo: _isVideoFromDoc(doc),
-            author: m.userReferenceId ?? 'User',
+            url: mediaUrl,
+            isVideo: doc != null ? _isVideoFromDoc(doc) : false,
+            author: 'User',
             mediaId: m.id,
             totalComments: reach?.totalComments ?? 0,
             totalLikes: totalLikes,
             totalViews: reach?.totalViews ?? 0,
+            description: m.description ?? '',
           ));
         }
 
@@ -180,6 +197,7 @@ class _PostFeedGridState extends ConsumerState<PostFeedGrid> {
                           totalComments: i.totalComments,
                           totalLikes: i.totalLikes,
                           totalViews: i.totalViews,
+                          description: i.description,
                         ),
                       )
                       .toList();

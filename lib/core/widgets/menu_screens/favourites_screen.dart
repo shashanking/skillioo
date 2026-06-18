@@ -1,82 +1,69 @@
 import 'dart:ui';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../localization/locale_extension.dart';
 import '../common_background.dart';
 import '../custom_text.dart';
 import '../icon_button.dart';
 
-class FavouritesScreen extends StatelessWidget {
+class FavouritesScreen extends ConsumerWidget {
   const FavouritesScreen({super.key});
 
-  // Dummy favourites data
-  static final List<_FavouriteItem> _items = [
-    _FavouriteItem(
-      imagePath: AppAssets.professionalProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.skilledProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.profileImg1,
-      type: AppStrings.skilled,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.professionalProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.skilledProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.profileImg1,
-      type: AppStrings.skilled,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.professionalProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.skilledProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.profileImg1,
-      type: AppStrings.skilled,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.professionalProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.skilledProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.profileImg1,
-      type: AppStrings.skilled,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.professionalProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.skilledProfileJpg,
-      type: AppStrings.professional,
-    ),
-    _FavouriteItem(
-      imagePath: AppAssets.profileImg1,
-      type: AppStrings.skilled,
-    ),
-  ];
-
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.tr;
+    // Dummy favourites data
+    final items = [
+      _FavouriteItem(
+        imagePath: AppAssets.professionalProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(
+        imagePath: AppAssets.skilledProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(imagePath: AppAssets.profileImg1, type: tr.skilled),
+      _FavouriteItem(
+        imagePath: AppAssets.professionalProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(
+        imagePath: AppAssets.skilledProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(imagePath: AppAssets.profileImg1, type: tr.skilled),
+      _FavouriteItem(
+        imagePath: AppAssets.professionalProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(
+        imagePath: AppAssets.skilledProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(imagePath: AppAssets.profileImg1, type: tr.skilled),
+      _FavouriteItem(
+        imagePath: AppAssets.professionalProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(
+        imagePath: AppAssets.skilledProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(imagePath: AppAssets.profileImg1, type: tr.skilled),
+      _FavouriteItem(
+        imagePath: AppAssets.professionalProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(
+        imagePath: AppAssets.skilledProfileJpg,
+        type: tr.professional,
+      ),
+      _FavouriteItem(imagePath: AppAssets.profileImg1, type: tr.skilled),
+    ];
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -85,18 +72,16 @@ class FavouritesScreen extends StatelessWidget {
               // Header
               Container(
                 padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
-                decoration: BoxDecoration(
-                  color: AppColors.glassWhite12,
-                ),
+                decoration: BoxDecoration(color: AppColors.glassWhite12),
                 child: Row(
                   children: [
                     IconCircleButton(
-                      icon: Icons.arrow_back,
+                      assetPath: 'assets/images/arrow-left.png',
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(width: 24.w),
                     CustomText(
-                      AppStrings.favourites,
+                      tr.favourites,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -118,9 +103,9 @@ class FavouritesScreen extends StatelessWidget {
                     mainAxisSpacing: 10.h,
                     childAspectRatio: 1.0,
                   ),
-                  itemCount: _items.length,
+                  itemCount: items.length,
                   itemBuilder: (context, index) {
-                    return _buildFavouriteCard(_items[index]);
+                    return _buildFavouriteCard(items[index]);
                   },
                 ),
               ),
@@ -154,10 +139,7 @@ class FavouritesScreen extends StatelessWidget {
               child: BackdropFilter(
                 filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
                 child: Container(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: 4.w,
-                    vertical: 0,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: 4.w, vertical: 0),
                   decoration: BoxDecoration(
                     color: AppColors.glassWhite48,
                     borderRadius: BorderRadius.circular(24.r),

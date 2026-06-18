@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/widgets/gradient_cta_button.dart';
 import '../../../constants/app_constants.dart';
 import '../../../core/widgets/common_background.dart';
 import '../application/profile_type_provider.dart';
@@ -29,11 +30,11 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
                     SizedBox(height: 24.h),
                     _buildHeader(),
                     SizedBox(height: 24.h),
-                    _buildCardsRow(ref, selectedType),
+                    _buildCardsRow(ref, selectedType, context),
                   ],
                 ),
               ),
-              _buildContinueButton(context, selectedType),
+              _buildContinueButton(context, selectedType, ref),
             ],
           ),
         ),
@@ -58,10 +59,11 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
           borderRadius: BorderRadius.circular(124.r),
         ),
         child: Center(
-          child: Icon(
-            Icons.arrow_back,
+          child: Image.asset(
+            'assets/images/arrow-left.png',
             color: const Color(0xFFF5F5F5),
-            size: 20.sp,
+            width: 20.sp,
+            height: 20.sp,
           ),
         ),
       ),
@@ -95,7 +97,11 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCardsRow(WidgetRef ref, ProfileType? selectedType) {
+  Widget _buildCardsRow(
+    WidgetRef ref,
+    ProfileType? selectedType,
+    BuildContext context,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -104,9 +110,14 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
             description: 'A platform for showcasing individual creativity',
             imagePath: AppAssets.individualProfileJpg,
             isSelected: selectedType == ProfileType.individual,
-            onTap: () {
+            onTap: () async {
               ref.read(profileTypeProvider.notifier).state =
                   ProfileType.individual;
+              await Future.delayed(const Duration(milliseconds: 100));
+
+              if (context.mounted) {
+                context.go('/individual-name');
+              }
             },
           ),
         ),
@@ -117,8 +128,13 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
             description: 'Celebrating talent through teamwork \nand unity',
             imagePath: AppAssets.groupProfileJpg,
             isSelected: selectedType == ProfileType.group,
-            onTap: () {
+            onTap: () async {
               ref.read(profileTypeProvider.notifier).state = ProfileType.group;
+              await Future.delayed(const Duration(milliseconds: 100));
+
+              if (context.mounted) {
+                context.go('/group-name');
+              }
             },
           ),
         ),
@@ -126,7 +142,11 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildContinueButton(BuildContext context, ProfileType? selectedType) {
+  Widget _buildContinueButton(
+    BuildContext context,
+    ProfileType? selectedType,
+    WidgetRef ref,
+  ) {
     final isEnabled = selectedType != null;
     if (!isEnabled) {
       return const SizedBox.shrink();
@@ -138,42 +158,15 @@ class ProfileTypeSelectionScreen extends ConsumerWidget {
       bottom: 24.h,
       child: Padding(
         padding: EdgeInsets.symmetric(horizontal: 16.w),
-        child: SizedBox(
+        child: GradientCtaButton(
+          label: 'Continue',
           width: double.infinity,
-          height: 58.h,
-          child: TextButton(
-            onPressed: () {
-              if (selectedType == ProfileType.group) {
-                GoRouter.of(context).go('/group-name');
-              } else {
-                GoRouter.of(context).go('/individual-name');
-              }
-            },
-            style: TextButton.styleFrom(
-              padding: EdgeInsets.zero,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              backgroundColor: Colors.transparent,
-            ),
-            child: Ink(
-              decoration: BoxDecoration(
-                gradient: AppColors.ctaGradient,
-                borderRadius: BorderRadius.circular(48.r),
-              ),
-              child: Center(
-                child: Text(
-                  'Continue',
-                  style: TextStyle(
-                    fontFamily: 'Outfit',
-                    fontSize: 16.sp,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xFFF5F5F5),
-                  ),
-                ),
-              ),
-            ),
-          ),
+          height: 58,
+          onPressed: () {
+            final type = ref.read(profileTypeProvider);
+            if (type == null) return;
+            GoRouter.of(context).go('/individual-name');
+          },
         ),
       ),
     );
@@ -203,19 +196,18 @@ class _ProfileTypeCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26.r),
           gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.bottomLeft,
-                  end: Alignment.topRight,
-                  colors: [
-                    AppColors.primaryGradientStart,
-                    AppColors.primaryGradientMiddle,
-                  ],
-                  stops: [0.0, 0.6045],
-                  transform: GradientRotation(201.96 * 3.14159 / 180),
+              ? const LinearGradient(
+                  colors: [Color(0xFFC00F8B), Color(0xFF05DAF1)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
                 )
-              : null,
+              : const LinearGradient(
+                  colors: [Color(0xFF000000), Color(0xFFB2B2B2)],
+                  begin: Alignment.bottomRight,
+                  end: Alignment.topLeft,
+                ),
         ),
-        padding: isSelected ? EdgeInsets.all(1) : EdgeInsets.zero,
+        padding: EdgeInsets.all(2),
         child: Container(
           height: 248.h,
           decoration: BoxDecoration(

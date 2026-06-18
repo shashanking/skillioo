@@ -1,0 +1,2029 @@
+{
+  "info": {
+    "_postman_id": "8eb79af2-c337-4bad-a7aa-65ff56a06221",
+    "name": "Payment-Module",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "25633623"
+  },
+  "item": [
+    {
+      "name": "Payment APIs",
+      "item": [
+        {
+          "name": "create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 300,\n    \"provider\": \"RAZORPAY\",\n    \"service\": \"PAYMENT_LINK\",\n    \"userReferenceId\": \"1235\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/payment",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "payment"
+              ]
+            },
+            "description": "# Create Payment\n\n## Overview\n\nThis endpoint creates a new payment transaction using the specified payment provider. It supports various payment services including payment links and can be integrated with providers.\n\n## Endpoint Details\n\n- **URL**: `http://localhost:3000/api/v1/payment`\n- **Method**: `POST`\n- **Content-Type**: `application/json`\n\n## Request Headers\n\n| Header | Value | Required |\n| --- | --- | --- |\n| Content-Type | application/json | Yes |\n\n## Request Body Parameters\n\n| Parameter | Type | Required | Description |\n| --- | --- | --- | --- |\n| `amount` | integer | Yes | The payment amount in the smallest currency unit (e.g., paise for INR) |\n| `provider` | string | Yes | Payment provider identifier (e.g., \"RAZORPAY\") |\n| `service` | string | Yes | Type of payment service to use (e.g., \"PAYMENT_LINK\") |\n| `userReferenceId` | string | Yes | Unique reference identifier for tracking this transaction |\n\n### Example Request Body (Success)\n\n```json\n{\n  \"amount\": 300,\n  \"provider\": \"RAZORPAY\",\n  \"service\": \"PAYMENT_LINK\",\n  \"userReferenceId\": \"1235\",\n}\n```\n\n## Response Format\n\n### Success Response (201 Created)\n\n```json\n{\n  \"status\": 201,\n  \"message\": \"Resource created successfully\",\n  \"data\": {\n    \"id\": \"pay202512251235296d36d445\",\n    \"amount\": \"300\",\n    \"provider\": 1,\n    \"service\": 1,\n    \"metaData\": {\n      \"paymentLinkId\": \"plink_RvqX9vpuOWpH2S\",\n      \"shortUrl\": \"https://rzp.io/rzp/UupO6f4F\",\n      \"shortUrlStatus\": \"created\"\n    },\n    \"createdAt\": \"25-12-2025 18:05:30\",\n    \"updatedAt\": \"25-12-2025 18:05:30\"\n  }\n}\n```\n\n## Saved Examples\n\nThis request includes saved examples demonstrating various error scenarios. Review these examples to understand common validation errors and how to handle them.\n\n### 1. Error: Invalid Service and User Reference\n\n**Scenario**: This error occurs when the provided service type is invalid or not supported, or when the user reference ID format is incorrect.\n\n**Common Causes**:\n- Using an unsupported service type (must be valid service like \"PAYMENT_LINK\")\n- Providing an invalid or improperly formatted `userReferenceId`\n- Service and provider combination mismatch\n\n**Expected Behavior**: The API will return a validation error indicating which field(s) are invalid.\n\n**How to Fix**:\n- Ensure the `service` parameter matches one of the supported service types\n- Verify that `userReferenceId` follows the required format and constraints\n- Check that the service is compatible with the selected provider\n\n### 2. Error: Invalid User Reference ID\n\n**Scenario**: This error occurs specifically when the `userReferenceId` parameter is invalid, missing, or doesn't meet the required format.\n\n**Common Causes**:\n- Missing `userReferenceId` in the request body\n- `userReferenceId` is empty or null\n- `userReferenceId` format doesn't match expected pattern\n- Duplicate `userReferenceId` (if uniqueness is enforced)\n\n**Expected Behavior**: The API will return a validation error specifically about the user reference ID.\n\n**How to Fix**:\n- Ensure `userReferenceId` is included in the request body\n- Provide a non-empty, valid string value\n- Use a unique identifier for each transaction\n- Follow any specific format requirements for the reference ID\n\n## Additional Error Scenarios\n\n### Error: Mandatory Fields Missing\n\n**Occurs When**: Required fields are not provided in the request body.\n\n**Required Fields**:\n- `amount`\n- `provider`\n- `service`\n- `userReferenceId`\n\n**Response**: Validation error indicating which mandatory fields are missing.\n\n### Error: Minimum Alive Time Requirement\n\n**Occurs When**: For payment links, the minimum alive time requirement (at least 15 minutes) is not met.\n\n**Note**: This applies when setting expiration times for payment links. Ensure payment links are configured to remain active for at least 15 minutes.\n\n## Usage Notes\n\n- Ensure all mandatory fields are included in the request body to avoid validation errors\n- Payment links must have a minimum alive time of at least 15 minutes\n- The `userReferenceId` should be unique for each transaction to enable proper tracking\n- Contact numbers should be in valid format (typically 10 digits for Indian numbers)\n- The `amount` should be specified in the smallest currency unit (paise for INR)\n- Verify that the selected `service` is supported by the chosen `provider`\n\n## Testing Tips\n\n1. **Test with valid data first**: Use the success example to verify the endpoint is working\n2. **Test validation errors**: Use the saved examples to understand error responses\n3. **Check required fields**: Remove mandatory fields one by one to see specific error messages\n4. **Verify reference ID uniqueness**: Test with duplicate reference IDs if applicable\n5. **Test service-provider combinations**: Ensure your service type is compatible with your provider\n\n## Support\n\nFor issues or questions about this endpoint, refer to the saved examples which demonstrate common error scenarios and their resolutions."
+          },
+          "response": [
+            {
+              "name": "Error:  Mandatory Fields missing",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "164"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"a4-M8m0ovXu6Vcq9ZBFZYIt7FJwOxA\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 25 Dec 2025 11:13:39 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"amount: Amount is mandatory.\",\n        \"provider: Invalid Provider.\",\n        \"service: Invalid service.\",\n        \"userReferenceId: User Reference Id is mandatory.\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Invalid Service and userReferenceId type",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"amount\": 100,\n    \"provider\": \"RAZORPAY\",\n    \"service\": \"PAYMENT_LINK\",\n    \"userReferenceId\": \"1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "105"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"69-4mm5OFU0Z9KGjpsWnlc7pBjzBF8\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 25 Dec 2025 11:17:14 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"service: Invalid service.\",\n        \"userReferenceId: User Reference Id is string type.\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Invalid user reference Id",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"amount\": 100,\n    \"provider\": \"RAZORPAY\",\n    \"service\": \"PAYMENT_LINK\",\n    \"userReferenceId\": \"12345\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "92"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"5c-Vn8L9wZLGrQ7rZj6WXUWNqMO96Y\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 25 Dec 2025 11:19:43 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 404,\n    \"message\": \"Record not found\",\n    \"error\": \"User not found with reference Id 12345\"\n}"
+            },
+            {
+              "name": "Error: Razorpay validation on expiry by",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"amount\": 100,\n    \"provider\": \"RAZORPAY\",\n    \"service\": \"PAYMENT_LINK\",\n    \"userReferenceId\": \"1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "241"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"f1-iiUoW1WmAaKOnnzKFk3rOc9D12c\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 25 Dec 2025 11:51:09 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 500,\n    \"message\": \"External API error\",\n    \"error\": \"{\\\"error\\\":{\\\"code\\\":\\\"BAD_REQUEST_ERROR\\\",\\\"description\\\":\\\"expire_by: timestamp must be atleast 15 minutes in future.\\\",\\\"metadata\\\":[],\\\"reason\\\":null,\\\"source\\\":null,\\\"step\\\":null}}\"\n}"
+            },
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"amount\": 100,\n    \"provider\": \"RAZORPAY\",\n    \"service\": \"PAYMENT_LINK\",\n    \"userReferenceId\": \"1234\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "326"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"146-5GNi6w6NbPO8D4O1S9r+yTTCNos\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Thu, 25 Dec 2025 12:31:20 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 201,\n    \"message\": \"Resource created successfully\",\n    \"data\": {\n        \"id\": \"pay20251225123039918a1dd5\",\n        \"amount\": \"100\",\n        \"provider\": 1,\n        \"service\": 1,\n        \"metaData\": {\n            \"paymentLinkId\": \"plink_RvqS3DAPqjxUY1\",\n            \"shortUrl\": \"https://rzp.io/rzp/pyxaC2DN\",\n            \"shortUrlStatus\": \"created\"\n        },\n        \"createdAt\": \"25-12-2025 18:00:59\",\n        \"updatedAt\": \"25-12-2025 18:00:59\"\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "Test Webhook",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "exec": [
+                  "",
+                  "let secret = \"skillioRazorSecret\";",
+                  "",
+                  "// get raw body (only works for raw JSON/text bodies)",
+                  "let body = pm.request.body.raw;",
+                  "",
+                  "// compute signature",
+                  "let signature = CryptoJS.HmacSHA256(body, secret).toString(CryptoJS.enc.Hex);",
+                  "",
+                  "// set the value in headers",
+                  "pm.request.headers.add({",
+                  "    key: \"X-Razorpay-Signature\",",
+                  "    value: signature",
+                  "});",
+                  "",
+                  "console.log(pm.request.headers.all());"
+                ],
+                "type": "text/javascript",
+                "packages": {},
+                "requests": {}
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "x-razorpay-event-id",
+                "value": "1234",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"account_id\":\"acc_OU2H3nkLn9jDVo\",\"contains\":[\"payment_link\",\"order\",\"payment\"],\"created_at\":1749618314,\"entity\":\"event\",\"event\":\"payment_link.paid\",\"payload\":{\"order\":{\"entity\":{\"account_number\":null,\"amount\":1000,\"amount_due\":0,\"amount_paid\":1000,\"app_offer\":false,\"attempts\":1,\"authorized\":true,\"bank\":null,\"bank_account\":null,\"checkout_config_id\":null,\"created_at\":1749618325,\"currency\":\"INR\",\"customer_id\":null,\"discount\":false,\"first_payment_min_amount\":null,\"force_offer\":null,\"id\":\"QflczVVaNJciLq\",\"late_auth_config_id\":null,\"merchant_id\":\"OU2H3nkLn9jDVo\",\"method\":null,\"notes\":[],\"offers\":{},\"order_metas\":[],\"order_relationships\":[],\"partial_payment\":false,\"payer_name\":null,\"payment_capture\":true,\"product_id\":\"QflcnnZqCekuvL\",\"product_type\":\"payment_link_v2\",\"provider_context\":null,\"public_key\":\"rzp_live_pOG61mrIrdNHL1\",\"public_response\":null,\"receipt\":\"23\",\"reference2\":null,\"reference3\":null,\"reference4\":null,\"reference5\":null,\"reference6\":null,\"reference7\":null,\"reference8\":null,\"source\":null,\"status\":\"paid\",\"transfers\":null,\"updated_at\":1749618372}},\"payment\":{\"entity\":{\"acquirer_data\":{\"rrn\":\"103608848276\"},\"amount\":1000,\"amount_refunded\":0,\"amount_transferred\":0,\"bank\":null,\"base_amount\":1000,\"captured\":true,\"card\":null,\"card_id\":null,\"contact\":\"+919876543210\",\"created_at\":1749618371,\"currency\":\"INR\",\"description\":\"#QflcnnZqCekuvL\",\"email\":null,\"entity\":\"payment\",\"error_code\":null,\"error_description\":null,\"error_reason\":null,\"error_source\":null,\"error_step\":null,\"fee\":24,\"fee_bearer\":\"platform\",\"id\":\"pay_Qfldmt5StKZFCB\",\"international\":false,\"invoice_id\":null,\"method\":\"upi\",\"notes\":[],\"order_id\":\"order_QflczVVaNJciLq\",\"refund_status\":null,\"status\":\"captured\",\"tax\":4,\"upi\":{\"payer_account_type\":\"bank_account\",\"vpa\":\"gaurav.kumar@exampleupi\"},\"vpa\":\"gaurav.kumar@exampleupi\",\"wallet\":null}},\"payment_link\":{\"entity\":{\"accept_partial\":false,\"amount\":1000,\"amount_paid\":1000,\"cancelled_at\":0,\"created_at\":1749618314,\"currency\":\"INR\",\"customer\":{\"contact\":\"9000090000\",\"email\":\"gauravkumar@example.com\"},\"description\":\"Test Payment\",\"expire_by\":0,\"expired_at\":0,\"first_min_partial_amount\":0,\"id\":\"plink_QflcnnZqCekuvL\",\"notes\":null,\"notify\":{\"email\":false,\"sms\":false,\"whatsapp\":false},\"order_id\":\"order_QflczVVaNJciLq\",\"reference_id\":\"23\",\"reminder_enable\":false,\"reminders\":{\"status\":\"failed\"},\"short_url\":\"https://rzp.io/rzp/twH5w1Y\",\"status\":\"paid\",\"updated_at\":1749618371,\"upi_link\":false,\"user_id\":\"HWPf1AudnADDV5\",\"whatsapp_link\":false}}}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/payment/webhook/razorpay",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "payment",
+                "webhook",
+                "razorpay"
+              ]
+            },
+            "description": "# Razorpay Webhook Endpoint - Payment Link Events\n\n## Overview\n\nThis endpoint receives webhook notifications from Razorpay when payment links are successfully paid. It processes `payment_link.paid` events and handles the associated payment, order, and payment link data.\n\n## Endpoint Details\n\n- **URL**: `http://localhost:3000/api/v1/payment/webhook/razorpay`\n    \n- **Method**: `POST`\n    \n- **Event Type**: `payment_link.paid`\n    \n\n## Webhook Verification\n\nThis request includes a **pre-request script** that automatically generates an HMAC SHA256 signature for webhook verification. The signature ensures the authenticity of incoming webhook requests from Razorpay.\n\n### How Verification Works:\n\n1. The pre-request script computes an HMAC SHA256 hash of the raw request body\n    \n2. The hash is generated using the secret key: `some-sercret`\n    \n3. The computed signature is automatically added to the `X-Razorpay-Signature` header\n    \n4. Razorpay uses this signature to verify that the webhook request is legitimate\n    \n\n**Note**: The `X-Razorpay-Signature` header is automatically generated by the pre-request script - you don't need to set it manually.\n\n## Webhook Payload Structure\n\nThe webhook payload contains three main entities:\n\n### 1\\. **Payment Link** (`payment_link`)\n\nContains details about the payment link that was paid, including:\n\n- Payment link ID\n    \n- Amount and currency\n    \n- Customer contact and email\n    \n- Payment link status\n    \n- Short URL and reference ID\n    \n\n### 2\\. **Order** (`order`)\n\nContains the order details associated with the payment link:\n\n- Order ID\n    \n- Amount paid and amount due\n    \n- Order status\n    \n- Receipt number\n    \n- Timestamps\n    \n\n### 3\\. **Payment** (`payment`)\n\nContains the actual payment transaction details:\n\n- Payment ID\n    \n- Payment method (UPI, card, etc.)\n    \n- Amount captured\n    \n- UPI VPA details\n    \n- Acquirer data (RRN)\n    \n- Fee and tax information\n    \n\n## Usage\n\nThis endpoint is designed to be called by Razorpay's webhook system. When a payment link is successfully paid, Razorpay will automatically send a POST request to this endpoint with the complete payment details.\n\n## Security\n\nThe pre-request script ensures that all webhook requests include a valid signature, allowing your backend to verify that the request genuinely comes from Razorpay and hasn't been tampered with."
+          },
+          "response": [
+            {
+              "name": "Error: Invalid reference Id",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-razorpay-event-id",
+                    "value": "1234",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"account_id\":\"acc_OU2H3nkLn9jDVo\",\"contains\":[\"payment_link\",\"order\",\"payment\"],\"created_at\":1749618314,\"entity\":\"event\",\"event\":\"payment_link.paid\",\"payload\":{\"order\":{\"entity\":{\"account_number\":null,\"amount\":1000,\"amount_due\":0,\"amount_paid\":1000,\"app_offer\":false,\"attempts\":1,\"authorized\":true,\"bank\":null,\"bank_account\":null,\"checkout_config_id\":null,\"created_at\":1749618325,\"currency\":\"INR\",\"customer_id\":null,\"discount\":false,\"first_payment_min_amount\":null,\"force_offer\":null,\"id\":\"QflczVVaNJciLq\",\"late_auth_config_id\":null,\"merchant_id\":\"OU2H3nkLn9jDVo\",\"method\":null,\"notes\":[],\"offers\":{},\"order_metas\":[],\"order_relationships\":[],\"partial_payment\":false,\"payer_name\":null,\"payment_capture\":true,\"product_id\":\"QflcnnZqCekuvL\",\"product_type\":\"payment_link_v2\",\"provider_context\":null,\"public_key\":\"rzp_live_pOG61mrIrdNHL1\",\"public_response\":null,\"receipt\":\"23\",\"reference2\":null,\"reference3\":null,\"reference4\":null,\"reference5\":null,\"reference6\":null,\"reference7\":null,\"reference8\":null,\"source\":null,\"status\":\"paid\",\"transfers\":null,\"updated_at\":1749618372}},\"payment\":{\"entity\":{\"acquirer_data\":{\"rrn\":\"103608848276\"},\"amount\":1000,\"amount_refunded\":0,\"amount_transferred\":0,\"bank\":null,\"base_amount\":1000,\"captured\":true,\"card\":null,\"card_id\":null,\"contact\":\"+919876543210\",\"created_at\":1749618371,\"currency\":\"INR\",\"description\":\"#QflcnnZqCekuvL\",\"email\":null,\"entity\":\"payment\",\"error_code\":null,\"error_description\":null,\"error_reason\":null,\"error_source\":null,\"error_step\":null,\"fee\":24,\"fee_bearer\":\"platform\",\"id\":\"pay_Qfldmt5StKZFCB\",\"international\":false,\"invoice_id\":null,\"method\":\"upi\",\"notes\":[],\"order_id\":\"order_QflczVVaNJciLq\",\"refund_status\":null,\"status\":\"captured\",\"tax\":4,\"upi\":{\"payer_account_type\":\"bank_account\",\"vpa\":\"gaurav.kumar@exampleupi\"},\"vpa\":\"gaurav.kumar@exampleupi\",\"wallet\":null}},\"payment_link\":{\"entity\":{\"accept_partial\":false,\"amount\":1000,\"amount_paid\":1000,\"cancelled_at\":0,\"created_at\":1749618314,\"currency\":\"INR\",\"customer\":{\"contact\":\"9000090000\",\"email\":\"gauravkumar@example.com\"},\"description\":\"Test Payment\",\"expire_by\":0,\"expired_at\":0,\"first_min_partial_amount\":0,\"id\":\"plink_QflcnnZqCekuvL\",\"notes\":null,\"notify\":{\"email\":false,\"sms\":false,\"whatsapp\":false},\"order_id\":\"order_QflczVVaNJciLq\",\"reference_id\":\"23\",\"reminder_enable\":false,\"reminders\":{\"status\":\"failed\"},\"short_url\":\"https://rzp.io/rzp/twH5w1Y\",\"status\":\"paid\",\"updated_at\":1749618371,\"upi_link\":false,\"user_id\":\"HWPf1AudnADDV5\",\"whatsapp_link\":false}}}}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment/webhook/razorpay",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment",
+                    "webhook",
+                    "razorpay"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "92"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"5c-kbs/ZqruVWWDX/jkVRR7HhVbfa4\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 15 Nov 2025 06:15:59 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 404,\n    \"message\": \"Record not found\",\n    \"error\": \"Payment not found with reference id 23\"\n}"
+            },
+            {
+              "name": "Error: Signature mismatch",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-razorpay-event-id",
+                    "value": "1234",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"account_id\": \"acc_OU2H3nkLn9jDVo\",\n    \"contains\": [\n        \"payment_link\",\n        \"order\",\n        \"payment\"\n    ],\n    \"created_at\": 1749618314,\n    \"entity\": \"event\",\n    \"event\": \"payment_link.paid\",\n    \"payload\": {\n        \"order\": {\n            \"entity\": {\n                \"account_number\": null,\n                \"amount\": 1000,\n                \"amount_due\": 0,\n                \"amount_paid\": 1000,\n                \"app_offer\": false,\n                \"attempts\": 1,\n                \"authorized\": true,\n                \"bank\": null,\n                \"bank_account\": null,\n                \"checkout_config_id\": null,\n                \"created_at\": 1749618325,\n                \"currency\": \"INR\",\n                \"customer_id\": null,\n                \"discount\": false,\n                \"first_payment_min_amount\": null,\n                \"force_offer\": null,\n                \"id\": \"QflczVVaNJciLq\",\n                \"late_auth_config_id\": null,\n                \"merchant_id\": \"OU2H3nkLn9jDVo\",\n                \"method\": null,\n                \"notes\": [],\n                \"offers\": {},\n                \"order_metas\": [],\n                \"order_relationships\": [],\n                \"partial_payment\": false,\n                \"payer_name\": null,\n                \"payment_capture\": true,\n                \"product_id\": \"QflcnnZqCekuvL\",\n                \"product_type\": \"payment_link_v2\",\n                \"provider_context\": null,\n                \"public_key\": \"rzp_live_pOG61mrIrdNHL1\",\n                \"public_response\": null,\n                \"receipt\": \"23\",\n                \"reference2\": null,\n                \"reference3\": null,\n                \"reference4\": null,\n                \"reference5\": null,\n                \"reference6\": null,\n                \"reference7\": null,\n                \"reference8\": null,\n                \"source\": null,\n                \"status\": \"paid\",\n                \"transfers\": null,\n                \"updated_at\": 1749618372\n            }\n        },\n        \"payment\": {\n            \"entity\": {\n                \"acquirer_data\": {\n                    \"rrn\": \"103608848276\"\n                },\n                \"amount\": 1000,\n                \"amount_refunded\": 0,\n                \"amount_transferred\": 0,\n                \"bank\": null,\n                \"base_amount\": 1000,\n                \"captured\": true,\n                \"card\": null,\n                \"card_id\": null,\n                \"contact\": \"+919876543210\",\n                \"created_at\": 1749618371,\n                \"currency\": \"INR\",\n                \"description\": \"#QflcnnZqCekuvL\",\n                \"email\": null,\n                \"entity\": \"payment\",\n                \"error_code\": null,\n                \"error_description\": null,\n                \"error_reason\": null,\n                \"error_source\": null,\n                \"error_step\": null,\n                \"fee\": 24,\n                \"fee_bearer\": \"platform\",\n                \"id\": \"pay_Qfldmt5StKZFCB\",\n                \"international\": false,\n                \"invoice_id\": null,\n                \"method\": \"upi\",\n                \"notes\": [],\n                \"order_id\": \"order_QflczVVaNJciLq\",\n                \"refund_status\": null,\n                \"status\": \"captured\",\n                \"tax\": 4,\n                \"upi\": {\n                    \"payer_account_type\": \"bank_account\",\n                    \"vpa\": \"gaurav.kumar@exampleupi\"\n                },\n                \"vpa\": \"gaurav.kumar@exampleupi\",\n                \"wallet\": null\n            }\n        },\n        \"payment_link\": {\n            \"entity\": {\n                \"accept_partial\": false,\n                \"amount\": 1000,\n                \"amount_paid\": 1000,\n                \"cancelled_at\": 0,\n                \"created_at\": 1749618314,\n                \"currency\": \"INR\",\n                \"customer\": {\n                    \"contact\": \"9000090000\",\n                    \"email\": \"gauravkumar@example.com\"\n                },\n                \"description\": \"Test Payment\",\n                \"expire_by\": 0,\n                \"expired_at\": 0,\n                \"first_min_partial_amount\": 0,\n                \"id\": \"plink_QflcnnZqCekuvL\",\n                \"notes\": null,\n                \"notify\": {\n                    \"email\": false,\n                    \"sms\": false,\n                    \"whatsapp\": false\n                },\n                \"order_id\": \"order_QflczVVaNJciLq\",\n                \"reference_id\": \"23\",\n                \"reminder_enable\": false,\n                \"reminders\": {\n                    \"status\": \"failed\"\n                },\n                \"short_url\": \"https://rzp.io/rzp/twH5w1Y\",\n                \"status\": \"paid\",\n                \"updated_at\": 1749618371,\n                \"upi_link\": false,\n                \"user_id\": \"HWPf1AudnADDV5\",\n                \"whatsapp_link\": false\n            }\n        }\n    }\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment/webhook/razorpay",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment",
+                    "webhook",
+                    "razorpay"
+                  ]
+                }
+              },
+              "status": "Unauthorized",
+              "code": 401,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "85"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"55-niwUU2deBdNft5nt94+HIfo+Dp4\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 15 Nov 2025 06:20:33 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 401,\n    \"message\": \"Authentication failed\",\n    \"error\": \"Invalid signature receive.\"\n}"
+            },
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "x-razorpay-event-id",
+                    "value": "1234",
+                    "type": "text"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\"account_id\":\"acc_OU2H3nkLn9jDVo\",\"contains\":[\"payment_link\",\"order\",\"payment\"],\"created_at\":1749618314,\"entity\":\"event\",\"event\":\"payment_link.paid\",\"payload\":{\"order\":{\"entity\":{\"account_number\":null,\"amount\":1000,\"amount_due\":0,\"amount_paid\":1000,\"app_offer\":false,\"attempts\":1,\"authorized\":true,\"bank\":null,\"bank_account\":null,\"checkout_config_id\":null,\"created_at\":1749618325,\"currency\":\"INR\",\"customer_id\":null,\"discount\":false,\"first_payment_min_amount\":null,\"force_offer\":null,\"id\":\"QflczVVaNJciLq\",\"late_auth_config_id\":null,\"merchant_id\":\"OU2H3nkLn9jDVo\",\"method\":null,\"notes\":[],\"offers\":{},\"order_metas\":[],\"order_relationships\":[],\"partial_payment\":false,\"payer_name\":null,\"payment_capture\":true,\"product_id\":\"QflcnnZqCekuvL\",\"product_type\":\"payment_link_v2\",\"provider_context\":null,\"public_key\":\"rzp_live_pOG61mrIrdNHL1\",\"public_response\":null,\"receipt\":\"23\",\"reference2\":null,\"reference3\":null,\"reference4\":null,\"reference5\":null,\"reference6\":null,\"reference7\":null,\"reference8\":null,\"source\":null,\"status\":\"paid\",\"transfers\":null,\"updated_at\":1749618372}},\"payment\":{\"entity\":{\"acquirer_data\":{\"rrn\":\"103608848276\"},\"amount\":1000,\"amount_refunded\":0,\"amount_transferred\":0,\"bank\":null,\"base_amount\":1000,\"captured\":true,\"card\":null,\"card_id\":null,\"contact\":\"+919876543210\",\"created_at\":1749618371,\"currency\":\"INR\",\"description\":\"#QflcnnZqCekuvL\",\"email\":null,\"entity\":\"payment\",\"error_code\":null,\"error_description\":null,\"error_reason\":null,\"error_source\":null,\"error_step\":null,\"fee\":24,\"fee_bearer\":\"platform\",\"id\":\"pay_Qfldmt5StKZFCB\",\"international\":false,\"invoice_id\":null,\"method\":\"upi\",\"notes\":[],\"order_id\":\"order_QflczVVaNJciLq\",\"refund_status\":null,\"status\":\"captured\",\"tax\":4,\"upi\":{\"payer_account_type\":\"bank_account\",\"vpa\":\"gaurav.kumar@exampleupi\"},\"vpa\":\"gaurav.kumar@exampleupi\",\"wallet\":null}},\"payment_link\":{\"entity\":{\"accept_partial\":false,\"amount\":1000,\"amount_paid\":1000,\"cancelled_at\":0,\"created_at\":1749618314,\"currency\":\"INR\",\"customer\":{\"contact\":\"9000090000\",\"email\":\"gauravkumar@example.com\"},\"description\":\"Test Payment\",\"expire_by\":0,\"expired_at\":0,\"first_min_partial_amount\":0,\"id\":\"plink_QflcnnZqCekuvL\",\"notes\":null,\"notify\":{\"email\":false,\"sms\":false,\"whatsapp\":false},\"order_id\":\"order_QflczVVaNJciLq\",\"reference_id\":\"23\",\"reminder_enable\":false,\"reminders\":{\"status\":\"failed\"},\"short_url\":\"https://rzp.io/rzp/twH5w1Y\",\"status\":\"paid\",\"updated_at\":1749618371,\"upi_link\":false,\"user_id\":\"HWPf1AudnADDV5\",\"whatsapp_link\":false}}}}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment/webhook/razorpay",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment",
+                    "webhook",
+                    "razorpay"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "56"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"38-otCk4ojrZ9E7MmNTuAYw1e0eKco\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 15 Nov 2025 06:33:31 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Resourec updated successfully\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "fetch",
+          "protocolProfileBehavior": {
+            "disableBodyPruning": true
+          },
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwcm9maWxlSWQiOiIyOWUwMGI0MC0zMzIxLTQ0ZTgtOGQyNC05ZTY1OGIwYTJmNWMiLCJuaWNrTmFtZSI6ImFsaWNlMSIsInJvbGUiOiJBRE1JTiIsImlhdCI6MTc3MTMyNDEzMCwiZXhwIjoxNzcxMzI3NzMwfQ.jhbzV96ufXRfcODkxULn97HHTvCpTfGIPxHEgkw2EFA",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": ""
+            },
+            "url": {
+              "raw": "http://13.205.140.174/payment/api/v1/payment",
+              "protocol": "http",
+              "host": [
+                "13",
+                "205",
+                "140",
+                "174"
+              ],
+              "path": [
+                "payment",
+                "api",
+                "v1",
+                "payment"
+              ],
+              "query": [
+                {
+                  "key": "referenceIdSet",
+                  "value": "pay20251225130206b0460b5d, pay20251225130139fcae4bec",
+                  "description": "payment id",
+                  "disabled": true
+                },
+                {
+                  "key": "from",
+                  "value": "25-12-2025 18:30:00",
+                  "description": "From date time (dd-MM-yyyy HH:mm:ss)",
+                  "disabled": true
+                },
+                {
+                  "key": "to",
+                  "value": "25-12-2025 18:31:47",
+                  "description": "to date time From date time (dd-MM-yyyy HH:mm:ss)",
+                  "disabled": true
+                },
+                {
+                  "key": "userReferenceIdSet",
+                  "value": "1234",
+                  "description": "User reference Id filter by",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "# Payment Records Fetch Endpoint\n\n## Overview\n\nThis endpoint fetches payment records from the system.\n\n## Endpoint Details\n\n- **Method:** `GET`\n- **URL:** `http://localhost:3000/api/v1/payment/`\n\n## Optional Query Parameters\n\n| Parameter | Type | Description | Example |\n| --- | --- | --- | --- |\n| `userReferenceIdSet` | string | Filter payments by user reference ID | \"1234\" |\n| `from` | string | Filter by date time | 15-11-2025 12:12:00 |\n| `to` | string | Filter by date time | 15-11-2025 12:12:00 |\n| `referenceIdSet` | string | Filter payments by ID | \"pay20251225130206b0460b5d, pay20251225130139fcae4bec\" |\n\n\n``` json\n}\n\n ```\n\n## Expected Response Format\n\n### Success Response (200 OK)\n\n``` json\n{\n  \"status\": 200,\n  \"message\": \"Payments List\",\n  \"data\": {\n    \"items\": [\n      {\n        \"id\": \"pay20251115062835a47a165e\",\n        \"amount\": \"100\",\n        \"provider\": 1,\n        \"service\": 1,\n        \"metaData\": {\n          \"paymentLinkId\": \"plink_RfuulAA3sxGh7l\",\n          \"shortUrl\": \"https://rzp.io/rzp/VN5AQfMU\",\n          \"shortUrlStatus\": \"paid\",\n          \"eventId\": \"1234\"\n        },\n        \"createdAt\": \"15-11-2025 11:58:35\",\n        \"updatedAt\": \"15-11-2025 12:03:31\"\n      }\n    ],\n    \"total\": 1,\n    \"page\": 1,\n    \"prePage\": 10,\n    \"sortBy\": \"createdAt\",\n    \"sortDirection\": \"DESC\"\n  }\n}\n\n ```\n\n### Response Fields\n\n- **status**: HTTP status code\n- **message**: Response message\n- **data.items**: Array of payment records\n    - **id**: Unique payment identifier\n    - **amount**: Payment amount\n    - **provider**: Payment provider ID\n    - **service**: Service ID\n    - **metaData**: Additional payment metadata including Razorpay details\n    - **createdAt**: Payment creation timestamp\n    - **updatedAt**: Last update timestamp\n- **data.total**: Total number of records\n- **data.page**: Current page number\n- **data.prePage**: Records per page\n- **data.sortBy**: Field used for sorting\n- **data.sortDirection**: Sort direction (ASC/DESC)"
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-razorpay-event-id",
+                    "value": "1234",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment/",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment",
+                    ""
+                  ],
+                  "query": [
+                    {
+                      "key": "referenceIdSet",
+                      "value": "23",
+                      "disabled": true
+                    },
+                    {
+                      "key": "from",
+                      "value": null,
+                      "disabled": true
+                    },
+                    {
+                      "key": "to",
+                      "value": null,
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "422"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"1a6-DT0ZHclfzvJHWJWqSdyw8YdkWCM\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 15 Nov 2025 13:14:59 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Payments List\",\n    \"data\": {\n        \"items\": [\n            {\n                \"id\": \"pay20251115062835a47a165e\",\n                \"amount\": \"100\",\n                \"provider\": 1,\n                \"service\": 1,\n                \"metaData\": {\n                    \"paymentLinkId\": \"plink_RfuulAA3sxGh7l\",\n                    \"shortUrl\": \"https://rzp.io/rzp/VN5AQfMU\",\n                    \"shortUrlStatus\": \"paid\",\n                    \"eventId\": \"1234\"\n                },\n                \"createdAt\": \"2025-11-15T06:28:35.477Z\",\n                \"updatedAt\": \"2025-11-15T06:33:31.714Z\"\n            }\n        ],\n        \"total\": 1,\n        \"page\": 1,\n        \"prePage\": 10,\n        \"sortBy\": \"createdAt\",\n        \"sortDirection\": \"DESC\"\n    }\n}"
+            },
+            {
+              "name": "Success: no param",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "x-razorpay-event-id",
+                    "value": "1234",
+                    "type": "text"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/payment/",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "payment",
+                    ""
+                  ],
+                  "query": [
+                    {
+                      "key": "referenceIdSet",
+                      "value": "23",
+                      "disabled": true
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "968"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"3c8-dLpKvtj80cwQ8s/XCjocg0VtCps\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 15 Nov 2025 13:16:18 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Payments List\",\n    \"data\": {\n        \"items\": [\n            {\n                \"id\": \"pay20251115130510d91a60c5\",\n                \"amount\": \"100\",\n                \"provider\": 1,\n                \"service\": 1,\n                \"metaData\": {\n                    \"paymentLinkId\": \"plink_Rg1ffXHhsTft08\",\n                    \"shortUrl\": \"https://rzp.io/rzp/B4QAEnPp\",\n                    \"shortUrlStatus\": \"created\"\n                },\n                \"createdAt\": \"2025-11-15T13:05:10.101Z\",\n                \"updatedAt\": \"2025-11-15T13:05:10.101Z\"\n            },\n            {\n                \"id\": \"pay20251115062835a47a165e\",\n                \"amount\": \"100\",\n                \"provider\": 1,\n                \"service\": 1,\n                \"metaData\": {\n                    \"paymentLinkId\": \"plink_RfuulAA3sxGh7l\",\n                    \"shortUrl\": \"https://rzp.io/rzp/VN5AQfMU\",\n                    \"shortUrlStatus\": \"paid\",\n                    \"eventId\": \"1234\"\n                },\n                \"createdAt\": \"2025-11-15T06:28:35.477Z\",\n                \"updatedAt\": \"2025-11-15T06:33:31.714Z\"\n            },\n            {\n                \"id\": \"pay2025111506275607d85d7e\",\n                \"amount\": \"100\",\n                \"provider\": 1,\n                \"service\": 1,\n                \"metaData\": {\n                    \"paymentLinkId\": \"plink_Rfuu4e64rn3XI9\",\n                    \"shortUrl\": \"https://rzp.io/rzp/KV2Tlide\",\n                    \"shortUrlStatus\": \"created\"\n                },\n                \"createdAt\": \"2025-11-15T06:27:56.962Z\",\n                \"updatedAt\": \"2025-11-15T06:27:56.962Z\"\n            }\n        ],\n        \"total\": 3,\n        \"page\": 1,\n        \"prePage\": 10,\n        \"sortBy\": \"createdAt\",\n        \"sortDirection\": \"DESC\"\n    }\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "UserAPIs",
+      "item": [
+        {
+          "name": "create",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"name\" : \"ritik\",\n    \"phoneNo\": \"9380969937\",\n    \"referenceId\": \"1234\"\n}"
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/user",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "user"
+              ]
+            },
+            "description": "# Create User\n\nThis endpoint creates a new user in the system.\n\n## Endpoint Details\n\n- **Method**: `POST`\n- **URL**: `http://localhost:3000/api/v1/user`\n- **Content-Type**: `application/json`\n\n## Request Body Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `name` | string | Yes | The user's full name |\n| `phoneNo` | string | Yes | The user's phone number (must be valid format) |\n| `referenceId` | string | Yes | A reference identifier for the user |\n\n## Example Request Body\n\n```json\n{\n  \"name\": \"ritik\",\n  \"phoneNo\": \"9380969937\",\n  \"referenceId\": \"1234\"\n}\n```\n\n## Response Scenarios\n\n### Success Response\n- **Status Code**: `200 OK` or `201 Created`\n- User is successfully created in the system\n\n### Error Responses\n\n#### 400 Bad Request - User Already Exists\nOccurs when a user with the provided phone number already exists in the system.\n\n```json\n{\n  \"status\": 400,\n  \"message\": \"Record already exists\",\n  \"error\": \"User already exists with phoneNo : 9380969937\"\n}\n```\n\n#### 400 Bad Request - Invalid Phone Number\nOccurs when the phone number format is invalid.\n\n```json\n{\n  \"status\": 400,\n  \"message\": \"Invalid Phone no\",\n  \"error\": \"Phone number format is not valid\"\n}\n```\n\n## Notes\n\n- Phone numbers must be unique in the system\n- Ensure the phone number is in the correct format before making the request\n- The `referenceId` can be used to link this user to external systems"
+          },
+          "response": [
+            {
+              "name": "Error: Missing Mandatory Fields",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "125"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"7d-NKogfNY3PT0nP8z60axbmb1eSc0\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 08:57:05 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"name: Name is mandatory.\",\n        \"phoneNo: PhoneNo is mandatory.\",\n        \"referenceId: ReferenceId is mandatory.\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Invalid datatype",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\" : \"ritik\",\n    \"phoneNo\": 9380969936,\n    \"referenceId\": 12345\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "102"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"66-bFHSoNL/O5XmE5F6CLMpld5Xx88\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 08:58:26 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"phoneNo: PhoneNo is string type.\",\n        \"referenceId: ReferenceId is string type.\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Invalid Phone no",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\" : \"ritik\",\n    \"phoneNo\": \"1234\",\n    \"referenceId\": \"1235\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "56"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"38-zbQPg7GYowO4sJpVE6a3bxuRHms\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 08:59:07 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"phoneNo: Invalid phone number\"\n    ]\n}"
+            },
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\" : \"ritik\",\n    \"phoneNo\": \"9380969937\",\n    \"referenceId\": \"1235\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "224"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"e0-/KQ6Rd0tGD7LeSRAZKr7YZXLz7g\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:00:40 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 201,\n    \"message\": \"Resource created successfully\",\n    \"data\": {\n        \"id\": \"UR20251220090031c8980a35\",\n        \"name\": \"ritik\",\n        \"phoneNo\": \"9380969937\",\n        \"referenceId\": \"1235\",\n        \"createdAt\": \"20-12-2025 14:30:31\",\n        \"updatedAt\": \"20-12-2025 14:30:31\"\n    }\n}"
+            },
+            {
+              "name": "Error: User exists by reference Id",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\" : \"ritik\",\n    \"phoneNo\": \"9380969937\",\n    \"referenceId\": \"1235\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "102"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"66-CH3YjWypSO/CTR9yxHVNRvOz9dc\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:14:46 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"message\": \"Record already exists\",\n    \"error\": \"User already exists with reference Id: 1235\"\n}"
+            },
+            {
+              "name": "Error: User already exists by phone no with different referenceId",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"name\" : \"ritik\",\n    \"phoneNo\": \"9380969937\",\n    \"referenceId\": \"1234\"\n}"
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "129"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"81-ivJ3Nkppo2uAPRUHmChAvFWYD+Y\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:15:26 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"message\": \"Record already exists\",\n    \"error\": \"User already exists with phoneNo : 9380969937 with referenceId as 1235\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "fetch",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "http://localhost:3000/api/v1/user/1235",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "user",
+                "1235"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Error: Invalid referenceId",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user/UR20251220090031c8980a35",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user",
+                    "UR20251220090031c8980a35"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "111"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"6f-NUQ5kmwkWlytK03Do4cI9Nu/mH4\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:22:55 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 404,\n    \"message\": \"Record not found\",\n    \"error\": \"User not found with reference Id UR20251220090031c8980a35\"\n}"
+            },
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user/1235",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user",
+                    "1235"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "202"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"ca-4StmocKHOf+i9F8kgBZlwb8c+ys\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:24:35 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Success\",\n    \"data\": {\n        \"id\": \"UR20251220090031c8980a35\",\n        \"name\": \"ritik\",\n        \"phoneNo\": \"9380969937\",\n        \"referenceId\": \"1235\",\n        \"createdAt\": \"20-12-2025 14:30:31\",\n        \"updatedAt\": \"20-12-2025 14:30:31\"\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "update",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"referenceId\": \"1235\",\n    \"phoneNo\": \"9380969936\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/user",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "user"
+              ]
+            }
+          },
+          "response": [
+            {
+              "name": "Error: Missing Mandatory fields",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "65"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"41-Lqff47X2SuPhuASNWj6jueGQb8k\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:40:27 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"referenceId: ReferenceId is mandatory.\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Optional field type validation",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"referenceId\": \"1234\",\n    \"name\": 839384\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "53"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"35-a7GiHhkP8neXuASAmSgaZfr45Pg\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:42:26 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"name: Name is string type.\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Invalid phone no",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"referenceId\": \"1234\",\n    \"phoneNo\": \"839384\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "56"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"38-zbQPg7GYowO4sJpVE6a3bxuRHms\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:43:14 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 400,\n    \"error\": [\n        \"phoneNo: Invalid phone number\"\n    ]\n}"
+            },
+            {
+              "name": "Error: Invalid referenceId",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"referenceId\": \"1234\",\n    \"phoneNo\": \"9380969936\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "91"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"5b-ydZbQC6LnxJwA3aIVNYClnRRBRg\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:44:06 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 404,\n    \"message\": \"Record not found\",\n    \"error\": \"User not found with reference Id 1234\"\n}"
+            },
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"referenceId\": \"1235\",\n    \"phoneNo\": \"9380969936\"\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "224"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"e0-jypZ438Ozdjo68Dq2rMwjm36mak\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:47:30 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Resource updated successfully\",\n    \"data\": {\n        \"id\": \"UR20251220090031c8980a35\",\n        \"name\": \"ritik\",\n        \"phoneNo\": \"9380969936\",\n        \"referenceId\": \"1235\",\n        \"createdAt\": \"20-12-2025 14:30:31\",\n        \"updatedAt\": \"20-12-2025 15:17:30\"\n    }\n}"
+            }
+          ]
+        },
+        {
+          "name": "delete",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"hard\": true,\n    \"referenceIds\": [\"1235\"]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "http://localhost:3000/api/v1/user/",
+              "protocol": "http",
+              "host": [
+                "localhost"
+              ],
+              "port": "3000",
+              "path": [
+                "api",
+                "v1",
+                "user",
+                ""
+              ]
+            },
+            "description": "# Delete User Resource\n\n## Overview\nThis endpoint deletes one or more user resources from the system. It supports both hard delete (permanent removal) and soft delete (marking as deleted while retaining data) operations.\n\n## Endpoint\n```\nDELETE http://localhost:3000/api/v1/user/\n```\n\n## Request Headers\n- `Content-Type`: application/json\n\n## Request Body Parameters\n\n| Parameter | Type | Required | Description |\n|-----------|------|----------|-------------|\n| `hard` | boolean | Yes | Determines the type of deletion:<br>• `true`: Performs a hard delete (permanent removal from database)<br>• `false`: Performs a soft delete (marks record as deleted but retains data) |\n| `referenceIds` | array of strings | Yes | An array containing the user IDs to be deleted. Multiple user IDs can be provided to perform batch deletion. |\n\n### Request Body Example\n```json\n{\n  \"hard\": true,\n  \"referenceIds\": [\"1235\", \"1236\", \"1237\"]\n}\n```\n\n## Response\n\n### Success Response (200 OK)\nWhen the deletion operation is successful:\n```json\n{\n  \"status\": 200,\n  \"message\": \"Resource deleted successfully\"\n}\n```\n\n### Error Response\nWhen soft delete implementation is not available or pending:\n- The endpoint may return an error indicating that soft delete functionality is not yet implemented\n- Ensure to use `\"hard\": true` if soft delete is not supported\n\n## Usage Examples\n\n### Hard Delete (Permanent Removal)\n```json\n{\n  \"hard\": true,\n  \"referenceIds\": [\"user123\", \"user456\"]\n}\n```\nUse this when you need to permanently remove user records from the database.\n\n### Soft Delete (Logical Deletion)\n```json\n{\n  \"hard\": false,\n  \"referenceIds\": [\"user789\"]\n}\n```\nUse this when you want to mark users as deleted while preserving their data for audit or recovery purposes.\n\n## Best Practices\n\n1. **Backup Before Hard Delete**: Always ensure you have proper backups before performing hard deletes, as this operation is irreversible.\n\n2. **Batch Operations**: When deleting multiple users, include all user IDs in a single request to improve performance.\n\n3. **Soft Delete First**: Consider using soft delete (`\"hard\": false`) initially to allow for data recovery if needed.\n\n4. **Verify User IDs**: Ensure all user IDs in the `referenceIds` array are valid before making the request to avoid partial deletions.\n\n5. **Error Handling**: Implement proper error handling in your application to manage cases where soft delete is not available.\n\n6. **Audit Trail**: Maintain logs of deletion operations, especially for hard deletes, for compliance and auditing purposes.\n\n7. **Authorization**: Ensure the requesting user has appropriate permissions to delete user resources before calling this endpoint."
+          },
+          "response": [
+            {
+              "name": "Success",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"hard\": true,\n    \"referenceIds\": [\"1235\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user/",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user",
+                    ""
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "Text",
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "56"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"38-1i4MW0NifJmDc9CHqMMohDKb4Iw\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Sat, 20 Dec 2025 09:59:49 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Resource deleted successfully\"\n}"
+            },
+            {
+              "name": "Success: soft-deletion successfull",
+              "originalRequest": {
+                "method": "DELETE",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n    \"hard\": false,\n    \"referenceIds\": [\"1234\"]\n}",
+                  "options": {
+                    "raw": {
+                      "language": "json"
+                    }
+                  }
+                },
+                "url": {
+                  "raw": "http://localhost:3000/api/v1/user/",
+                  "protocol": "http",
+                  "host": [
+                    "localhost"
+                  ],
+                  "port": "3000",
+                  "path": [
+                    "api",
+                    "v1",
+                    "user",
+                    ""
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": null,
+              "header": [
+                {
+                  "key": "X-Powered-By",
+                  "value": "Express"
+                },
+                {
+                  "key": "Content-Type",
+                  "value": "application/json; charset=utf-8"
+                },
+                {
+                  "key": "Content-Length",
+                  "value": "56"
+                },
+                {
+                  "key": "ETag",
+                  "value": "W/\"38-1i4MW0NifJmDc9CHqMMohDKb4Iw\""
+                },
+                {
+                  "key": "Date",
+                  "value": "Mon, 05 Jan 2026 08:11:00 GMT"
+                },
+                {
+                  "key": "Connection",
+                  "value": "keep-alive"
+                },
+                {
+                  "key": "Keep-Alive",
+                  "value": "timeout=5"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n    \"status\": 200,\n    \"message\": \"Resource deleted successfully\"\n}"
+            }
+          ]
+        }
+      ],
+      "description": "Crud APIs related to the User."
+    }
+  ]
+}

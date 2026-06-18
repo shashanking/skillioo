@@ -31,6 +31,13 @@ class PostState with _$PostState {
     @Default(1) int commentsPage,
     @Default(false) bool commentsHasMore,
 
+    // Replies keyed by parent comment ID
+    @Default({}) Map<String, List<CommentResponse>> commentReplies,
+    @Default({}) Map<String, PostStatus> commentRepliesStatus,
+
+    // Set of comment IDs that the current user has liked
+    @Default({}) Set<String> likedCommentIds,
+
     // Reactions
     @Default(PostStatus.initial) PostStatus reactionsStatus,
     @Default([]) List<ReactionResponse> reactions,

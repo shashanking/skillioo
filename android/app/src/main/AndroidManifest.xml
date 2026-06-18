@@ -28,11 +28,18 @@
     <!-- Phone state for call features -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
     
+    <!-- VoIP call permissions -->
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.BLUETOOTH" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
+    
     <!-- Wake lock for socket connection -->
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     
-    <!-- Foreground service for background socket -->
+    <!-- Foreground service for background socket and calls -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL" />
     
     <!-- Camera and microphone features -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -71,6 +78,22 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        
+        <!-- Single FCM service for the app. Calls Voice.handleMessage()
+             for Twilio Voice CallInvites (matching the official Twilio
+             Android quickstart pattern). The firebase_messaging plugin's
+             BroadcastReceiver on c2dm.intent.RECEIVE fires independently
+             for Dart's onMessage handler, so non-Twilio pushes still
+             reach Dart. Priority=100 to definitively win the
+             MESSAGING_EVENT race against any other registered service. -->
+        <service
+            android:name=".MyFirebaseMessagingService"
+            android:exported="false"
+            android:stopWithTask="false">
+            <intent-filter android:priority="100">
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

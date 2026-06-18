@@ -2,6 +2,29 @@ import 'package:json_annotation/json_annotation.dart';
 
 part 'subscription_models.g.dart';
 
+// ── Plan Aggregator ──
+
+@JsonSerializable()
+class PlanAggregatorResponse {
+  final int? callLimits;
+  final int? chatLimits;
+  final int? activePlans;
+  final String? profileVisibility;
+  final List<String>? userSubscriptionIds;
+
+  const PlanAggregatorResponse({
+    this.callLimits,
+    this.chatLimits,
+    this.activePlans,
+    this.profileVisibility,
+    this.userSubscriptionIds,
+  });
+
+  factory PlanAggregatorResponse.fromJson(Map<String, dynamic> json) =>
+      _$PlanAggregatorResponseFromJson(json);
+  Map<String, dynamic> toJson() => _$PlanAggregatorResponseToJson(this);
+}
+
 // ── Plan Master ──
 
 @JsonSerializable()

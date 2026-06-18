@@ -283,6 +283,12 @@ class PortfolioResponse {
 class ProfileType {
   static const String individual = 'INDIVIDUAL';
   static const String group = 'GROUP';
+  static const String hirer = 'HIRER';
+}
+
+class AddressType {
+  static const String permanent = 'PERMANENT';
+  static const String venue = 'VENUE';
 }
 
 class ContactType {

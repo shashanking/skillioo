@@ -111,7 +111,7 @@ class _TabToggleState extends State<TabToggle> {
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16.w),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(48),
         color: Colors.white.withValues(alpha: 0.12),
       ),
 
@@ -141,10 +141,11 @@ class _TabToggleState extends State<TabToggle> {
           }
         },
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 12.h),
+          height: 48.h,
+          padding: EdgeInsets.symmetric(vertical: 14.h),
           decoration: BoxDecoration(
             color: isSelected ? Colors.white : null,
-            borderRadius: BorderRadius.circular(20.r),
+            borderRadius: BorderRadius.circular(48.r),
           ),
           child: Center(
             child: Row(
@@ -153,7 +154,7 @@ class _TabToggleState extends State<TabToggle> {
                 CustomText(
                   displayText,
                   fontSize: 14.sp,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w400,
                   color: isSelected ? Colors.black : Colors.white,
                 ),
                 if (isProfileSelected) ...[

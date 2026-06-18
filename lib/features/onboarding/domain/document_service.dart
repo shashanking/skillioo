@@ -19,10 +19,14 @@ class DocumentService {
     required File file,
     required String type,
     String remarks = '',
+    String? accessToken,
   }) async {
     final uri = Uri.parse('$baseUrl${ApiConfig.document}');
     final request = http.MultipartRequest('POST', uri);
 
+    if (accessToken != null && accessToken.isNotEmpty) {
+      request.headers['Authorization'] = 'Bearer $accessToken';
+    }
     request.fields['type'] = type;
     request.fields['remarks'] = remarks;
     request.files.add(await http.MultipartFile.fromPath('file', file.path));
@@ -80,7 +84,7 @@ class DocumentService {
   /// Fetch documents by their IDs.
   Future<Map<String, dynamic>> getDocumentsByIds({
     required List<String> ids,
-    required String accessToken,
+    String? accessToken,
   }) async {
     final idsParam = ids.where((e) => e.trim().isNotEmpty).join(',');
     if (idsParam.isEmpty) {
@@ -95,13 +99,12 @@ class DocumentService {
       '$baseUrl${ApiConfig.document}/',
     ).replace(queryParameters: {'ids': idsParam});
 
-    final response = await client.get(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $accessToken',
-      },
-    );
+    final headers = <String, String>{'Content-Type': 'application/json'};
+    if (accessToken != null && accessToken.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $accessToken';
+    }
+
+    final response = await client.get(uri, headers: headers);
 
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return json.decode(response.body) as Map<String, dynamic>;

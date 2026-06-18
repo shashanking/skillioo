@@ -2,7 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
-import '../../domain/verification_models.dart';
+import '../../../../core/services/session_prefs.dart';
 import '../../domain/verification_service.dart';
 import '../states/auth_state.dart';
 
@@ -18,77 +18,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
     : _storage = storage ?? const FlutterSecureStorage(),
       super(const AuthState());
 
-  Future<String> _getSavedPhoneNumber() async {
-    return await _storage.read(key: _kLastPhoneNumberKey) ?? '';
-  }
-
-  Future<String> _getSavedPhoneVerificationId() async {
-    return await _storage.read(key: _kLastPhoneVerificationIdKey) ?? '';
-  }
-
-  Future<bool> isKnownLoginPhone({required String phoneNumber}) async {
-    final savedPhone = await _getSavedPhoneNumber();
-    final savedVerificationId = await _getSavedPhoneVerificationId();
-    return savedPhone.isNotEmpty &&
-        savedVerificationId.isNotEmpty &&
-        savedPhone == phoneNumber;
-  }
-
-  Future<String> getSavedPhoneVerificationId() async {
-    return await _getSavedPhoneVerificationId();
-  }
-
-  /// Decides whether the user is logging in or signing up, then sends OTP.
+  /// Step 1: ask the backend what to do for this phone number.
   ///
-  /// Rules:
-  /// - If saved phone + saved verificationId exist AND phone matches → LOGIN
-  /// - Else → SIGNUP
-  Future<void> decideAndSendOtp({required String phoneNumber}) async {
-    final savedPhone = await _getSavedPhoneNumber();
-    final savedVerificationId = await _getSavedPhoneVerificationId();
-
-    final shouldLogin =
-        savedPhone.isNotEmpty &&
-        savedVerificationId.isNotEmpty &&
-        savedPhone == phoneNumber;
-
-    await sendOtp(
-      phoneNumber: phoneNumber,
-      purpose: shouldLogin
-          ? VerificationPurpose.login
-          : VerificationPurpose.signup,
-    );
-  }
-
-  /// Step 1: Send OTP to phone number
-  Future<void> sendOtp({
-    required String phoneNumber,
-    String purpose = VerificationPurpose.login,
-  }) async {
+  /// Backend response decides the next screen:
+  ///  - `data.isPinSet == true`           → user has a PIN; client should
+  ///    show the PIN-entry screen. No OTP was sent. State enters
+  ///    [AuthStatus.pinRequired].
+  ///  - `data.verificationId` present     → an OTP was sent (returning user
+  ///    without PIN, or fresh user). State enters [AuthStatus.otpSent].
+  Future<void> verifyPhone({required String phoneNumber}) async {
     state = state.copyWith(
       status: AuthStatus.loading,
       phoneNumber: phoneNumber,
-      purpose: purpose,
       errorMessage: '',
     );
 
     try {
-      // Persist last phone so we can decide LOGIN vs SIGNUP automatically next time.
       await _storage.write(key: _kLastPhoneNumberKey, value: phoneNumber);
 
       final response = await _verificationService.createVerificationRequest(
         phoneNumber: phoneNumber,
-        purpose: purpose,
       );
+      debugPrint('verifyPhone response: $response');
 
-      debugPrint('sendOtp response: $response');
       final success = response['success'] as bool? ?? false;
-      final data = response['data'] as Map<String, dynamic>?;
-      final verification = data?['verification'] as Map<String, dynamic>? ?? {};
-      final verificationId = verification['id'] as String? ?? '';
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+
+      // Returning user with PIN — backend shortcuts the OTP step.
+      if (success && data['isPinSet'] == true) {
+        state = state.copyWith(status: AuthStatus.pinRequired);
+        return;
+      }
+
+      // Pull verificationId from any of the shapes the backend uses.
+      final verification = data['verification'] as Map<String, dynamic>? ?? {};
+      final verificationId = (verification['id'] as String? ?? '').isNotEmpty
+          ? verification['id'] as String
+          : (data['verificationId'] as String? ?? '');
 
       if (success && verificationId.isNotEmpty) {
-        // Persist verificationId for use in OTP screen & registration
         await _storage.write(key: _kVerificationIdKey, value: verificationId);
         await _storage.write(
           key: _kLastPhoneVerificationIdKey,
@@ -98,40 +66,29 @@ class AuthNotifier extends StateNotifier<AuthState> {
           status: AuthStatus.otpSent,
           verificationId: verificationId,
         );
-      } else if (!success) {
-        final message = response['message'] as String? ?? '';
-        // 409: verification already in-progress — load saved ID and proceed
-        if (message.toLowerCase().contains('already exists') ||
-            message.toLowerCase().contains('in progress')) {
-          final savedId = await _storage.read(key: _kVerificationIdKey) ?? '';
-          final resolvedId = verificationId.isNotEmpty
-              ? verificationId
-              : savedId;
-          if (resolvedId.isNotEmpty) {
-            await _storage.write(key: _kVerificationIdKey, value: resolvedId);
-            await _storage.write(
-              key: _kLastPhoneVerificationIdKey,
-              value: resolvedId,
-            );
-          }
+        return;
+      }
 
-          // Always allow user into OTP screen so they can enter existing OTP or resend.
+      // Fallback — handle 409 "already in progress" by reusing saved id.
+      final message = response['message'] as String? ?? '';
+      if (message.toLowerCase().contains('already exists') ||
+          message.toLowerCase().contains('in progress')) {
+        final savedId = await _storage.read(key: _kVerificationIdKey) ?? '';
+        if (savedId.isNotEmpty) {
           state = state.copyWith(
             status: AuthStatus.otpSent,
-            verificationId: resolvedId,
-            errorMessage: resolvedId.isEmpty
-                ? 'A verification is already in progress. Please resend OTP.'
-                : '',
+            verificationId: savedId,
           );
-        } else {
-          state = state.copyWith(
-            status: AuthStatus.error,
-            errorMessage: message.isNotEmpty ? message : 'Failed to send OTP',
-          );
+          return;
         }
       }
+
+      state = state.copyWith(
+        status: AuthStatus.error,
+        errorMessage: message.isNotEmpty ? message : 'Failed to verify number',
+      );
     } catch (e) {
-      debugPrint('sendOtp error: $e');
+      debugPrint('verifyPhone error: $e');
       state = state.copyWith(
         status: AuthStatus.error,
         errorMessage: e.toString(),
@@ -141,11 +98,17 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Step 2: Resend OTP
   Future<void> resendOtp() async {
-    // Try to load verificationId from storage if state is empty
     if (state.verificationId.isEmpty) {
       final savedId = await _storage.read(key: _kVerificationIdKey) ?? '';
       if (savedId.isNotEmpty) {
         state = state.copyWith(verificationId: savedId);
+      }
+    }
+    if (state.phoneNumber.isEmpty) {
+      final savedPhone =
+          await _storage.read(key: _kLastPhoneNumberKey) ?? '';
+      if (savedPhone.isNotEmpty) {
+        state = state.copyWith(phoneNumber: savedPhone);
       }
     }
 
@@ -167,7 +130,16 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       final success = response['success'] as bool? ?? false;
       if (success) {
-        state = state.copyWith(isResending: false);
+        final data = response['data'] as Map<String, dynamic>?;
+        final verification =
+            data?['verification'] as Map<String, dynamic>? ?? {};
+        final newId = verification['id'] as String? ?? '';
+        if (newId.isNotEmpty && newId != state.verificationId) {
+          await _storage.write(key: _kVerificationIdKey, value: newId);
+          state = state.copyWith(isResending: false, verificationId: newId);
+        } else {
+          state = state.copyWith(isResending: false);
+        }
       } else {
         final message =
             response['message'] as String? ?? 'Failed to resend OTP';
@@ -179,9 +151,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  /// Step 3: Verify OTP
+  /// Step 3: Verify OTP — also creates the profile and returns tokens.
+  ///
+  /// Successful response carries: `verificationId, profileId, isOnboarded,
+  /// isCreator, accessToken, refreshToken`. Tokens + profileId are persisted
+  /// to [SessionPrefs] so subsequent authenticated calls (e.g. updatePin)
+  /// have a Bearer token without going through the PIN-login screen.
   Future<void> verifyOtp({required String otpCode}) async {
-    // Try to load verificationId from storage if state is empty
     if (state.verificationId.isEmpty) {
       final savedId = await _storage.read(key: _kVerificationIdKey) ?? '';
       if (savedId.isNotEmpty) {
@@ -189,7 +165,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
       } else {
         state = state.copyWith(
           status: AuthStatus.error,
-          errorMessage: 'Session expired. Please go back and try again.',
+          errorMessage:
+              'Verification session expired. Please request a new OTP.',
         );
         return;
       }
@@ -201,14 +178,66 @@ class AuthNotifier extends StateNotifier<AuthState> {
         otpCode: otpCode,
         verificationId: state.verificationId,
       );
-
       debugPrint('verifyOtp response: $response');
+
       final success = response['success'] as bool? ?? false;
+      final data = response['data'] as Map<String, dynamic>? ?? {};
+
       if (success) {
-        // Extract and store verificationId from response data for auto-login
-        final data = response['data'] as Map<String, dynamic>?;
         final verifiedId =
-            data?['verificationId'] as String? ?? state.verificationId;
+            data['verificationId'] as String? ?? state.verificationId;
+        final profileId = data['profileId'] as String? ?? '';
+        final accessToken = data['accessToken'] as String? ?? '';
+        final refreshToken = data['refreshToken'] as String? ?? '';
+        final isCreator = data['isCreator'] as bool? ?? false;
+        final isOnboarded = data['isOnboarded'] as bool? ?? false;
+
+        if (verifiedId.isNotEmpty) {
+          await _storage.write(key: _kVerificationIdKey, value: verifiedId);
+          await _storage.write(
+            key: _kLastPhoneVerificationIdKey,
+            value: verifiedId,
+          );
+        }
+
+        // Persist session so update-PIN and downstream APIs have a Bearer.
+        // Also stash isCreator/isOnboarded so the splash screen can decide
+        // dashboard vs. options on next app launch without another API hit.
+        if (accessToken.isNotEmpty && refreshToken.isNotEmpty) {
+          await SessionPrefs.instance.setSession(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            profile: {
+              if (profileId.isNotEmpty) 'id': profileId,
+              'isCreator': isCreator,
+              'isOnboarded': isOnboarded,
+            },
+          );
+          // Stash the phone we used to verify — the settings PIN-update
+          // flow needs it as the credential (nickName doesn't resolve
+          // for hirer-type profiles backend-side).
+          if (state.phoneNumber.isNotEmpty) {
+            await SessionPrefs.instance.setLastPhoneNumber(state.phoneNumber);
+          }
+        }
+
+        state = state.copyWith(
+          status: AuthStatus.otpVerified,
+          verificationId: verifiedId,
+          profileId: profileId,
+          accessToken: accessToken,
+          refreshToken: refreshToken,
+          isCreator: isCreator,
+          isOnboarded: isOnboarded,
+        );
+        return;
+      }
+
+      final message =
+          response['message'] as String? ?? 'OTP verification failed';
+      if (message.toLowerCase().contains('already been verified')) {
+        final verifiedId =
+            data['verificationId'] as String? ?? state.verificationId;
         if (verifiedId.isNotEmpty) {
           await _storage.write(key: _kVerificationIdKey, value: verifiedId);
           await _storage.write(
@@ -217,35 +246,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
           );
         }
         state = state.copyWith(
-          status: AuthStatus.otpVerified,
+          status: AuthStatus.error,
           verificationId: verifiedId,
+          errorMessage: message,
         );
       } else {
-        final message =
-            response['message'] as String? ?? 'OTP verification failed';
-        // OTP already verified: persist ID and surface message so UI can offer login.
-        if (message.toLowerCase().contains('already been verified')) {
-          final data = response['data'] as Map<String, dynamic>?;
-          final verifiedId =
-              data?['verificationId'] as String? ?? state.verificationId;
-          if (verifiedId.isNotEmpty) {
-            await _storage.write(key: _kVerificationIdKey, value: verifiedId);
-            await _storage.write(
-              key: _kLastPhoneVerificationIdKey,
-              value: verifiedId,
-            );
-          }
-          state = state.copyWith(
-            status: AuthStatus.error,
-            verificationId: verifiedId,
-            errorMessage: message,
-          );
-        } else {
-          state = state.copyWith(
-            status: AuthStatus.error,
-            errorMessage: message,
-          );
-        }
+        state = state.copyWith(
+          status: AuthStatus.error,
+          errorMessage: message,
+        );
       }
     } catch (e) {
       debugPrint('verifyOtp error: $e');
@@ -257,7 +266,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   /// Reset state
-  void reset() {
+  Future<void> reset() async {
+    await _storage.delete(key: _kVerificationIdKey);
+    await _storage.delete(key: _kLastPhoneNumberKey);
+    await _storage.delete(key: _kLastPhoneVerificationIdKey);
     state = const AuthState();
   }
 }

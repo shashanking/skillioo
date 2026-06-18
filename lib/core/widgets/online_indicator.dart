@@ -10,6 +10,8 @@ class OnlineIndicator extends ConsumerWidget {
   final Color onlineColor;
   final Color offlineColor;
   final bool showBorder;
+  /// Seed value from the API response, used until the socket reports status.
+  final bool initialIsOnline;
 
   const OnlineIndicator({
     super.key,
@@ -18,12 +20,16 @@ class OnlineIndicator extends ConsumerWidget {
     this.onlineColor = const Color(0xFF00FF00),
     this.offlineColor = Colors.grey,
     this.showBorder = true,
+    this.initialIsOnline = false,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final onlineState = ref.watch(onlineNotifierProvider);
-    final isOnline = onlineState.userStatuses[userId] ?? false;
+    // Prefer live socket data; fall back to the API seed value.
+    final isOnline = onlineState.userStatuses.containsKey(userId)
+        ? onlineState.userStatuses[userId]!
+        : initialIsOnline;
 
     return Container(
       width: size.w,

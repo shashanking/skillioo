@@ -6,10 +6,12 @@ import '../../core/widgets/loader_screen.dart';
 import '../../features/auth/presentation/otp_screen.dart';
 import '../../features/auth/presentation/phone_number_screen.dart';
 import '../../features/auth/presentation/enter_pin_screen.dart';
+import '../../features/auth/presentation/forgot_pin_screen.dart';
 import '../../features/auth/presentation/pin_setup_screen.dart';
 import '../../features/auth/presentation/verification_success_screen.dart';
 import '../../features/dashboard/presentation/dashboard_screen.dart';
 import '../../features/onboarding/presentation/group_name_screen.dart';
+import '../../features/onboarding/presentation/hirer_onboarding_screen.dart';
 import '../../features/onboarding/presentation/individual_address_screen.dart';
 import '../../features/onboarding/presentation/individual_email_screen.dart';
 import '../../features/onboarding/presentation/individual_name_screen.dart';
@@ -33,11 +35,9 @@ import '../widgets/menu_screens/terms_and_conditions_screen.dart';
 import '../widgets/menu_screens/help_and_support_screen.dart';
 import '../widgets/menu_screens/privacy_policy_screen.dart';
 import '../widgets/menu_screens/settings_screen.dart';
-import '../widgets/menu_screens/favourites_screen.dart';
 import '../widgets/menu_screens/faqs_screen.dart';
 import '../widgets/menu_screens/biometrics_screen.dart';
 import '../widgets/menu_screens/menu_language_screen.dart';
-import '../widgets/menu_screens/pin_setup_screen.dart';
 import '../../features/profile/presentation/widgets/edit_hiring_charges_screen.dart';
 import '../../features/profile/presentation/widgets/edit_profile_screen.dart';
 import '../../features/profile/presentation/widgets/chat_history_screen.dart';
@@ -51,6 +51,20 @@ final appRouter = GoRouter(
   // initialLocation: '/landing',
   routes: [
     GoRoute(path: '/splash', builder: (context, state) => const SplashScreen()),
+    GoRoute(
+      path: '/hirer-onboarding',
+      pageBuilder: (context, state) {
+        return CustomTransitionPage<void>(
+          key: state.pageKey,
+          child: const HirerOnboardingScreen(),
+          transitionDuration: const Duration(milliseconds: 800),
+          reverseTransitionDuration: const Duration(milliseconds: 800),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+        );
+      },
+    ),
     GoRoute(
       path: '/upload-videos',
       pageBuilder: (context, state) {
@@ -164,6 +178,10 @@ final appRouter = GoRouter(
     GoRoute(
       path: '/enter-pin',
       builder: (context, state) => const EnterPinScreen(),
+    ),
+    GoRoute(
+      path: '/forgot-pin',
+      builder: (context, state) => const ForgotPinScreen(),
     ),
     GoRoute(path: '/otp', builder: (context, state) => const OtpScreen()),
     GoRoute(
@@ -377,48 +395,12 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: '/skilled-documents',
-      pageBuilder: (context, state) {
-        return CustomTransitionPage<void>(
-          key: state.pageKey,
-          child: const ProfessionalUploadCertificatesScreen(
-            backFallbackRoute: '/profile-upload',
-            skipNextRoute: '/skilled-bio',
-            uploadSuccessRoute: '/skilled-documents-success',
-          ),
-          transitionDuration: const Duration(milliseconds: 800),
-          reverseTransitionDuration: const Duration(milliseconds: 800),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        );
-      },
-    ),
-    GoRoute(
-      path: '/skilled-documents-success',
-      pageBuilder: (context, state) {
-        return CustomTransitionPage<void>(
-          key: state.pageKey,
-          child: const VerificationSuccessScreen(
-            title: 'Files Uploaded Successfully!',
-            subtitle: 'Directing to Social Media Links',
-            nextRoute: '/skilled-social-links',
-          ),
-          transitionDuration: const Duration(milliseconds: 800),
-          reverseTransitionDuration: const Duration(milliseconds: 800),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        );
-      },
-    ),
-    GoRoute(
       path: '/skilled-social-links',
       pageBuilder: (context, state) {
         return CustomTransitionPage<void>(
           key: state.pageKey,
           child: const SocialLinksScreen(
-            backFallbackRoute: '/skilled-documents-success',
+            backFallbackRoute: '/profile-upload',
             skipNextRoute: '/options',
             continueNextRoute: '/skilled-bio',
           ),
@@ -564,20 +546,6 @@ final appRouter = GoRouter(
       },
     ),
     GoRoute(
-      path: '/menu-favourites',
-      pageBuilder: (context, state) {
-        return CustomTransitionPage<void>(
-          key: state.pageKey,
-          child: const FavouritesScreen(),
-          transitionDuration: const Duration(milliseconds: 800),
-          reverseTransitionDuration: const Duration(milliseconds: 800),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        );
-      },
-    ),
-    GoRoute(
       path: '/menu-faqs',
       pageBuilder: (context, state) {
         return CustomTransitionPage<void>(
@@ -611,20 +579,6 @@ final appRouter = GoRouter(
         return CustomTransitionPage<void>(
           key: state.pageKey,
           child: const MenuLanguageScreen(),
-          transitionDuration: const Duration(milliseconds: 800),
-          reverseTransitionDuration: const Duration(milliseconds: 800),
-          transitionsBuilder: (context, animation, secondaryAnimation, child) {
-            return FadeTransition(opacity: animation, child: child);
-          },
-        );
-      },
-    ),
-    GoRoute(
-      path: '/pin-setup',
-      pageBuilder: (context, state) {
-        return CustomTransitionPage<void>(
-          key: state.pageKey,
-          child: const MenuPinSetupScreen(),
           transitionDuration: const Duration(milliseconds: 800),
           reverseTransitionDuration: const Duration(milliseconds: 800),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {

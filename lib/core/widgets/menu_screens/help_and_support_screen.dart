@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../constants/app_constants.dart';
+import '../../localization/locale_extension.dart';
 import '../common_background.dart';
 import '../custom_text.dart';
 import '../icon_button.dart';
 
-class HelpAndSupportScreen extends StatelessWidget {
+class HelpAndSupportScreen extends ConsumerWidget {
   const HelpAndSupportScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tr = ref.tr;
     return Scaffold(
       body: CommonBackground(
         child: SafeArea(
@@ -19,18 +22,16 @@ class HelpAndSupportScreen extends StatelessWidget {
               // Header
               Container(
                 padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
-                decoration: BoxDecoration(
-                  color: AppColors.glassWhite12,
-                ),
+                decoration: BoxDecoration(color: AppColors.glassWhite12),
                 child: Row(
                   children: [
                     IconCircleButton(
-                      icon: Icons.arrow_back,
+                      assetPath: 'assets/images/arrow-left.png',
                       onTap: () => Navigator.of(context).maybePop(),
                     ),
                     SizedBox(width: 24.w),
                     CustomText(
-                      AppStrings.helpAndSupport,
+                      tr.helpAndSupport,
                       fontSize: 24.sp,
                       fontWeight: FontWeight.w700,
                       fontFamily: 'Neue',
@@ -49,30 +50,21 @@ class HelpAndSupportScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      _buildSection(tr.accountHelp, tr.accountHelpBody),
+                      SizedBox(height: 24.h),
                       _buildSection(
-                        AppStrings.accountHelp,
-                        AppStrings.accountHelpBody,
+                        tr.profileAndUploads,
+                        tr.profileAndUploadsBody,
                       ),
                       SizedBox(height: 24.h),
                       _buildSection(
-                        AppStrings.profileAndUploads,
-                        AppStrings.profileAndUploadsBody,
+                        tr.hiringOrPickTalent,
+                        tr.hiringOrPickTalentBody,
                       ),
                       SizedBox(height: 24.h),
-                      _buildSection(
-                        AppStrings.hiringOrPickTalent,
-                        AppStrings.hiringOrPickTalentBody,
-                      ),
+                      _buildSection(tr.payments, tr.paymentsBody),
                       SizedBox(height: 24.h),
-                      _buildSection(
-                        AppStrings.payments,
-                        AppStrings.paymentsBody,
-                      ),
-                      SizedBox(height: 24.h),
-                      _buildSection(
-                        AppStrings.contactSupport,
-                        AppStrings.contactSupportBody,
-                      ),
+                      _buildSection(tr.contactSupport, tr.contactSupportBody),
                     ],
                   ),
                 ),

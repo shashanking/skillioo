@@ -2,7 +2,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class SubscriptionService extends BaseServiceProvider {
-  SubscriptionService() : super(baseUrl: ApiConfig.customerBaseUrl);
+  SubscriptionService({super.client}) : super(baseUrl: ApiConfig.customerBaseUrl);
 
   // ── Plan Master ──
 
@@ -17,7 +17,8 @@ class SubscriptionService extends BaseServiceProvider {
   // ── User Subscription ──
 
   Future<Map<String, dynamic>> initiateSubscription(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     return post(ApiConfig.userSubscription, data);
   }
 
@@ -28,7 +29,14 @@ class SubscriptionService extends BaseServiceProvider {
   }
 
   Future<Map<String, dynamic>> syncSubscriptionStatus(
-      Map<String, dynamic> data) async {
+    Map<String, dynamic> data,
+  ) async {
     return patch(ApiConfig.userSubscriptionStatus, data);
+  }
+
+  // ── Plan Aggregator ──
+
+  Future<Map<String, dynamic>> getPlanAggregator(String profileId) async {
+    return get('${ApiConfig.planAggregator}/$profileId');
   }
 }

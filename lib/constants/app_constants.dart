@@ -1,39 +1,54 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  static const Color primaryGradientStart = Color(0xFF8F39B2);
-  static const Color primaryGradientMiddle = Color(0xFF2F208E);
+  static const Color primaryGradientStart = Color.fromARGB(255, 144, 69, 174);
+  static const Color primaryGradientMiddle = Color.fromARGB(255, 51, 37, 139);
   static const Color primaryGradientEnd = Color(0xFF0D0D0D);
+  static const Color primaryGradienteEnd = Color.fromARGB(145, 13, 13, 13);
+
+  // static const LinearGradient primaryGradient = LinearGradient(
+  //   begin: Alignment.topRight,
+  //   end: Alignment.centerLeft,
+  //   colors: [primaryGradientStart, primaryGradientMiddle, primaryGradienteEnd],
+  //   stops: [0.11, 0.27, 0.5034],
+  // );
 
   static const LinearGradient primaryGradient = LinearGradient(
-    begin: Alignment.bottomLeft,
-    end: Alignment.topRight,
-    colors: [primaryGradientStart, primaryGradientMiddle, primaryGradientEnd],
-    stops: [0.0, 0.3045, 0.6041],
-    transform: GradientRotation(201.96 * 3.14159 / 180),
+    begin: Alignment.topRight,
+    end: Alignment.centerLeft,
+    colors: [
+      primaryGradientStart, // bright purple
+      primaryGradientMiddle, // deep indigo
+      primaryGradientEnd, // black
+    ],
+    stops: [0.031, 0.2294, 0.548],
   );
 
   static const LinearGradient ctaGradient = LinearGradient(
-    // +20 degree turn relative to baseline
-    begin: Alignment.topRight,
-    end: Alignment.bottomLeft,
+    // Matches Figma: linear-gradient(225deg, rgba(192,15,139,0.4) 0%, rgba(5,218,241,0.4) 100%)
     colors: [
       Color.fromRGBO(192, 15, 139, 0.4),
       Color.fromRGBO(5, 218, 241, 0.4),
     ],
-    transform: GradientRotation(320 * 3.14159 / 180),
-    stops: [0.0, 0.9],
+    stops: [0.35, 0.65],
+    transform: GradientRotation(100 * 3.14159 / 180),
+  );
+
+  static const LinearGradient ctaBorderGradient = LinearGradient(
+    colors: [Color(0xFFC00F8B), Color(0xFF05DAF1)],
+    stops: [0.15, 0.75],
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    transform: GradientRotation(15 * 3.14159 / 180),
   );
 
   static const LinearGradient ctaGradientDeactivated = LinearGradient(
-    begin: Alignment.topRight,
-    end: Alignment.bottomLeft,
     colors: [
       Color.fromRGBO(192, 15, 139, 0.24),
       Color.fromRGBO(5, 218, 241, 0.24),
     ],
-    transform: GradientRotation(320 * 3.14159 / 180),
-    stops: [0.0, 0.9],
+    transform: GradientRotation(100 * 3.14159 / 180),
+    stops: [0.35, 0.65],
   );
 
   static const Color secondaryGradientStart = Color(0xFF8F39B2);
@@ -99,7 +114,7 @@ class AppColors {
   static const Color foundationBlack800 = Color(0xFF0D0D0D);
   static const Color foundationHint = Color(0xFFB0B0B0);
   static const Color foundationTimestamp = Color(0xFFDEDEDE);
-  static const Color foundationGreenNormal = Color(0xFF198754);
+  static const Color foundationGreenNormal = Color(0xFF13653F);
   static const Color foundationGreenLight = Color(0xFFE8F3EE);
   static const Color foundationErrorNormal = Color(0xFFFF0000);
   static const Color foundationErrorDark = Color(0xFFBF0000);
@@ -107,6 +122,7 @@ class AppColors {
   static const Color foundationErrorActive = Color(0xFFCC0000);
   static const Color foundationFilterPurpleStart = Color(0xFF6B21A8);
   static const Color foundationFilterPurpleEnd = Color(0xFF3B0764);
+  static Color glassWhite20 = Colors.white.withValues(alpha: 0.20);
   static Color glassWhite12 = Colors.white.withValues(alpha: 0.12);
   static Color glassWhite08 = Colors.white.withValues(alpha: 0.08);
   static Color glassWhite06 = Colors.white.withValues(alpha: 0.06);

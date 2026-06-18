@@ -1,15 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../../constants/app_constants.dart';
-import '../../../core/services/auth_prefs.dart';
+import '../../../../core/widgets/gradient_cta_button.dart';
 import '../../../core/widgets/common_background.dart';
 import '../../onboarding/application/onboarding_data_provider.dart';
 import '../application/auth_providers.dart';
 import '../application/states/auth_state.dart';
+import '../../../core/services/session_state_provider.dart';
+
+const int _kOtpResendSeconds = 120;
 
 class OtpScreen extends ConsumerStatefulWidget {
   const OtpScreen({super.key});
@@ -26,6 +30,8 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
   final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
 
   bool _showError = false;
+  Timer? _resendTimer;
+  int _secondsRemaining = _kOtpResendSeconds;
 
   @override
   void initState() {
@@ -35,10 +41,12 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
         _focusNodes.first.requestFocus();
       }
     });
+    _startResendTimer();
   }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     for (final c in _controllers) {
       c.dispose();
     }
@@ -46,6 +54,29 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
       f.dispose();
     }
     super.dispose();
+  }
+
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    setState(() => _secondsRemaining = _kOtpResendSeconds);
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_secondsRemaining <= 1) {
+        timer.cancel();
+        setState(() => _secondsRemaining = 0);
+      } else {
+        setState(() => _secondsRemaining -= 1);
+      }
+    });
+  }
+
+  String _formatRemaining() {
+    final m = (_secondsRemaining ~/ 60).toString().padLeft(2, '0');
+    final s = (_secondsRemaining % 60).toString().padLeft(2, '0');
+    return '$m:$s';
   }
 
   void _onChangedDigit(int index, String value) {
@@ -69,44 +100,33 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
     }
   }
 
-  void _onResend() {
-    ref.read(authNotifierProvider.notifier).resendOtp();
+  Future<void> _onResend() async {
+    if (_secondsRemaining > 0) return;
+    await ref.read(authNotifierProvider.notifier).resendOtp();
+    if (!mounted) return;
+    _startResendTimer();
   }
 
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
 
-    ref.listen(authNotifierProvider, (prev, next) {
+    ref.listen(authNotifierProvider, (prev, next) async {
       if (next.status == AuthStatus.otpVerified) {
-        if (next.purpose == 'LOGIN') {
-          GoRouter.of(context).go('/enter-pin');
+        ref.read(onboardingDataProvider.notifier).state = ref
+            .read(onboardingDataProvider)
+            .copyWith(phoneVerificationId: next.verificationId);
+        // Fully-onboarded creators land on the dashboard. Everyone else
+        // goes through the success → /pin → /options flow.
+        if (next.isCreator) {
+          await ref.read(sessionStateProvider.notifier).refresh();
+          if (context.mounted) GoRouter.of(context).go('/landing');
         } else {
           GoRouter.of(context).go('/verified');
         }
       } else if (next.status == AuthStatus.error &&
           next.errorMessage.isNotEmpty) {
-        final msg = next.errorMessage.toLowerCase();
-        if (msg.contains('otp has already been verified') ||
-            msg.contains('already been verified')) {
-          // Check if the user has a PIN to determine correct action.
-          final router = GoRouter.of(context);
-          AuthPrefs.instance.hasPin().then((hasPinSet) {
-            if (!mounted) return;
-            ref.read(onboardingDataProvider.notifier).state = ref
-                .read(onboardingDataProvider)
-                .copyWith(phoneVerificationId: next.verificationId);
-            if (hasPinSet && next.purpose == 'LOGIN') {
-              // Fully registered user — send them to PIN login.
-              router.go('/enter-pin');
-            } else {
-              // Incomplete onboarding — continue signup.
-              router.go('/verified');
-            }
-          });
-        } else {
-          setState(() => _showError = true);
-        }
+        setState(() => _showError = true);
       }
     });
 
@@ -120,9 +140,39 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                SizedBox(height: 16.h),
+                Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () {
+                        if (GoRouter.of(context).canPop()) {
+                          GoRouter.of(context).pop();
+                        } else {
+                          GoRouter.of(context).go('/phone');
+                        }
+                      },
+                      child: Container(
+                        width: 48.w,
+                        height: 48.w,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(124.r),
+                        ),
+                        child: Center(
+                          child: Image.asset(
+                            'assets/images/arrow-left.png',
+                            color: const Color(0xFFF5F5F5),
+                            width: 20.sp,
+                            height: 20.sp,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 SizedBox(height: 32.h),
                 Text(
-                  'Step: 1 of 2',
+                  'Step: 2 of 2',
                   style: TextStyle(
                     fontFamily: 'Outfit',
                     fontSize: 16.sp,
@@ -148,16 +198,23 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         ),
                       ),
                       SizedBox(height: 4.h),
-                      Text(
-                        'Peep your phone and enter the code we just sent.',
-                        style: TextStyle(
-                          fontFamily: 'Outfit',
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w400,
-                          height: 1.5,
-                          color: const Color(0xFFF5F5F5),
-                        ),
-                      ),
+                      Builder(builder: (context) {
+                        final phone =
+                            ref.watch(authNotifierProvider).phoneNumber;
+                        final display = phone.isNotEmpty ? phone : '';
+                        return Text(
+                          display.isNotEmpty
+                              ? 'Enter the code we sent to $display'
+                              : 'Peep your phone and enter the code we just sent.',
+                          style: TextStyle(
+                            fontFamily: 'Outfit',
+                            fontSize: 16.sp,
+                            fontWeight: FontWeight.w400,
+                            height: 1.5,
+                            color: const Color(0xFFF5F5F5),
+                          ),
+                        );
+                      }),
                       SizedBox(height: 24.h),
                       Row(
                         children: List.generate(4, (index) {
@@ -170,7 +227,7 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                               height: 0.19.sw,
                               decoration: BoxDecoration(
                                 color: Colors.white.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(24.r),
+                                borderRadius: BorderRadius.circular(20.r),
                                 border: _showError
                                     ? Border.all(
                                         color: const Color(0xFFFF3B3B),
@@ -221,57 +278,47 @@ class _OtpScreenState extends ConsumerState<OtpScreen> {
                         ),
                       ],
                       SizedBox(height: 16.h),
-                      GestureDetector(
-                        onTap: authState.isResending ? null : _onResend,
-                        child: Text(
-                          authState.isResending ? 'Resending...' : 'Resend OTP',
-                          style: TextStyle(
-                            fontFamily: 'Outfit',
-                            fontSize: 14.sp,
-                            fontWeight: FontWeight.w500,
-                            color: const Color(0xFFF5F5F5),
-                            decoration: TextDecoration.underline,
-                            decorationColor: const Color(0xFFF5F5F5),
+                      Builder(builder: (_) {
+                        final canResend =
+                            _secondsRemaining == 0 && !authState.isResending;
+                        final label = authState.isResending
+                            ? 'Resending...'
+                            : (_secondsRemaining > 0
+                                ? 'Resend OTP in ${_formatRemaining()}'
+                                : 'Resend OTP');
+                        return GestureDetector(
+                          onTap: canResend ? _onResend : null,
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              fontFamily: 'Outfit',
+                              fontSize: 14.sp,
+                              fontWeight: FontWeight.w500,
+                              color: canResend
+                                  ? const Color(0xFFF5F5F5)
+                                  : Colors.white54,
+                              decoration: canResend
+                                  ? TextDecoration.underline
+                                  : TextDecoration.none,
+                              decorationColor: const Color(0xFFF5F5F5),
+                            ),
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                     ],
                   ),
                 ),
                 const Spacer(),
                 Center(
                   child: SizedBox(
-                    width: 380.w,
-                    height: 78.h,
-                    child: TextButton(
-                      onPressed: isLoading ? null : _onVerify,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: 24.w,
-                          vertical: 20.h,
-                        ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(48.r),
-                        ),
-                        backgroundColor: Colors.transparent,
-                      ),
-                      child: Ink(
-                        decoration: BoxDecoration(
-                          gradient: AppColors.ctaGradient,
-                          borderRadius: BorderRadius.circular(48.r),
-                        ),
-                        child: Center(
-                          child: Text(
-                            'Verify',
-                            style: TextStyle(
-                              fontFamily: 'Outfit',
-                              fontSize: 16.sp,
-                              fontWeight: FontWeight.w600,
-                              color: const Color(0xFFF5F5F5),
-                            ),
-                          ),
-                        ),
-                      ),
+                    width: double.infinity,
+                    height: 58.h,
+                    child: GradientCtaButton(
+                      label: 'Verify',
+                      width: double.infinity,
+                      height: 58,
+                      enabled: !isLoading,
+                      onPressed: _onVerify,
                     ),
                   ),
                 ),

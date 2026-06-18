@@ -6,7 +6,7 @@ part 'payment_models.g.dart';
 
 @JsonSerializable()
 class CreatePaymentRequest {
-  final int amount;
+  final String amount;
   final String provider;
   final String service;
   final String userReferenceId;
@@ -46,8 +46,8 @@ class PaymentMetaData {
 class PaymentResponse {
   final String? id;
   final String? amount;
-  final int? provider;
-  final int? service;
+  final String? provider;
+  final String? service;
   final PaymentMetaData? metaData;
   final String? createdAt;
   final String? updatedAt;
@@ -65,6 +65,30 @@ class PaymentResponse {
   factory PaymentResponse.fromJson(Map<String, dynamic> json) =>
       _$PaymentResponseFromJson(json);
   Map<String, dynamic> toJson() => _$PaymentResponseToJson(this);
+
+  String get paymentMethodLabel {
+    switch (provider) {
+      case '1':
+        return 'UPI';
+      case '2':
+        return 'Card';
+      case '3':
+        return 'Net Banking';
+      default:
+        return 'Online';
+    }
+  }
+
+  String get transactionId {
+    final raw = metaData?.paymentLinkId ?? id ?? '';
+    if (raw.isEmpty) return '';
+    if (raw.length <= 10) return raw.toUpperCase();
+    return raw.substring(raw.length - 10).toUpperCase();
+  }
+
+  String get paymentStatus {
+    return metaData?.shortUrlStatus ?? '';
+  }
 }
 
 @JsonSerializable()

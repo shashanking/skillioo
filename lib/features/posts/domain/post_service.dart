@@ -2,7 +2,7 @@ import '../../../core/config/api_config.dart';
 import '../../../core/services/base_service_provider.dart';
 
 class PostService extends BaseServiceProvider {
-  PostService() : super(baseUrl: ApiConfig.postBaseUrl);
+  PostService({super.client}) : super(baseUrl: ApiConfig.postBaseUrl);
 
   // ── Short User ──
 
@@ -59,9 +59,13 @@ class PostService extends BaseServiceProvider {
     required String mediaType,
     int limit = 10,
     int page = 1,
+    String? city,
   }) async {
     final params = <String, String>{'limit': '$limit', 'page': '$page'};
     params['mediaType'] = mediaType;
+    if (city != null && city.trim().isNotEmpty) {
+      params['city'] = city.trim();
+    }
     return getWithParams(ApiConfig.media, params);
   }
 
@@ -104,6 +108,16 @@ class PostService extends BaseServiceProvider {
     return delete('${ApiConfig.comment}/$id?forceDelete=$forceDelete');
   }
 
+  // ── Like Profile ──
+
+  Future<Map<String, dynamic>> likeProfile(String profileId) async {
+    return post(ApiConfig.likeProfile, {'liked': profileId});
+  }
+
+  Future<Map<String, dynamic>> unlikeProfile(String profileId) async {
+    return delete('${ApiConfig.likeProfile}?liked=$profileId');
+  }
+
   // ── Reaction ──
 
   Future<Map<String, dynamic>> createReaction(Map<String, dynamic> data) async {
@@ -125,7 +139,25 @@ class PostService extends BaseServiceProvider {
     return put(ApiConfig.reaction, data);
   }
 
-  Future<Map<String, dynamic>> deleteReaction(String id) async {
-    return delete('${ApiConfig.reaction}/$id');
+  Future<Map<String, dynamic>> getMyReactions(
+    String targetId, {
+    int limit = 10,
+    int page = 1,
+  }) async {
+    return getWithParams('${ApiConfig.reaction}/me$targetId', {
+      'limit': '$limit',
+      'page': '$page',
+    });
+  }
+
+  Future<Map<String, dynamic>> deleteReaction({
+    required String targetId,
+    required String userReferenceId,
+  }) async {
+    final query = Uri(queryParameters: {
+      'targetId': targetId,
+      'userReferenceId': userReferenceId,
+    }).query;
+    return delete('${ApiConfig.reaction}?$query');
   }
 }

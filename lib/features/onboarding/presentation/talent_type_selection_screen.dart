@@ -28,14 +28,19 @@ class TalentTypeSelectionScreen extends ConsumerWidget {
                     SizedBox(height: 24.h),
                     _buildHeader(),
                     SizedBox(height: 24.h),
-                    _buildCardsRow(ref, selectedType),
+                    _buildCardsRow(ref, selectedType, context),
                     const Spacer(),
-                    _buildNote(),
-                    SizedBox(height: 100.h),
+                    // The note is a Professional-only requirement
+                    // (certifications / proof of events). Hide it when the
+                    // Skilled type is selected.
+                    if (selectedType != TalentType.skilled) ...[
+                      _buildNote(),
+                      SizedBox(height: 10.h),
+                    ],
                   ],
                 ),
               ),
-              _buildContinueButton(context, selectedType),
+              // _buildContinueButton(context, selectedType),
             ],
           ),
         ),
@@ -63,10 +68,11 @@ class TalentTypeSelectionScreen extends ConsumerWidget {
               borderRadius: BorderRadius.circular(124.r),
             ),
             child: Center(
-              child: Icon(
-                Icons.arrow_back,
+              child: Image.asset(
+                'assets/images/arrow-left.png',
                 color: const Color(0xFFF5F5F5),
-                size: 20.sp,
+                width: 20.sp,
+                height: 20.sp,
               ),
             ),
           ),
@@ -111,7 +117,11 @@ class TalentTypeSelectionScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildCardsRow(WidgetRef ref, TalentType? selectedType) {
+  Widget _buildCardsRow(
+    WidgetRef ref,
+    TalentType? selectedType,
+    BuildContext context,
+  ) {
     return Row(
       children: [
         Expanded(
@@ -119,9 +129,13 @@ class TalentTypeSelectionScreen extends ConsumerWidget {
             title: 'Professional',
             imagePath: AppAssets.professionalJpg,
             isSelected: selectedType == TalentType.professional,
-            onTap: () {
+            onTap: () async {
               ref.read(talentTypeProvider.notifier).state =
                   TalentType.professional;
+              await Future.delayed(const Duration(milliseconds: 100));
+              if (context.mounted) {
+                context.go('/talent-category');
+              }
             },
           ),
         ),
@@ -131,8 +145,12 @@ class TalentTypeSelectionScreen extends ConsumerWidget {
             title: 'Skilled',
             imagePath: AppAssets.individualProfileJpg,
             isSelected: selectedType == TalentType.skilled,
-            onTap: () {
+            onTap: () async {
               ref.read(talentTypeProvider.notifier).state = TalentType.skilled;
+              await Future.delayed(const Duration(milliseconds: 100));
+              if (context.mounted) {
+                context.go('/talent-category');
+              }
             },
           ),
         ),
@@ -141,58 +159,29 @@ class TalentTypeSelectionScreen extends ConsumerWidget {
   }
 
   Widget _buildNote() {
-    return Text(
-      'Note: Upload valid certifications and proof of events for each skill you add. This helps keep profiles authentic and builds trust with clients.',
-      style: TextStyle(
-        fontFamily: 'Outfit',
-        fontSize: 16.sp,
-        fontWeight: FontWeight.w600,
-        color: const Color(0xFFF5F5F5),
-      ),
-    );
-  }
-
-  Widget _buildContinueButton(BuildContext context, TalentType? selectedType) {
-    if (selectedType == null) {
-      return const SizedBox.shrink();
-    }
-
-    return Positioned(
-      left: 0,
-      right: 0,
-      bottom: 24.h,
-      child: SizedBox(
-        width: double.infinity,
-        height: 58.h,
-        child: TextButton(
-          onPressed: () {
-            GoRouter.of(context).go('/talent-category');
-          },
-          style: TextButton.styleFrom(
-            padding: EdgeInsets.zero,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(48.r),
-            ),
-            backgroundColor: Colors.transparent,
-          ),
-          child: Ink(
-            decoration: BoxDecoration(
-              gradient: AppColors.ctaGradient,
-              borderRadius: BorderRadius.circular(48.r),
-            ),
-            child: Center(
-              child: Text(
-                'Continue',
-                style: TextStyle(
-                  fontFamily: 'Outfit',
-                  fontSize: 16.sp,
-                  fontWeight: FontWeight.w600,
-                  color: const Color(0xFFF5F5F5),
-                ),
-              ),
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: 'Note: ',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
             ),
           ),
-        ),
+          TextSpan(
+            text:
+                'Upload valid certifications and proof of events for each skill you add. This helps keep profiles authentic and builds trust with clients.',
+            style: TextStyle(
+              fontFamily: 'Outfit',
+              fontSize: 16.sp,
+              fontWeight: FontWeight.w400,
+              color: const Color.fromARGB(166, 245, 245, 245),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -219,19 +208,18 @@ class _TalentCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(26.r),
           gradient: isSelected
-              ? LinearGradient(
-                  begin: Alignment.bottomLeft,
-                  end: Alignment.topRight,
-                  colors: [
-                    AppColors.primaryGradientStart,
-                    AppColors.primaryGradientMiddle,
-                  ],
-                  stops: [0.0, 0.6045],
-                  transform: GradientRotation(201.96 * 3.14159 / 180),
+              ? const LinearGradient(
+                  colors: [Color(0xFFC00F8B), Color(0xFF05DAF1)],
+                  begin: Alignment.topRight,
+                  end: Alignment.bottomLeft,
                 )
-              : null,
+              : const LinearGradient(
+                  colors: [Color(0xFF000000), Color(0xFFB2B2B2)],
+                  begin: Alignment.bottomRight,
+                  end: Alignment.topLeft,
+                ),
         ),
-        padding: isSelected ? EdgeInsets.all(1) : EdgeInsets.zero,
+        padding: EdgeInsets.all(2),
         child: Container(
           height: 248.h,
           decoration: BoxDecoration(
@@ -257,7 +245,7 @@ class _TalentCard extends StatelessWidget {
               title,
               style: TextStyle(
                 fontFamily: 'Neue',
-                fontSize: 18.sp,
+                fontSize: 17.sp,
                 fontWeight: FontWeight.w700,
                 color: const Color(0xFFF5F5F5),
               ),
